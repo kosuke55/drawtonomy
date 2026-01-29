@@ -27,9 +27,9 @@
 - 🚙 **Rich Drawing Tools & Templates** - Various vehicles, pedestrians, traffic lights
 - 🧲 **Snap Function** - Auto-snap to existing points and lines
 - 🔗 **Point Sharing** - Connect shapes by sharing existing points
-- 🎨 **Shape Customization** - Set color, opacity, width, and style individually
+- 🎨 **Style Customization** - Set color, opacity, width, and style individually
 - 💾 **Editable Save Format** - Re-edit while preserving lane connection info
-- 🗺️ **Lanelet2 Support** - Import industry-standard OSM format
+- 🗺️ **[Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2) Support** - Import OSM format maps
 
 ## 🎯 Main Features
 
@@ -83,7 +83,6 @@ Drawing tools and shape templates for easily expressing autonomous driving scena
 - Ellipse
 - Image
 
-<!-- TODO: Add template list image -->
 
 ### 🧲 Snap Function
 
@@ -101,9 +100,9 @@ Hold Alt(Option) and click to share existing points and connect Linestring, Poly
   <img src="./docs/videos/share-demo.gif" width="80%" />
 </p>
 
-### 🎨 Shape Customization
+### 🎨 Style Customization
 
-Set color, opacity, width, and style individually for each shape. Change default values for all Lanes and Polygons from the hamburger menu.
+Set color, opacity, width, and style individually. Change default values from the hamburger menu.
 
 <p align="center">
   <img src="./docs/videos/style-demo.gif" width="80%" />
@@ -119,29 +118,33 @@ Double-click Linestring, Lane, or Polygon to select and edit segments (between t
 
 ### 📦 Export/Import
 
-Supports export/import in re-editable formats.
+#### Supported Formats
+
+| Format             | Export | Import | Note                  |
+| ------------------ | :----: | :----: | --------------------- |
+| **SVG**            | ✓      | ✓      |                       |
+| **PNG**            | ✓      | ✓      |                       |
+| **JPG**            | ✓      | ✓      |                       |
+| **drawtonomy.svg** | ✓      | ✓      | Re-editable           |
+| **OSM (Lanelet2)** |        | ✓      |                       |
 
 <p align="center">
   <img src="./docs/videos/export-demo.gif" width="80%" />
 </p>
 
+#### [Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2) Import
 
-#### Export Formats
+Import Lanelet2 OSM format maps for editing. Sample maps: [Autoware Documentation](https://autowarefoundation.github.io/autoware-documentation/main/demos/planning-sim/#download-the-sample-map)
 
-| Format             | Description                                                                      |
-| ------------------ | -------------------------------------------------------------------------------- |
-| **drawtonomy.svg** | Preserves lane connection and template info (JSON internally). Re-editable       |
-| **SVG**            | Vector image. No degradation when scaling                                        |
-| **PNG**            | Raster image. Transparent background supported                                   |
+<p align="center">
+  <img src="./docs/lanelet-import-demo.gif" width="80%" />
+</p>
 
-#### Import Formats
+You can also select and import only specific lanes. For optimal performance, we recommend keeping the number of lanes under 500.
 
-| Format             | Description                                          |
-| ------------------ | ---------------------------------------------------- |
-| **SVG**            | Placed as object                                     |
-| **PNG**            | Placed as object                                     |
-| **drawtonomy.svg** | Fully restore previously saved data                  |
-| **OSM (Lanelet2)** | Load map data in autonomous driving industry format  |
+<p align="center">
+  <img src="./docs/lanelet-select-import-demo.gif" width="80%" />
+</p>
 
 ## ⌨️ Keyboard Shortcuts
 
