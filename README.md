@@ -137,13 +137,13 @@ Double-click Linestring, Lane, or Polygon to select and edit segments (between t
 Import Lanelet2 OSM format maps for editing. Sample maps: [Autoware Documentation](https://autowarefoundation.github.io/autoware-documentation/main/demos/planning-sim/#download-the-sample-map)
 
 <p align="center">
-  <img src="./docs/lanelet-import-demo.gif" width="80%" />
+  <img src="./docs/videos/lanelet-import-demo.gif" width="80%" />
 </p>
 
 You can also select and import only specific lanes. For optimal performance, we recommend keeping the number of lanes under 500.
 
 <p align="center">
-  <img src="./docs/lanelet-select-import-demo.gif" width="80%" />
+  <img src="./docs/videos/lanelet-select-import-demo.gif" width="80%" />
 </p>
 
 ## ⌨️ Keyboard Shortcuts
