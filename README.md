@@ -125,8 +125,12 @@ Double-click Linestring, Lane, or Polygon to select and edit segments (between t
 | **SVG**            | ✓      | ✓      |                       |
 | **PNG**            | ✓      | ✓      |                       |
 | **JPG**            | ✓      | ✓      |                       |
+| **PDF**            | ✓      |        |                       |
+| **EPS**            | ✓      |        | No transparency       |
 | **drawtonomy.svg** | ✓      | ✓      | Re-editable           |
 | **OSM (Lanelet2)** |        | ✓      |                       |
+
+> **Note on EPS export**: EPS format does not support transparency. When exporting shapes with opacity settings, the exported EPS will show shapes at full opacity, which may differ from the canvas display. For accurate transparency rendering, use PDF export instead.
 
 <p align="center">
   <img src="./docs/videos/export-demo.gif" width="80%" />
