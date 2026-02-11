@@ -1,7 +1,7 @@
 # <img src="./src/client/public/logo.png" width="32" height="32" align="center" /> drawtonomy
 
 <h3 align="center">
-  Whiteboard for Creating Driving Diagrams 🚗
+  Whiteboard for Driving Diagrams 🚗
 </h3>
 
 <p align="center">
