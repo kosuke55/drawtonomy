@@ -1,12 +1,12 @@
 # <img src="./src/client/public/logo.png" width="32" height="32" align="center" /> drawtonomy
 
 <h3 align="center">
-  Free Whiteboard for Creating Driving Diagrams 🚗
+  Whiteboard for Creating Driving Diagrams 🚗
 </h3>
 
 <p align="center">
   Intuitively place lanes, vehicles, pedestrians, and traffic lights.<br />
-  Free and browser-based. For autonomous driving development, traffic planning, and driving education.
+  Browser-based. For autonomous driving development, traffic planning, and driving education.
 </p>
 
 <h4 align="center">
@@ -20,7 +20,7 @@
 
 ## ✨ Features
 
-- 🎨 **Infinite Canvas** - Freely draw extensive road networks
+- 🎨 **Infinite Canvas** - Draw extensive road networks
 - 🛣️ **Lane Connection Management** - Edit with understanding of lane relationships
 - ⚡ **Lane Tool** - Auto-generate from centerline or create from existing boundaries
 - ➕ **Intersection Templates** - Place complex intersections with one click
