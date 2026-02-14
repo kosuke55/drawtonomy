@@ -30,6 +30,7 @@
 - 🎨 **Style Customization** - Set color, opacity, width, and style individually
 - 💾 **Editable Save Format** - Re-edit while preserving lane connection info
 - 🗺️ **[Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2) Support** - Import OSM format maps
+- 🤖 **ROS Map Support** - Import OccupancyGrid maps (.pgm + .yaml) from SLAM
 
 ## 🎯 Main Features
 
@@ -129,6 +130,7 @@ Double-click Linestring, Lane, or Polygon to select and edit segments (between t
 | **EPS**            | ✓      |        | No transparency       |
 | **drawtonomy.svg** | ✓      | ✓      | Re-editable           |
 | **OSM (Lanelet2)** |        | ✓      |                       |
+| **PGM+YAML (ROS)** |        | ✓      | OccupancyGrid map     |
 
 > **Note on EPS export**: EPS format does not support transparency. When exporting shapes with opacity settings, the exported EPS will show shapes at full opacity, which may differ from the canvas display. For accurate transparency rendering, use PDF export instead.
 
@@ -149,6 +151,15 @@ You can also select and import only specific lanes. For optimal performance, we 
 <p align="center">
   <img src="./docs/videos/lanelet-select-import-demo.gif" width="80%" />
 </p>
+
+#### ROS OccupancyGrid Map Import
+
+Import SLAM-generated maps from ROS `map_server` format (.pgm + .yaml). Select both files together in the file dialog. The map is automatically colored (occupied=black, free=white, unknown=gray) and scaled to match lane dimensions.
+
+- `.pgm` + `.yaml` → Uses YAML settings (resolution, thresholds)
+- `.pgm` only → Uses defaults (resolution=0.05 m/px)
+
+Compatible with nav2, cartographer, gmapping, and other SLAM tools.
 
 ## ⌨️ Keyboard Shortcuts
 
