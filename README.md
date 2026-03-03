@@ -161,6 +161,10 @@ Import SLAM-generated maps from ROS `map_server` format (.pgm + .yaml). Select b
 
 Compatible with nav2, cartographer, gmapping, and other SLAM tools.
 
+<p align="center">
+  <img src="./docs/images/ros-occupancy-grid-map.png" width="80%" />
+</p>
+
 ## ⌨️ Keyboard Shortcuts
 
 ### Tool Switching
