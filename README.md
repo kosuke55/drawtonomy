@@ -6,7 +6,7 @@
 
 <p align="center">
   Intuitively place lanes, vehicles, pedestrians, and traffic lights.<br />
-  For autonomous driving development, traffic planning, and driving education.
+  Browser-based. For autonomous driving development, traffic planning, and driving education.
 </p>
 
 <h4 align="center">
@@ -14,15 +14,13 @@
   💬 <a href="https://github.com/kosuke55/drawtonomy/issues">Report issues / Request features</a>
 </h4>
 
-<p align="center">
-  <img src="./docs/videos/drawtonomy-demo.gif" width="80%" />
-</p>
+<video src="https://github.com/user-attachments/assets/6e4eff04-1dab-4160-af51-e16a73341648" width="80%" controls></video>
 
 ## ✨ Features
 
 - 🎨 **Infinite Canvas** - Draw extensive road networks
 - 🛣️ **Lane Connection Management** - Edit with understanding of lane relationships
-- ⚡ **Lane Tool** - Auto-generate from centerline or create from existing boundaries
+- ⚡ **Lane Tool** - Auto-generate from centerline or create from existing boundaries. Smooth boundaries with one click
 - ➕ **Intersection Templates** - Place complex intersections with one click
 - 🚙 **Rich Drawing Tools & Templates** - Various vehicles, pedestrians, traffic lights
 - 🧲 **Snap Function** - Auto-snap to existing points and lines
@@ -38,25 +36,23 @@
 
 Edit with understanding of lane relationships. Moving boundaries auto-transforms connected lanes. Set direction and adjacency with Next/Previous/Left/Right Lane.
 
-<p align="center">
-  <img src="./docs/videos/lane-connection-demo.gif" width="80%" />
-</p>
+<video src="https://github.com/user-attachments/assets/ca32a776-a17b-402a-b6ca-2eb64d485047" width="80%" controls></video>
 
 ### ⚡ Lane Tool
 
 Auto-generate left and right boundaries by clicking the centerline. Efficiently create multiple lanes by specifying width, and draw connected lanes continuously. You can also create lanes by selecting two existing Linestrings.
 
-<p align="center">
-  <img src="./docs/videos/lane-tool-demo.gif" width="80%" />
-</p>
+<video src="https://github.com/user-attachments/assets/8caed5b7-5f1c-47ae-9f46-f5bdeebe86b2" width="80%" controls></video>
+
+Smooth lane boundaries with one click from the Attribute Panel.
+
+<video src="https://github.com/user-attachments/assets/2f38637e-59e6-4e63-9126-f3b6dd05f143" width="80%" controls></video>
 
 ### ➕ Intersection
 
 Place complex intersection structures with templates in one click.
 
-<p align="center">
-  <img src="./docs/videos/intersection-demo.gif" width="80%" />
-</p>
+<video src="https://github.com/user-attachments/assets/e89e4821-b269-4cfa-9110-608b86547a6b" width="80%" controls></video>
 
 ### 🚙 Rich Drawing Tools & Templates
 
@@ -89,33 +85,25 @@ Drawing tools and shape templates for easily expressing autonomous driving scena
 
 Auto-snaps to existing points and lines. Hold Shift while drawing to temporarily disable snapping.
 
-<p align="center">
-  <img src="./docs/videos/snap-demo.gif" width="80%" />
-</p>
+<video src="https://github.com/user-attachments/assets/0073c5b5-01df-448a-bae2-1262a5c2b3af" width="80%" controls></video>
 
 ### 🔗 Point Sharing
 
 Hold Alt(Option) and click to share existing points and connect Linestring, Polygon, and Path.
 
-<p align="center">
-  <img src="./docs/videos/share-demo.gif" width="80%" />
-</p>
+<video src="https://github.com/user-attachments/assets/117fd365-747d-4501-a13c-8e301c2f1cde" width="80%" controls></video>
 
 ### 🎨 Style Customization
 
 Set color, opacity, width, and style individually. Change default values from the hamburger menu.
 
-<p align="center">
-  <img src="./docs/videos/style-demo.gif" width="80%" />
-</p>
+<video src="https://github.com/user-attachments/assets/758a5ac1-65f4-456d-9ca6-d0f5edcef54d" width="80%" controls></video>
 
 ### ✏️ Segment Editing
 
 Double-click Linestring, Lane, or Polygon to select and edit segments (between two points). Click on a segment to add new points for fine shape adjustments.
 
-<p align="center">
-  <img src="./docs/videos/segment-demo.gif" width="80%" />
-</p>
+<video src="https://github.com/user-attachments/assets/5f98e894-8aba-4684-b613-65a74b299901" width="80%" controls></video>
 
 ### 📦 Export/Import
 
@@ -134,23 +122,17 @@ Double-click Linestring, Lane, or Polygon to select and edit segments (between t
 
 > **Note on EPS export**: EPS format does not support transparency. When exporting shapes with opacity settings, the exported EPS will show shapes at full opacity, which may differ from the canvas display. For accurate transparency rendering, use PDF export instead.
 
-<p align="center">
-  <img src="./docs/videos/export-demo.gif" width="80%" />
-</p>
+<video src="https://github.com/user-attachments/assets/695be04e-9765-41df-b72a-291416858d5a" width="80%" controls></video>
 
 #### [Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2) Import
 
 Import Lanelet2 OSM format maps for editing. Sample maps: [Autoware Documentation](https://autowarefoundation.github.io/autoware-documentation/main/demos/planning-sim/#download-the-sample-map)
 
-<p align="center">
-  <img src="./docs/videos/lanelet-import-demo.gif" width="80%" />
-</p>
+<video src="https://github.com/user-attachments/assets/77af4518-8a6b-4d9b-b5fa-86983332d137" width="80%" controls></video>
 
 You can also select and import only specific lanes. For optimal performance, we recommend keeping the number of lanes under 500.
 
-<p align="center">
-  <img src="./docs/videos/lanelet-select-import-demo.gif" width="80%" />
-</p>
+<video src="https://github.com/user-attachments/assets/4dfd7448-e450-455d-809e-0ac720db9bd1" width="80%" controls></video>
 
 #### ROS OccupancyGrid Map Import
 
