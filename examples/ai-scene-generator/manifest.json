@@ -1,0 +1,17 @@
+{
+  "id": "ai-scene-generator",
+  "name": "AI Scene Generator",
+  "version": "1.0.0",
+  "description": "Generate traffic scenes from natural language prompts using AI",
+  "author": {
+    "name": "drawtonomy"
+  },
+  "entry": "./index.html",
+  "capabilities": [
+    "shapes:write",
+    "shapes:read",
+    "viewport:read",
+    "ui:panel",
+    "ui:notify"
+  ]
+}
