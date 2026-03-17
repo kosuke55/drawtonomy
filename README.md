@@ -178,3 +178,29 @@ Compatible with nav2, cartographer, gmapping, and other SLAM tools.
 | Shift                      | Temporarily disable snap (while drawing)        |
 | Alt + Click                | Share existing point (Linestring/Polygon/Path)  |
 | Double-click               | Segment editing (Linestring/Lane/Polygon)       |
+
+## 🧩 Extensions
+
+drawtonomy supports an iframe-based extension system. Build custom extensions without accessing drawtonomy's source code.
+
+```bash
+# Start drawtonomy locally
+npm install -g @drawtonomy/dev-server
+drawtonomy-dev-server
+
+# Start your extension
+cd my-extension
+npm run dev -- --port 3001
+
+# Open in browser
+open "http://localhost:3000/?ext=http://localhost:3001/manifest.json"
+```
+
+Available npm packages:
+
+| Package | Description |
+|---------|-------------|
+| [`@drawtonomy/sdk`](https://www.npmjs.com/package/@drawtonomy/sdk) | SDK for building extensions (ExtensionClient, shape factory functions, types) |
+| [`@drawtonomy/dev-server`](https://www.npmjs.com/package/@drawtonomy/dev-server) | Local dev server for extension development |
+
+📖 **[Extension Development Guide](docs/extensions.md)** | [日本語](docs/extensions.ja.md)
