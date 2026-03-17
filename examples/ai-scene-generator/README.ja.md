@@ -10,10 +10,26 @@
 
 ### セットアップ
 
+このリポジトリから実行する場合、まずSDKをビルドしてください:
+
+```bash
+cd packages/drawtonomy-sdk
+npm install
+npm run build
+```
+
+次にサンプルエクステンションを起動:
+
 ```bash
 cd examples/ai-scene-generator
 npm install
 npm run dev
+```
+
+別のターミナルでdrawtonomy dev serverを起動:
+
+```bash
+drawtonomy-dev-server
 ```
 
 ブラウザで以下にアクセス:

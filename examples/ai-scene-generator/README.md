@@ -10,10 +10,26 @@ A drawtonomy extension that generates traffic scenes from natural language descr
 
 ### Setup
 
+If running from this repository, build the SDK first:
+
+```bash
+cd packages/drawtonomy-sdk
+npm install
+npm run build
+```
+
+Then start the sample extension:
+
 ```bash
 cd examples/ai-scene-generator
 npm install
 npm run dev
+```
+
+In a separate terminal, start the drawtonomy dev server:
+
+```bash
+drawtonomy-dev-server
 ```
 
 Open in browser:
