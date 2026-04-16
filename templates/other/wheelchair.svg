@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 200 200" fill="none">
+  <!-- 大車輪 -->
+  <circle cx="70" cy="148" r="42" fill="none" stroke="#333333" stroke-width="14"/>
+  <circle cx="70" cy="148" r="6" fill="#333333"/>
+  <!-- 小車輪 -->
+  <circle cx="158" cy="155" r="22" fill="none" stroke="#333333" stroke-width="10"/>
+  <circle cx="158" cy="155" r="5" fill="#333333"/>
+  <!-- 背もたれ -->
+  <rect x="55" y="40" width="14" height="100" rx="5" fill="#333333"/>
+  <!-- ハンドル -->
+  <circle cx="62" cy="38" r="8" fill="#333333"/>
+  <!-- 座面 -->
+  <rect x="55" y="100" width="80" height="14" rx="5" fill="#333333"/>
+  <!-- フットレスト支柱 -->
+  <path d="M130 114 L155 133" stroke="#333333" stroke-width="12" fill="none" stroke-linecap="round"/>
+  <!-- フットレスト -->
+  <rect x="145" y="125" width="25" height="10" rx="4" fill="#333333"/>
+  <!-- アームレスト -->
+  <rect x="55" y="58" width="70" height="12" rx="5" fill="#333333"/>
+  <!-- 頭 -->
+  <circle cx="80" cy="22" r="16" fill="#333333"/>
+</svg>

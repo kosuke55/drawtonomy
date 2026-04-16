@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 100 200" fill="none">
+  <!-- Base -->
+  <ellipse cx="50" cy="185" rx="40" ry="10" fill="#555555"/>
+  <!-- Body -->
+  <rect x="30" y="30" width="40" height="155" rx="8" fill="#FF4444"/>
+  <!-- Reflective band -->
+  <rect x="30" y="60" width="40" height="20" rx="4" fill="white"/>
+  <!-- Top cap -->
+  <ellipse cx="50" cy="30" rx="20" ry="6" fill="#CC3333"/>
+</svg>

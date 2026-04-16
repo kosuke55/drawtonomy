@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 120 180" fill="none">
+  <!-- Body -->
+  <path d="M20 45 L28 165 Q30 175 40 175 L80 175 Q90 175 92 165 L100 45 Z" fill="#336633"/>
+  <!-- Rim -->
+  <rect x="15" y="38" width="90" height="12" rx="4" fill="#2D5A2D"/>
+  <!-- Lid -->
+  <path d="M18 42 Q18 25 60 20 Q102 25 102 42" fill="#3D7A3D"/>
+  <!-- Handle -->
+  <rect x="50" y="12" width="20" height="12" rx="4" fill="#2D5A2D"/>
+  <!-- Recycle symbol band -->
+  <rect x="35" y="90" width="50" height="30" rx="4" fill="#44884466"/>
+</svg>

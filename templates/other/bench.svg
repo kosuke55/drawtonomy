@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 300 180" fill="none">
+  <!-- Left legs -->
+  <rect x="30" y="100" width="12" height="75" rx="2" fill="#555555"/>
+  <rect x="60" y="120" width="12" height="55" rx="2" fill="#555555"/>
+  <!-- Right legs -->
+  <rect x="228" y="120" width="12" height="55" rx="2" fill="#555555"/>
+  <rect x="258" y="100" width="12" height="75" rx="2" fill="#555555"/>
+  <!-- Seat planks -->
+  <rect x="20" y="100" width="260" height="12" rx="3" fill="#8B6914"/>
+  <rect x="20" y="115" width="260" height="12" rx="3" fill="#A0781E"/>
+  <!-- Backrest planks -->
+  <rect x="20" y="30" width="260" height="12" rx="3" fill="#8B6914"/>
+  <rect x="20" y="45" width="260" height="12" rx="3" fill="#A0781E"/>
+  <rect x="20" y="60" width="260" height="12" rx="3" fill="#8B6914"/>
+  <!-- Armrests -->
+  <rect x="25" y="28" width="14" height="90" rx="3" fill="#666666"/>
+  <rect x="261" y="28" width="14" height="90" rx="3" fill="#666666"/>
+</svg>

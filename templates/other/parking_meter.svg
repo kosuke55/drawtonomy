@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 100 250" fill="none">
+  <!-- Base -->
+  <rect x="25" y="230" width="50" height="15" rx="4" fill="#555555"/>
+  <!-- Pole -->
+  <rect x="40" y="90" width="20" height="145" rx="3" fill="#777777"/>
+  <!-- Meter body -->
+  <rect x="20" y="30" width="60" height="65" rx="8" fill="#444444"/>
+  <!-- Meter top -->
+  <path d="M20 38 Q20 10 50 10 Q80 10 80 38" fill="#555555"/>
+  <!-- Display -->
+  <rect x="30" y="40" width="40" height="25" rx="4" fill="#88CC88"/>
+  <!-- Coin slot -->
+  <rect x="42" y="72" width="16" height="4" rx="1" fill="#333333"/>
+</svg>

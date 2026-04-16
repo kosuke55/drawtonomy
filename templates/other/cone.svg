@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 200 300" fill="none">
+  <!-- Base -->
+  <rect x="20" y="260" width="160" height="30" rx="5" fill="#333333"/>
+  <!-- Cone body -->
+  <polygon points="100,10 160,260 40,260" fill="#FF6600"/>
+  <!-- White stripes -->
+  <polygon points="78,120 122,120 128,150 72,150" fill="white"/>
+  <polygon points="65,190 135,190 141,220 59,220" fill="white"/>
+</svg>

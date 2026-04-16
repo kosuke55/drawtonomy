@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 120 200" fill="none">
+  <!-- Post -->
+  <rect x="48" y="100" width="24" height="90" rx="3" fill="#777777"/>
+  <!-- Base -->
+  <rect x="30" y="185" width="60" height="10" rx="3" fill="#666666"/>
+  <!-- Box body -->
+  <rect x="15" y="30" width="90" height="75" rx="6" fill="#CC2222"/>
+  <!-- Box top (rounded) -->
+  <path d="M15 35 Q15 5 60 5 Q105 5 105 35" fill="#DD2222"/>
+  <!-- Mail slot -->
+  <rect x="30" y="55" width="60" height="6" rx="2" fill="#222222"/>
+  <!-- Collection time plate -->
+  <rect x="35" y="72" width="50" height="22" rx="3" fill="#EEEEEE"/>
+</svg>
