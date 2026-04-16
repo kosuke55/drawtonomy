@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 200 300" fill="none">
+  <!-- Trunk -->
+  <rect x="80" y="200" width="40" height="90" rx="4" fill="#8B4513"/>
+  <!-- Foliage layers -->
+  <polygon points="100,10 170,130 30,130" fill="#2D8B2D"/>
+  <polygon points="100,60 180,180 20,180" fill="#228B22"/>
+  <polygon points="100,110 190,220 10,220" fill="#1B7A1B"/>
+</svg>

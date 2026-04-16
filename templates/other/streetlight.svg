@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 100 300" fill="none">
+  <!-- Base plate -->
+  <rect x="25" y="275" width="50" height="15" rx="4" fill="#555555"/>
+  <!-- Pole -->
+  <rect x="42" y="50" width="16" height="230" rx="3" fill="#777777"/>
+  <!-- Neck curve -->
+  <path d="M50 50 Q50 20 75 15" stroke="#777777" stroke-width="10" fill="none" stroke-linecap="round"/>
+  <!-- Light housing -->
+  <rect x="65" y="8" width="30" height="16" rx="4" fill="#444444"/>
+  <!-- Light -->
+  <rect x="68" y="24" width="24" height="6" rx="2" fill="#FFD700"/>
+</svg>
