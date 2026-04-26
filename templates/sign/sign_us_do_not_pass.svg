@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 120 120" fill="none">
+  <polygon points="60,8 112,60 60,112 8,60" fill="#FFD500" stroke="#111111" stroke-width="3"/>
+  <text x="60" y="48" font-family="Arial, sans-serif" font-size="14" font-weight="800" fill="#111111" text-anchor="middle">DO NOT</text>
+  <text x="60" y="70" font-family="Arial, sans-serif" font-size="18" font-weight="800" fill="#111111" text-anchor="middle">PASS</text>
+</svg>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 120 120" fill="none">
+  <circle cx="60" cy="60" r="55" fill="#FFD500" stroke="#111111" stroke-width="4"/>
+  <line x1="20" y1="20" x2="100" y2="100" stroke="#111111" stroke-width="6" stroke-linecap="round"/>
+  <line x1="100" y1="20" x2="20" y2="100" stroke="#111111" stroke-width="6" stroke-linecap="round"/>
+  <text x="42" y="56" font-family="Arial, sans-serif" font-size="22" font-weight="900" fill="#111111">R</text>
+  <text x="64" y="80" font-family="Arial, sans-serif" font-size="22" font-weight="900" fill="#111111">R</text>
+</svg>

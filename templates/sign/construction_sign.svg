@@ -1,6 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 200 250" fill="none">
-  <rect x="55" y="130" width="12" height="110" rx="2" fill="#888888"/>
-  <rect x="133" y="130" width="12" height="110" rx="2" fill="#888888"/>
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 200 130" fill="none">
   <polygon points="100,10 190,130 10,130" fill="#FFD700" stroke="#CC9900" stroke-width="4"/>
   <polygon points="100,35 170,125 30,125" fill="none" stroke="#333333" stroke-width="3"/>
   <rect x="88" y="65" width="24" height="40" rx="3" fill="#333333"/>

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 120 120" fill="none">
+  <circle cx="60" cy="60" r="55" fill="#FFFFFF" stroke="#DD0000" stroke-width="8"/>
+  <!-- megaphone body -->
+  <path d="M30 50 L48 50 L66 36 L66 84 L48 70 L30 70 Z" fill="#222222"/>
+  <!-- handle -->
+  <rect x="62" y="56" width="6" height="8" fill="#222222"/>
+  <!-- sound waves -->
+  <path d="M74 48 Q80 60 74 72" stroke="#222222" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M82 40 Q92 60 82 80" stroke="#222222" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <line x1="22" y1="98" x2="98" y2="22" stroke="#DD0000" stroke-width="8" stroke-linecap="round"/>
+</svg>

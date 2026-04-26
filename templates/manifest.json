@@ -1,64 +1,2078 @@
 {
   "vehicle": [
-    { "id": "sedan", "name": "Sedan", "svg": "vehicle/sedan.svg", "w": 30, "h": 56, "viewBox": [25, 47.032] },
-    { "id": "bus", "name": "Bus", "svg": "vehicle/bus.svg", "w": 37, "h": 92, "viewBox": [341, 850] },
-    { "id": "truck", "name": "Truck", "svg": "vehicle/truck.svg", "w": 43, "h": 147, "viewBox": [328, 1114] },
-    { "id": "golf_cart", "name": "Golf Cart", "svg": "vehicle/golf_cart.svg", "w": 23, "h": 43, "viewBox": [335, 613] },
-    { "id": "amr", "name": "AMR", "svg": "vehicle/amr.svg", "w": 11, "h": 16, "viewBox": [601, 870] },
-    { "id": "amr2", "name": "AMR 2", "svg": "vehicle/amr2.svg", "w": 11, "h": 16, "viewBox": [477, 694] },
-    { "id": "robovac", "name": "Robovac", "svg": "vehicle/robovac.svg", "w": 11, "h": 11, "viewBox": [678, 665] },
-    { "id": "motorcycle", "name": "Motorcycle", "svg": "vehicle/motorcycle.svg", "w": 18, "h": 36, "viewBox": [410, 830] },
-    { "id": "motorcycle2", "name": "Motorcycle 2", "svg": "vehicle/motorcycle2.svg", "w": 22, "h": 43, "viewBox": [542, 921] },
-    { "id": "bicycle", "name": "Bicycle", "svg": "vehicle/bicycle.svg", "w": 18, "h": 36, "viewBox": [619, 1212] },
-    { "id": "bicycle2", "name": "Bicycle 2", "svg": "vehicle/bicycle2.svg", "w": 17, "h": 42, "viewBox": [497, 1224] },
-    { "id": "rectangle", "name": "Rectangle", "svg": "", "w": 30, "h": 56, "viewBox": [30, 56] },
-    { "id": "default", "name": "Simple", "svg": "", "w": 30, "h": 56, "viewBox": [30, 56] }
+    {
+      "id": "sedan",
+      "name": "Sedan",
+      "svg": "vehicle/sedan.svg",
+      "w": 30,
+      "h": 56,
+      "viewBox": [
+        25,
+        47.032
+      ]
+    },
+    {
+      "id": "bus",
+      "name": "Bus",
+      "svg": "vehicle/bus.svg",
+      "w": 37,
+      "h": 92,
+      "viewBox": [
+        341,
+        850
+      ]
+    },
+    {
+      "id": "truck",
+      "name": "Truck",
+      "svg": "vehicle/truck.svg",
+      "w": 43,
+      "h": 147,
+      "viewBox": [
+        328,
+        1114
+      ]
+    },
+    {
+      "id": "golf_cart",
+      "name": "Golf Cart",
+      "svg": "vehicle/golf_cart.svg",
+      "w": 23,
+      "h": 43,
+      "viewBox": [
+        335,
+        613
+      ]
+    },
+    {
+      "id": "amr",
+      "name": "AMR",
+      "svg": "vehicle/amr.svg",
+      "w": 11,
+      "h": 16,
+      "viewBox": [
+        601,
+        870
+      ]
+    },
+    {
+      "id": "amr2",
+      "name": "AMR 2",
+      "svg": "vehicle/amr2.svg",
+      "w": 11,
+      "h": 16,
+      "viewBox": [
+        477,
+        694
+      ]
+    },
+    {
+      "id": "robovac",
+      "name": "Robovac",
+      "svg": "vehicle/robovac.svg",
+      "w": 11,
+      "h": 11,
+      "viewBox": [
+        678,
+        665
+      ]
+    },
+    {
+      "id": "motorcycle",
+      "name": "Motorcycle",
+      "svg": "vehicle/motorcycle.svg",
+      "w": 18,
+      "h": 36,
+      "viewBox": [
+        410,
+        830
+      ]
+    },
+    {
+      "id": "motorcycle2",
+      "name": "Motorcycle 2",
+      "svg": "vehicle/motorcycle2.svg",
+      "w": 22,
+      "h": 43,
+      "viewBox": [
+        542,
+        921
+      ]
+    },
+    {
+      "id": "bicycle",
+      "name": "Bicycle",
+      "svg": "vehicle/bicycle.svg",
+      "w": 18,
+      "h": 36,
+      "viewBox": [
+        619,
+        1212
+      ]
+    },
+    {
+      "id": "bicycle2",
+      "name": "Bicycle 2",
+      "svg": "vehicle/bicycle2.svg",
+      "w": 17,
+      "h": 42,
+      "viewBox": [
+        497,
+        1224
+      ]
+    },
+    {
+      "id": "rectangle",
+      "name": "Rectangle",
+      "svg": "",
+      "w": 30,
+      "h": 56,
+      "viewBox": [
+        30,
+        56
+      ]
+    },
+    {
+      "id": "default",
+      "name": "Simple",
+      "svg": "",
+      "w": 30,
+      "h": 56,
+      "viewBox": [
+        30,
+        56
+      ]
+    }
   ],
   "pedestrian": [
-    { "id": "filled", "name": "Pedestrian (Filled)", "svg": "pedestrian/pedestrian_filled.svg", "w": 22, "h": 22, "viewBox": [620, 620], "replaceColor": null },
-    { "id": "pedestrian", "name": "Pedestrian", "svg": "pedestrian/pedestrian.svg", "w": 22, "h": 22, "viewBox": [590, 590], "replaceColor": null },
-    { "id": "walk", "name": "Pedestrian (Walking)", "svg": "pedestrian/pedestrian_walk.svg", "w": 22, "h": 22, "viewBox": [220, 220], "replaceColor": "#b3b3b3", "defaultColor": "grey-300" },
-    { "id": "simple", "name": "Pedestrian (Simple)", "svg": "pedestrian/pedestrian_simple.svg", "w": 22, "h": 22, "viewBox": [210, 210], "replaceColor": "#b3b3b3", "defaultColor": "grey-300" }
+    {
+      "id": "filled",
+      "name": "Pedestrian (Filled)",
+      "svg": "pedestrian/pedestrian_filled.svg",
+      "w": 22,
+      "h": 22,
+      "viewBox": [
+        620,
+        620
+      ],
+      "replaceColor": null
+    },
+    {
+      "id": "pedestrian",
+      "name": "Pedestrian",
+      "svg": "pedestrian/pedestrian.svg",
+      "w": 22,
+      "h": 22,
+      "viewBox": [
+        590,
+        590
+      ],
+      "replaceColor": null
+    },
+    {
+      "id": "walk",
+      "name": "Pedestrian (Walking)",
+      "svg": "pedestrian/pedestrian_walk.svg",
+      "w": 22,
+      "h": 22,
+      "viewBox": [
+        220,
+        220
+      ],
+      "replaceColor": "#b3b3b3",
+      "defaultColor": "grey-300"
+    },
+    {
+      "id": "simple",
+      "name": "Pedestrian (Simple)",
+      "svg": "pedestrian/pedestrian_simple.svg",
+      "w": 22,
+      "h": 22,
+      "viewBox": [
+        210,
+        210
+      ],
+      "replaceColor": "#b3b3b3",
+      "defaultColor": "grey-300"
+    }
+  ],
+  "sign": [
+    {
+      "id": "stop_sign",
+      "name": "Stop",
+      "svg": "sign/stop_sign.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_yield",
+      "name": "Yield",
+      "svg": "sign/sign_yield.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_yield_give_way",
+      "name": "Give Way (with text)",
+      "svg": "sign/sign_yield_give_way.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_no_entry",
+      "name": "No Entry",
+      "svg": "sign/sign_no_entry.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_do_not_enter",
+      "name": "Do Not Enter",
+      "svg": "sign/sign_do_not_enter.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_one_way",
+      "name": "One Way",
+      "svg": "sign/sign_one_way.svg",
+      "w": 36,
+      "h": 18,
+      "viewBox": [
+        160,
+        80
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_no_parking",
+      "name": "No Parking",
+      "svg": "sign/sign_no_parking.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_no_overtaking",
+      "name": "No Overtaking",
+      "svg": "sign/sign_no_overtaking.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_end_no_overtaking",
+      "name": "End of No Overtaking",
+      "svg": "sign/sign_end_no_overtaking.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_no_truck",
+      "name": "No Trucks",
+      "svg": "sign/sign_no_truck.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_no_pedestrian",
+      "name": "No Pedestrians",
+      "svg": "sign/sign_no_pedestrian.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_no_bicycle",
+      "name": "No Bicycles",
+      "svg": "sign/sign_no_bicycle.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_no_horn",
+      "name": "No Horn",
+      "svg": "sign/sign_no_horn.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_no_left_turn",
+      "name": "No Left Turn",
+      "svg": "sign/sign_no_left_turn.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_no_right_turn",
+      "name": "No Right Turn",
+      "svg": "sign/sign_no_right_turn.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "speed_sign",
+      "name": "Speed (blank)",
+      "svg": "sign/speed_sign.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_speed_limit",
+      "name": "Speed Limit",
+      "svg": "sign/sign_speed_limit.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_minimum_speed",
+      "name": "Minimum Speed",
+      "svg": "sign/sign_minimum_speed.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_end_speed_limit",
+      "name": "End of Speed Limit",
+      "svg": "sign/sign_end_speed_limit.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_warning_generic",
+      "name": "Warning",
+      "svg": "sign/sign_warning_generic.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "crosswalk_sign",
+      "name": "Crosswalk",
+      "svg": "sign/crosswalk_sign.svg",
+      "w": 27,
+      "h": 30,
+      "viewBox": [
+        120,
+        135
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_pedestrian_crossing",
+      "name": "Pedestrian Crossing",
+      "svg": "sign/sign_pedestrian_crossing.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_school_zone",
+      "name": "School Zone",
+      "svg": "sign/sign_school_zone.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_railway_crossing",
+      "name": "Railway Crossing",
+      "svg": "sign/sign_railway_crossing.svg",
+      "w": 33,
+      "h": 24,
+      "viewBox": [
+        160,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_curve_ahead",
+      "name": "Curve Ahead",
+      "svg": "sign/sign_curve_ahead.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_roundabout_ahead",
+      "name": "Roundabout Ahead",
+      "svg": "sign/sign_roundabout_ahead.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_slippery_road",
+      "name": "Slippery Road",
+      "svg": "sign/sign_slippery_road.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_animal_crossing",
+      "name": "Animal Crossing",
+      "svg": "sign/sign_animal_crossing.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_signal_ahead",
+      "name": "Signal Ahead",
+      "svg": "sign/sign_signal_ahead.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_two_way_traffic",
+      "name": "Two-Way Traffic",
+      "svg": "sign/sign_two_way_traffic.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_road_narrows",
+      "name": "Road Narrows",
+      "svg": "sign/sign_road_narrows.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_priority_road",
+      "name": "Priority Road",
+      "svg": "sign/sign_priority_road.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_end_priority_road",
+      "name": "End of Priority Road",
+      "svg": "sign/sign_end_priority_road.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_keep_right",
+      "name": "Keep Right",
+      "svg": "sign/sign_keep_right.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_keep_left",
+      "name": "Keep Left",
+      "svg": "sign/sign_keep_left.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_roundabout",
+      "name": "Roundabout",
+      "svg": "sign/sign_roundabout.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_motorway",
+      "name": "Motorway",
+      "svg": "sign/sign_motorway.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_end_motorway",
+      "name": "End of Motorway",
+      "svg": "sign/sign_end_motorway.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_pedestrian_zone",
+      "name": "Pedestrian Zone",
+      "svg": "sign/sign_pedestrian_zone.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_residential_area",
+      "name": "Residential Area",
+      "svg": "sign/sign_residential_area.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_parking",
+      "name": "Parking",
+      "svg": "sign/sign_parking.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_hospital",
+      "name": "Hospital",
+      "svg": "sign/sign_hospital.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_bus_lane",
+      "name": "Bus Lane",
+      "svg": "sign/sign_bus_lane.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_bike_lane",
+      "name": "Bike Lane",
+      "svg": "sign/sign_bike_lane.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_airport",
+      "name": "Airport",
+      "svg": "sign/sign_airport.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_gas_station",
+      "name": "Gas Station",
+      "svg": "sign/sign_gas_station.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_lodging",
+      "name": "Lodging",
+      "svg": "sign/sign_lodging.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_food",
+      "name": "Food",
+      "svg": "sign/sign_food.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_camping",
+      "name": "Camping",
+      "svg": "sign/sign_camping.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_information",
+      "name": "Information",
+      "svg": "sign/sign_information.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign",
+      "name": "Generic Sign",
+      "svg": "sign/sign.svg",
+      "w": 33,
+      "h": 21,
+      "viewBox": [
+        200,
+        130
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "construction_sign",
+      "name": "Construction",
+      "svg": "sign/construction_sign.svg",
+      "w": 33,
+      "h": 21,
+      "viewBox": [
+        200,
+        130
+      ],
+      "defaultColor": "transparent",
+      "region": "International"
+    },
+    {
+      "id": "sign_jp_stop",
+      "name": "Stop / 止まれ",
+      "svg": "sign/sign_jp_stop.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "Japan"
+    },
+    {
+      "id": "sign_jp_slow",
+      "name": "Slow / 徐行",
+      "svg": "sign/sign_jp_slow.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "Japan"
+    },
+    {
+      "id": "sign_jp_no_entry",
+      "name": "No Entry / 進入禁止",
+      "svg": "sign/sign_jp_no_entry.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "Japan"
+    },
+    {
+      "id": "sign_jp_no_thoroughfare",
+      "name": "No Thoroughfare / 通行止",
+      "svg": "sign/sign_jp_no_thoroughfare.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "Japan"
+    },
+    {
+      "id": "sign_jp_no_parking",
+      "name": "No Parking / 駐車禁止",
+      "svg": "sign/sign_jp_no_parking.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "Japan"
+    },
+    {
+      "id": "sign_jp_no_stopping",
+      "name": "No Stopping / 駐停車禁止",
+      "svg": "sign/sign_jp_no_stopping.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "Japan"
+    },
+    {
+      "id": "sign_jp_one_way",
+      "name": "One Way / 一方通行",
+      "svg": "sign/sign_jp_one_way.svg",
+      "w": 36,
+      "h": 18,
+      "viewBox": [
+        160,
+        80
+      ],
+      "defaultColor": "transparent",
+      "region": "Japan"
+    },
+    {
+      "id": "sign_jp_warning_curve",
+      "name": "Curve Ahead / 屈曲",
+      "svg": "sign/sign_jp_warning_curve.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "Japan"
+    },
+    {
+      "id": "sign_jp_warning_pedestrian",
+      "name": "Pedestrian / 横断歩道あり",
+      "svg": "sign/sign_jp_warning_pedestrian.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "Japan"
+    },
+    {
+      "id": "sign_jp_warning_school",
+      "name": "School / 学校あり",
+      "svg": "sign/sign_jp_warning_school.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "Japan"
+    },
+    {
+      "id": "sign_us_pedestrian_crossing",
+      "name": "Pedestrian Crossing (US)",
+      "svg": "sign/sign_us_pedestrian_crossing.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "United States"
+    },
+    {
+      "id": "sign_us_school_xing",
+      "name": "School Crossing (US)",
+      "svg": "sign/sign_us_school_xing.svg",
+      "w": 27,
+      "h": 30,
+      "viewBox": [
+        120,
+        130
+      ],
+      "defaultColor": "transparent",
+      "region": "United States"
+    },
+    {
+      "id": "sign_us_signal_ahead",
+      "name": "Signal Ahead (US)",
+      "svg": "sign/sign_us_signal_ahead.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "United States"
+    },
+    {
+      "id": "sign_us_railroad",
+      "name": "Railroad Crossing (US)",
+      "svg": "sign/sign_us_railroad.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "United States"
+    },
+    {
+      "id": "sign_us_no_uturn",
+      "name": "No U-Turn (US)",
+      "svg": "sign/sign_us_no_uturn.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "United States"
+    },
+    {
+      "id": "sign_us_merge",
+      "name": "Merge (US)",
+      "svg": "sign/sign_us_merge.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "United States"
+    },
+    {
+      "id": "sign_us_truck_route",
+      "name": "Truck Route (US)",
+      "svg": "sign/sign_us_truck_route.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "United States"
+    },
+    {
+      "id": "sign_us_speed_limit",
+      "name": "Speed Limit (US)",
+      "svg": "sign/sign_us_speed_limit.svg",
+      "w": 24,
+      "h": 33,
+      "viewBox": [
+        120,
+        160
+      ],
+      "defaultColor": "transparent",
+      "region": "United States"
+    },
+    {
+      "id": "sign_us_do_not_pass",
+      "name": "Do Not Pass (US)",
+      "svg": "sign/sign_us_do_not_pass.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "United States"
+    },
+    {
+      "id": "sign_us_divided_highway",
+      "name": "Divided Highway (US)",
+      "svg": "sign/sign_us_divided_highway.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "United States"
+    },
+    {
+      "id": "sign_us_deer_crossing",
+      "name": "Deer Crossing (US)",
+      "svg": "sign/sign_us_deer_crossing.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "United States"
+    },
+    {
+      "id": "sign_us_wrong_way",
+      "name": "Wrong Way (US)",
+      "svg": "sign/sign_us_wrong_way.svg",
+      "w": 36,
+      "h": 18,
+      "viewBox": [
+        160,
+        80
+      ],
+      "defaultColor": "transparent",
+      "region": "United States"
+    },
+    {
+      "id": "sign_us_road_work",
+      "name": "Road Work (US)",
+      "svg": "sign/sign_us_road_work.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "United States"
+    },
+    {
+      "id": "sign_us_no_turn_on_red",
+      "name": "No Turn On Red (US)",
+      "svg": "sign/sign_us_no_turn_on_red.svg",
+      "w": 24,
+      "h": 33,
+      "viewBox": [
+        120,
+        160
+      ],
+      "defaultColor": "transparent",
+      "region": "United States"
+    },
+    {
+      "id": "sign_us_slippery",
+      "name": "Slippery When Wet (US)",
+      "svg": "sign/sign_us_slippery.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "United States"
+    },
+    {
+      "id": "sign_eu_priority_to_oncoming",
+      "name": "Priority to Oncoming (EU)",
+      "svg": "sign/sign_eu_priority_to_oncoming.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "Europe"
+    },
+    {
+      "id": "sign_eu_priority_over_oncoming",
+      "name": "Priority over Oncoming (EU)",
+      "svg": "sign/sign_eu_priority_over_oncoming.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "Europe"
+    },
+    {
+      "id": "sign_eu_uneven_road",
+      "name": "Uneven Road (EU)",
+      "svg": "sign/sign_eu_uneven_road.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "Europe"
+    },
+    {
+      "id": "sign_eu_falling_rocks",
+      "name": "Falling Rocks (EU)",
+      "svg": "sign/sign_eu_falling_rocks.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "Europe"
+    },
+    {
+      "id": "sign_eu_traffic_jam",
+      "name": "Traffic Jam (EU)",
+      "svg": "sign/sign_eu_traffic_jam.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "Europe"
+    },
+    {
+      "id": "sign_cn_stop",
+      "name": "Stop / 停 (China)",
+      "svg": "sign/sign_cn_stop.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "China"
+    },
+    {
+      "id": "sign_cn_no_entry",
+      "name": "Caution / 注意前方 (China)",
+      "svg": "sign/sign_cn_no_entry.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "China"
+    },
+    {
+      "id": "sign_cn_slow",
+      "name": "Slow / 慢 (China)",
+      "svg": "sign/sign_cn_slow.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "China"
+    },
+    {
+      "id": "sign_cn_no_parking",
+      "name": "No Parking / 停 (China)",
+      "svg": "sign/sign_cn_no_parking.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "China"
+    },
+    {
+      "id": "sign_cn_no_thoroughfare",
+      "name": "No Thoroughfare / 禁止通行 (China)",
+      "svg": "sign/sign_cn_no_thoroughfare.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "China"
+    },
+    {
+      "id": "sign_cn_pedestrian_warning",
+      "name": "Pedestrian Warning / 注意行人 (China)",
+      "svg": "sign/sign_cn_pedestrian_warning.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "China"
+    },
+    {
+      "id": "sign_cn_children",
+      "name": "Children Warning / 注意儿童 (China)",
+      "svg": "sign/sign_cn_children.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "China"
+    },
+    {
+      "id": "sign_cn_turn_left",
+      "name": "Turn Left (China)",
+      "svg": "sign/sign_cn_turn_left.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "China"
+    },
+    {
+      "id": "sign_cn_turn_right",
+      "name": "Turn Right (China)",
+      "svg": "sign/sign_cn_turn_right.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "China"
+    },
+    {
+      "id": "sign_cn_go_straight",
+      "name": "Go Straight (China)",
+      "svg": "sign/sign_cn_go_straight.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "China"
+    },
+    {
+      "id": "sign_au_sharp_turn",
+      "name": "Sharp Turn (AU)",
+      "svg": "sign/sign_au_sharp_turn.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "Australia"
+    },
+    {
+      "id": "sign_au_wombat",
+      "name": "Wombat / Wildlife (AU)",
+      "svg": "sign/sign_au_wombat.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "Australia"
+    },
+    {
+      "id": "sign_au_roundabout_ahead",
+      "name": "Roundabout Ahead (AU)",
+      "svg": "sign/sign_au_roundabout_ahead.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "Australia"
+    },
+    {
+      "id": "sign_au_kangaroo",
+      "name": "Kangaroo Crossing (AU)",
+      "svg": "sign/sign_au_kangaroo.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "Australia"
+    },
+    {
+      "id": "sign_de_priority",
+      "name": "Vorfahrtstraße (DE)",
+      "svg": "sign/sign_de_priority.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "Germany"
+    },
+    {
+      "id": "sign_de_no_vehicles",
+      "name": "Verbot für Fahrzeuge (DE)",
+      "svg": "sign/sign_de_no_vehicles.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "Germany"
+    },
+    {
+      "id": "sign_de_30_zone",
+      "name": "Tempo 30 Zone (DE)",
+      "svg": "sign/sign_de_30_zone.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "Germany"
+    },
+    {
+      "id": "sign_de_end_restrictions",
+      "name": "End of All Restrictions (DE)",
+      "svg": "sign/sign_de_end_restrictions.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "Germany"
+    },
+    {
+      "id": "sign_de_play_street",
+      "name": "Spielstraße / Play Street (DE)",
+      "svg": "sign/sign_de_play_street.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "Germany"
+    },
+    {
+      "id": "sign_uk_national_speed_limit",
+      "name": "National Speed Limit (UK)",
+      "svg": "sign/sign_uk_national_speed_limit.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "United Kingdom"
+    },
+    {
+      "id": "sign_uk_school_children",
+      "name": "School Children (UK)",
+      "svg": "sign/sign_uk_school_children.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "United Kingdom"
+    },
+    {
+      "id": "sign_uk_roundabout",
+      "name": "Roundabout (UK)",
+      "svg": "sign/sign_uk_roundabout.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "United Kingdom"
+    },
+    {
+      "id": "sign_it_merge_right",
+      "name": "Confluenza Destra (IT)",
+      "svg": "sign/sign_it_merge_right.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "Italy"
+    },
+    {
+      "id": "sign_it_ztl",
+      "name": "ZTL / Limited Traffic Zone (IT)",
+      "svg": "sign/sign_it_ztl.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "Italy"
+    },
+    {
+      "id": "sign_in_stop",
+      "name": "Stop (India)",
+      "svg": "sign/sign_in_stop.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "India"
+    },
+    {
+      "id": "sign_in_give_way",
+      "name": "Give Way (India)",
+      "svg": "sign/sign_in_give_way.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "India"
+    },
+    {
+      "id": "sign_in_school_ahead",
+      "name": "School Ahead (India)",
+      "svg": "sign/sign_in_school_ahead.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "India"
+    },
+    {
+      "id": "sign_in_cattle_crossing",
+      "name": "Cattle Crossing (India)",
+      "svg": "sign/sign_in_cattle_crossing.svg",
+      "w": 27,
+      "h": 27,
+      "viewBox": [
+        120,
+        120
+      ],
+      "defaultColor": "transparent",
+      "region": "India"
+    },
+    {
+      "id": "sign_in_horn_prohibited",
+      "name": "Horn Prohibited (India)",
+      "svg": "sign/sign_in_horn_prohibited.svg",
+      "w": 27,
+      "h": 33,
+      "viewBox": [
+        120,
+        150
+      ],
+      "defaultColor": "transparent",
+      "region": "India"
+    }
   ],
   "other": [
-    { "id": "building", "name": "Building", "svg": "other/building.svg", "w": 80, "h": 100, "viewBox": [200, 250], "defaultColor": "transparent" },
-    { "id": "house", "name": "House", "svg": "other/house.svg", "w": 70, "h": 70, "viewBox": [200, 200], "defaultColor": "transparent" },
-    { "id": "shop", "name": "Shop", "svg": "other/shop.svg", "w": 80, "h": 72, "viewBox": [200, 180], "defaultColor": "transparent" },
-    { "id": "warehouse", "name": "Warehouse", "svg": "other/warehouse.svg", "w": 110, "h": 70, "viewBox": [250, 160], "defaultColor": "transparent" },
-    { "id": "guardrail", "name": "Guardrail", "svg": "other/guardrail.svg", "w": 50, "h": 10, "viewBox": [300, 60], "defaultColor": "transparent" },
-    { "id": "barrier", "name": "Barrier", "svg": "other/barrier.svg", "w": 40, "h": 16, "viewBox": [300, 120], "defaultColor": "transparent" },
-    { "id": "fence", "name": "Fence", "svg": "other/fence.svg", "w": 50, "h": 20, "viewBox": [300, 120], "defaultColor": "transparent" },
-    { "id": "curb", "name": "Curb", "svg": "other/curb.svg", "w": 50, "h": 7, "viewBox": [300, 40], "defaultColor": "transparent" },
-    { "id": "median", "name": "Median Strip", "svg": "other/median.svg", "w": 50, "h": 10, "viewBox": [300, 60], "defaultColor": "transparent" },
-    { "id": "manhole", "name": "Manhole", "svg": "other/manhole.svg", "w": 16, "h": 16, "viewBox": [100, 100], "defaultColor": "transparent" },
-    { "id": "bollard", "name": "Bollard", "svg": "other/bollard.svg", "w": 10, "h": 21, "viewBox": [100, 200], "defaultColor": "transparent" },
-    { "id": "cone", "name": "Cone", "svg": "other/cone.svg", "w": 16, "h": 23, "viewBox": [200, 300], "defaultColor": "transparent" },
-    { "id": "stop_sign", "name": "Stop Sign", "svg": "other/stop_sign.svg", "w": 12, "h": 26, "viewBox": [120, 260], "defaultColor": "transparent" },
-    { "id": "speed_sign", "name": "Speed Sign", "svg": "other/speed_sign.svg", "w": 12, "h": 26, "viewBox": [120, 260], "defaultColor": "transparent" },
-    { "id": "crosswalk_sign", "name": "Crosswalk Sign", "svg": "other/crosswalk_sign.svg", "w": 12, "h": 26, "viewBox": [120, 260], "defaultColor": "transparent" },
-    { "id": "sign", "name": "Sign", "svg": "other/sign.svg", "w": 18, "h": 27, "viewBox": [200, 300], "defaultColor": "transparent" },
-    { "id": "construction_sign", "name": "Construction Sign", "svg": "other/construction_sign.svg", "w": 16, "h": 20, "viewBox": [200, 250], "defaultColor": "transparent" },
-    { "id": "construction_fence", "name": "Construction Fence", "svg": "other/construction_fence.svg", "w": 50, "h": 20, "viewBox": [300, 120], "defaultColor": "transparent" },
-    { "id": "streetlight", "name": "Streetlight", "svg": "other/streetlight.svg", "w": 10, "h": 30, "viewBox": [100, 300], "defaultColor": "transparent" },
-    { "id": "utility_pole", "name": "Utility Pole", "svg": "other/utility_pole.svg", "w": 10, "h": 25, "viewBox": [120, 300], "defaultColor": "transparent" },
-    { "id": "pole", "name": "Pole", "svg": "other/pole.svg", "w": 5, "h": 30, "viewBox": [40, 250], "defaultColor": "transparent" },
-    { "id": "bus_stop", "name": "Bus Stop", "svg": "other/bus_stop.svg", "w": 11, "h": 26, "viewBox": [120, 280], "defaultColor": "transparent" },
-    { "id": "bench", "name": "Bench", "svg": "other/bench.svg", "w": 36, "h": 22, "viewBox": [300, 180], "defaultColor": "transparent" },
-    { "id": "trash_can", "name": "Trash Can", "svg": "other/trash_can.svg", "w": 14, "h": 21, "viewBox": [120, 180], "defaultColor": "transparent" },
-    { "id": "mailbox", "name": "Mailbox", "svg": "other/mailbox.svg", "w": 12, "h": 20, "viewBox": [120, 200], "defaultColor": "transparent" },
-    { "id": "vending_machine", "name": "Vending Machine", "svg": "other/vending_machine.svg", "w": 18, "h": 26, "viewBox": [140, 200], "defaultColor": "transparent" },
-    { "id": "fire_hydrant", "name": "Fire Hydrant", "svg": "other/fire_hydrant.svg", "w": 14, "h": 20, "viewBox": [140, 200], "defaultColor": "transparent" },
-    { "id": "parking_meter", "name": "Parking Meter", "svg": "other/parking_meter.svg", "w": 10, "h": 25, "viewBox": [100, 250], "defaultColor": "transparent" },
-    { "id": "tree", "name": "Tree", "svg": "other/tree.svg", "w": 30, "h": 45, "viewBox": [200, 300], "defaultColor": "transparent" },
-    { "id": "palm_tree", "name": "Palm Tree", "svg": "other/palm_tree.svg", "w": 22, "h": 36, "viewBox": [180, 300], "defaultColor": "transparent" },
-    { "id": "bush", "name": "Bush", "svg": "other/bush.svg", "w": 26, "h": 17, "viewBox": [200, 130], "defaultColor": "transparent" },
-    { "id": "flower_bed", "name": "Flower Bed", "svg": "other/flower_bed.svg", "w": 30, "h": 15, "viewBox": [200, 100], "defaultColor": "transparent" },
-    { "id": "rock", "name": "Rock", "svg": "other/rock.svg", "w": 20, "h": 16, "viewBox": [150, 120], "defaultColor": "transparent" },
-    { "id": "wheelchair", "name": "Wheelchair", "svg": "other/wheelchair.svg", "w": 22, "h": 22, "viewBox": [200, 200], "defaultColor": "transparent" },
-    { "id": "stroller", "name": "Stroller", "svg": "other/stroller.svg", "w": 20, "h": 22, "viewBox": [180, 200], "defaultColor": "transparent" },
-    { "id": "suitcase", "name": "Suitcase", "svg": "other/suitcase.svg", "w": 14, "h": 18, "viewBox": [140, 180], "defaultColor": "transparent" },
-    { "id": "stairs", "name": "Stairs", "svg": "other/stairs.svg", "w": 26, "h": 26, "viewBox": [200, 200], "defaultColor": "transparent" },
-    { "id": "ramp", "name": "Ramp", "svg": "other/ramp.svg", "w": 32, "h": 15, "viewBox": [250, 120], "defaultColor": "transparent" },
-    { "id": "flag", "name": "Flag", "svg": "other/flag.svg", "w": 12, "h": 25, "viewBox": [120, 250], "defaultColor": "transparent" }
+    {
+      "id": "building",
+      "name": "Building",
+      "svg": "other/building.svg",
+      "w": 80,
+      "h": 100,
+      "viewBox": [
+        200,
+        250
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "house",
+      "name": "House",
+      "svg": "other/house.svg",
+      "w": 70,
+      "h": 70,
+      "viewBox": [
+        200,
+        200
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "shop",
+      "name": "Shop",
+      "svg": "other/shop.svg",
+      "w": 80,
+      "h": 72,
+      "viewBox": [
+        200,
+        180
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "warehouse",
+      "name": "Warehouse",
+      "svg": "other/warehouse.svg",
+      "w": 110,
+      "h": 70,
+      "viewBox": [
+        250,
+        160
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "guardrail",
+      "name": "Guardrail",
+      "svg": "other/guardrail.svg",
+      "w": 50,
+      "h": 10,
+      "viewBox": [
+        300,
+        60
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "barrier",
+      "name": "Barrier",
+      "svg": "other/barrier.svg",
+      "w": 40,
+      "h": 16,
+      "viewBox": [
+        300,
+        120
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "fence",
+      "name": "Fence",
+      "svg": "other/fence.svg",
+      "w": 50,
+      "h": 20,
+      "viewBox": [
+        300,
+        120
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "curb",
+      "name": "Curb",
+      "svg": "other/curb.svg",
+      "w": 50,
+      "h": 7,
+      "viewBox": [
+        300,
+        40
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "median",
+      "name": "Median Strip",
+      "svg": "other/median.svg",
+      "w": 50,
+      "h": 10,
+      "viewBox": [
+        300,
+        60
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "manhole",
+      "name": "Manhole",
+      "svg": "other/manhole.svg",
+      "w": 16,
+      "h": 16,
+      "viewBox": [
+        100,
+        100
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "bollard",
+      "name": "Bollard",
+      "svg": "other/bollard.svg",
+      "w": 10,
+      "h": 21,
+      "viewBox": [
+        100,
+        200
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "cone",
+      "name": "Cone",
+      "svg": "other/cone.svg",
+      "w": 16,
+      "h": 23,
+      "viewBox": [
+        200,
+        300
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "construction_fence",
+      "name": "Construction Fence",
+      "svg": "other/construction_fence.svg",
+      "w": 50,
+      "h": 20,
+      "viewBox": [
+        300,
+        120
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "streetlight",
+      "name": "Streetlight",
+      "svg": "other/streetlight.svg",
+      "w": 10,
+      "h": 30,
+      "viewBox": [
+        100,
+        300
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "utility_pole",
+      "name": "Utility Pole",
+      "svg": "other/utility_pole.svg",
+      "w": 10,
+      "h": 25,
+      "viewBox": [
+        120,
+        300
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "utility_pole_concrete",
+      "name": "Utility Pole (Concrete)",
+      "svg": "other/utility_pole_concrete.svg",
+      "w": 10,
+      "h": 25,
+      "viewBox": [
+        120,
+        300
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "pole",
+      "name": "Pole",
+      "svg": "other/pole.svg",
+      "w": 5,
+      "h": 30,
+      "viewBox": [
+        40,
+        250
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "bus_stop",
+      "name": "Bus Stop",
+      "svg": "other/bus_stop.svg",
+      "w": 11,
+      "h": 26,
+      "viewBox": [
+        120,
+        280
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "bench",
+      "name": "Bench",
+      "svg": "other/bench.svg",
+      "w": 36,
+      "h": 22,
+      "viewBox": [
+        300,
+        180
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "trash_can",
+      "name": "Trash Can",
+      "svg": "other/trash_can.svg",
+      "w": 14,
+      "h": 21,
+      "viewBox": [
+        120,
+        180
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "mailbox",
+      "name": "Mailbox",
+      "svg": "other/mailbox.svg",
+      "w": 12,
+      "h": 20,
+      "viewBox": [
+        120,
+        200
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "mailbox_us",
+      "name": "Mailbox (US)",
+      "svg": "other/mailbox_us.svg",
+      "w": 16,
+      "h": 20,
+      "viewBox": [
+        160,
+        200
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "vending_machine",
+      "name": "Vending Machine",
+      "svg": "other/vending_machine.svg",
+      "w": 18,
+      "h": 26,
+      "viewBox": [
+        140,
+        200
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "fire_hydrant",
+      "name": "Fire Hydrant",
+      "svg": "other/fire_hydrant.svg",
+      "w": 14,
+      "h": 20,
+      "viewBox": [
+        140,
+        200
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "parking_meter",
+      "name": "Parking Meter",
+      "svg": "other/parking_meter.svg",
+      "w": 10,
+      "h": 25,
+      "viewBox": [
+        100,
+        250
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "tree",
+      "name": "Tree",
+      "svg": "other/tree.svg",
+      "w": 30,
+      "h": 45,
+      "viewBox": [
+        200,
+        300
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "palm_tree",
+      "name": "Palm Tree",
+      "svg": "other/palm_tree.svg",
+      "w": 22,
+      "h": 36,
+      "viewBox": [
+        180,
+        300
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "bush",
+      "name": "Bush",
+      "svg": "other/bush.svg",
+      "w": 26,
+      "h": 17,
+      "viewBox": [
+        200,
+        130
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "flower_bed",
+      "name": "Flower Bed",
+      "svg": "other/flower_bed.svg",
+      "w": 30,
+      "h": 15,
+      "viewBox": [
+        200,
+        100
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "rock",
+      "name": "Rock",
+      "svg": "other/rock.svg",
+      "w": 20,
+      "h": 16,
+      "viewBox": [
+        150,
+        120
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "wheelchair",
+      "name": "Wheelchair",
+      "svg": "other/wheelchair.svg",
+      "w": 22,
+      "h": 22,
+      "viewBox": [
+        200,
+        200
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "stroller",
+      "name": "Stroller",
+      "svg": "other/stroller.svg",
+      "w": 20,
+      "h": 22,
+      "viewBox": [
+        180,
+        200
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "suitcase",
+      "name": "Suitcase",
+      "svg": "other/suitcase.svg",
+      "w": 14,
+      "h": 18,
+      "viewBox": [
+        140,
+        180
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "stairs",
+      "name": "Stairs",
+      "svg": "other/stairs.svg",
+      "w": 26,
+      "h": 26,
+      "viewBox": [
+        200,
+        200
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "ramp",
+      "name": "Ramp",
+      "svg": "other/ramp.svg",
+      "w": 32,
+      "h": 15,
+      "viewBox": [
+        250,
+        120
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "flag",
+      "name": "Flag",
+      "svg": "other/flag.svg",
+      "w": 12,
+      "h": 25,
+      "viewBox": [
+        120,
+        250
+      ],
+      "defaultColor": "transparent"
+    }
   ]
 }

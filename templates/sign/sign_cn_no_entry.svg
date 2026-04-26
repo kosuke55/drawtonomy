@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 120 120" fill="none">
+  <polygon points="60,8 112,60 60,112 8,60" fill="#FFD500" stroke="#111111" stroke-width="3"/>
+  <text x="60" y="56" font-family="'Noto Sans SC','PingFang SC','Hiragino Sans',sans-serif" font-size="20" font-weight="900" fill="#111111" text-anchor="middle">注意</text>
+  <text x="60" y="86" font-family="'Noto Sans SC','PingFang SC','Hiragino Sans',sans-serif" font-size="20" font-weight="900" fill="#111111" text-anchor="middle">前方</text>
+</svg>

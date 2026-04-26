@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 120 120" fill="none">
+  <circle cx="60" cy="60" r="55" fill="#DD0000" stroke="#AA0000" stroke-width="3"/>
+  <rect x="20" y="52" width="80" height="16" rx="2" fill="#FFFFFF"/>
+  <text x="60" y="98" font-family="'Hiragino Sans','Yu Gothic','Meiryo',sans-serif" font-size="12" font-weight="700" fill="#FFFFFF" text-anchor="middle">進入禁止</text>
+</svg>
