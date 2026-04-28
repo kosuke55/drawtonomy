@@ -1,15 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 120 120" fill="none">
   <polygon points="60,10 115,110 5,110" fill="#FFFFFF" stroke="#DD0000" stroke-width="8"/>
   <!-- car body -->
-  <rect x="32" y="56" width="56" height="14" rx="3" fill="#111111"/>
-  <path d="M40 56 L48 46 L72 46 L80 56 Z" fill="#111111"/>
+  <rect x="40" y="58" width="40" height="12" rx="3" fill="#111111"/>
+  <path d="M46 58 L52 50 L68 50 L74 58 Z" fill="#111111"/>
   <!-- windows -->
-  <rect x="50" y="48" width="8" height="6" fill="#FFFFFF"/>
-  <rect x="62" y="48" width="8" height="6" fill="#FFFFFF"/>
+  <rect x="52" y="52" width="6" height="5" fill="#FFFFFF"/>
+  <rect x="62" y="52" width="6" height="5" fill="#FFFFFF"/>
   <!-- wheels -->
-  <circle cx="44" cy="72" r="5" fill="#111111"/>
-  <circle cx="76" cy="72" r="5" fill="#111111"/>
+  <circle cx="48" cy="72" r="4" fill="#111111"/>
+  <circle cx="72" cy="72" r="4" fill="#111111"/>
   <!-- skid marks -->
-  <path d="M22 90 Q34 82 46 90 T70 90 T98 90" stroke="#111111" stroke-width="3" fill="none" stroke-linecap="round"/>
-  <path d="M22 100 Q34 92 46 100 T70 100 T98 100" stroke="#111111" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M44 84 Q52 80 58 84 T70 84 T76 84" stroke="#111111" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M48 94 Q54 91 58 94 T68 94 T74 94" stroke="#111111" stroke-width="3" fill="none" stroke-linecap="round"/>
 </svg>

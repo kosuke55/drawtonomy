@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 120 120" fill="none">
   <polygon points="60,10 115,110 5,110" fill="#FFFFFF" stroke="#DD0000" stroke-width="8"/>
   <!-- cliff stroke -->
-  <path d="M32 96 L32 72 L44 60 L58 60" stroke="#222222" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M48 90 L48 70 L56 62 L66 62" stroke="#222222" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
   <!-- rocks -->
-  <polygon points="58,66 66,74 56,78" fill="#444444"/>
-  <polygon points="66,82 78,86 72,96 60,94" fill="#666666"/>
+  <polygon points="62,68 68,74 60,78" fill="#444444"/>
+  <polygon points="64,82 72,86 68,92 60,90" fill="#666666"/>
 </svg>

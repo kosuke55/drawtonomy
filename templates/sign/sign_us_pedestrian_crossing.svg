@@ -1,11 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 120 120" fill="none">
   <polygon points="60,10 112,62 60,114 8,62" fill="#FFD500" stroke="#111111" stroke-width="3"/>
-  <circle cx="55" cy="42" r="5" fill="#111111"/>
-  <path d="M55 49 L49 67 L49 88 L55 88 L55 72 L60 72 L60 88 L66 88 L66 66 L72 70 L76 66 L65 56 L60 49 Z" fill="#111111"/>
+  <circle cx="58" cy="40" r="5" fill="#111111"/>
+  <path d="M58 47 L52 64 L52 82 L58 82 L58 70 L62 70 L62 82 L68 82 L68 64 L72 66 L75 62 L66 54 L62 47 Z" fill="#111111"/>
   <g stroke="#111111" stroke-width="2.5" stroke-linecap="round">
-    <line x1="36" y1="100" x2="42" y2="92"/>
-    <line x1="48" y1="100" x2="54" y2="92"/>
-    <line x1="60" y1="100" x2="66" y2="92"/>
-    <line x1="72" y1="100" x2="78" y2="92"/>
+    <line x1="52" y1="98" x2="56" y2="92"/>
+    <line x1="58" y1="98" x2="62" y2="92"/>
+    <line x1="64" y1="98" x2="68" y2="92"/>
   </g>
 </svg>

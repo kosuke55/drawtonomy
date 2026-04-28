@@ -2,19 +2,16 @@
   <polygon points="60,8 112,60 60,112 8,60" fill="#FFD500" stroke="#111111" stroke-width="3"/>
   <g fill="#111111">
     <!-- body -->
-    <ellipse cx="58" cy="76" rx="20" ry="8"/>
-    <!-- flanks -->
-    <path d="M40 78 L38 90 L42 90 L46 80 Z"/>
-    <path d="M74 78 L78 90 L74 90 L72 82 Z"/>
+    <ellipse cx="56" cy="74" rx="16" ry="7"/>
     <!-- legs -->
-    <rect x="44" y="84" width="4" height="10"/>
-    <rect x="52" y="84" width="4" height="10"/>
-    <rect x="66" y="84" width="4" height="10"/>
-    <rect x="72" y="84" width="4" height="10"/>
-    <!-- neck + head (moved to stay inside diamond) -->
-    <path d="M72 72 L82 60 L84 62 L80 70 Z"/>
-    <!-- small antlers inside diamond at y~48..56 where bound is x ~48..72 -->
-    <path d="M80 58 L78 52 L82 54 Z"/>
-    <path d="M83 58 L84 50 L85 54 Z"/>
+    <rect x="46" y="80" width="3" height="9"/>
+    <rect x="52" y="80" width="3" height="9"/>
+    <rect x="62" y="80" width="3" height="9"/>
+    <rect x="68" y="80" width="3" height="9"/>
+    <!-- neck + head -->
+    <path d="M68 70 L76 60 L78 62 L74 70 Z"/>
+    <!-- small antlers -->
+    <path d="M74 58 L72 52 L76 55 Z"/>
+    <path d="M77 58 L78 50 L80 55 Z"/>
   </g>
 </svg>
