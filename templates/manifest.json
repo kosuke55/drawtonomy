@@ -1355,32 +1355,6 @@
       "region": "China"
     },
     {
-      "id": "sign_cn_turn_left",
-      "name": "Turn Left (China)",
-      "svg": "sign/sign_cn_turn_left.svg",
-      "w": 27,
-      "h": 27,
-      "viewBox": [
-        120,
-        120
-      ],
-      "defaultColor": "transparent",
-      "region": "China"
-    },
-    {
-      "id": "sign_cn_turn_right",
-      "name": "Turn Right (China)",
-      "svg": "sign/sign_cn_turn_right.svg",
-      "w": 27,
-      "h": 27,
-      "viewBox": [
-        120,
-        120
-      ],
-      "defaultColor": "transparent",
-      "region": "China"
-    },
-    {
       "id": "sign_cn_go_straight",
       "name": "Go Straight (China)",
       "svg": "sign/sign_cn_go_straight.svg",
@@ -1592,19 +1566,6 @@
       "id": "sign_in_give_way",
       "name": "Give Way (India)",
       "svg": "sign/sign_in_give_way.svg",
-      "w": 27,
-      "h": 27,
-      "viewBox": [
-        120,
-        120
-      ],
-      "defaultColor": "transparent",
-      "region": "India"
-    },
-    {
-      "id": "sign_in_school_ahead",
-      "name": "School Ahead (India)",
-      "svg": "sign/sign_in_school_ahead.svg",
       "w": 27,
       "h": 27,
       "viewBox": [
