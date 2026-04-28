@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 120 120" fill="none">
+  <polygon points="39.0,9.2 81.0,9.2 110.8,39.0 110.8,81.0 81.0,110.8 39.0,110.8 9.2,81.0 9.2,39.0" fill="#DD0000" stroke="#AA0000" stroke-width="3"/>
+  <text x="60" y="55" font-family="'Noto Sans Devanagari','Mangal','Arial Unicode MS',sans-serif" font-size="16" font-weight="700" fill="white" text-anchor="middle">रुकें</text>
+  <text x="60" y="85" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="white" text-anchor="middle">STOP</text>
+</svg>

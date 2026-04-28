@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 120 120" fill="none">
+  <rect x="10" y="10" width="100" height="100" rx="3" fill="#1E5DAB" stroke="#111111" stroke-width="3"/>
+  <text x="60" y="50" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#FFFFFF" text-anchor="middle">TRUCK</text>
+  <text x="60" y="78" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#FFFFFF" text-anchor="middle">ROUTE</text>
+</svg>

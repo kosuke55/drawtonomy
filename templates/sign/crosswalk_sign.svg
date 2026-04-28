@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 120 120" fill="none">
+  <!-- Vienna Convention E12a: 青正方形 + 白三角 + 黒歩行者 + ゼブラ -->
+  <rect x="6" y="6" width="108" height="108" rx="3" fill="#1E4FAA"/>
+  <polygon points="60,18 102,96 18,96" fill="#FFFFFF"/>
+  <!-- 歩行者 (黒、進行方向右) -->
+  <circle cx="55" cy="40" r="4" fill="#111111"/>
+  <path d="M55 45 L51 58 L51 74 L55 74 L55 62 L60 62 L60 74 L65 74 L65 58 L69 60 L72 56 L63 49 L60 45 Z" fill="#111111"/>
+  <!-- ゼブラ (黒線 4 本) -->
+  <g fill="#111111">
+    <rect x="48" y="80" width="3" height="10"/>
+    <rect x="54" y="80" width="3" height="10"/>
+    <rect x="60" y="80" width="3" height="10"/>
+    <rect x="66" y="80" width="3" height="10"/>
+  </g>
+</svg>

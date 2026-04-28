@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 120 120" fill="none">
+  <polygon points="60,110 5,15 115,15" fill="#DD0000" stroke="#AA0000" stroke-width="3"/>
+  <text x="60" y="50" font-family="'Hiragino Sans','Yu Gothic','Meiryo',sans-serif" font-size="20" font-weight="900" fill="#FFFFFF" text-anchor="middle">徐行</text>
+  <text x="60" y="78" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#FFFFFF" text-anchor="middle">SLOW</text>
+</svg>

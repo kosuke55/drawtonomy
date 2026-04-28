@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 120 120" fill="none">
+  <polygon points="60,10 115,110 5,110" fill="#FFFFFF" stroke="#DD0000" stroke-width="8"/>
+  <!-- 時計回りラウンドアバウト: 100° 弧 + 矢印頭 を 120° ごとに 3 本 -->
+  <g transform="translate(60 76)">
+    <g>
+      <path d="M -12.124 -7 A 14 14 0 0 1 12.124 -7" fill="none" stroke="#111111" stroke-width="4" stroke-linecap="round"/>
+      <polygon fill="#111111" points="12.124,-7 19,-9 16,-1"/>
+    </g>
+    <g transform="rotate(120)">
+      <path d="M -12.124 -7 A 14 14 0 0 1 12.124 -7" fill="none" stroke="#111111" stroke-width="4" stroke-linecap="round"/>
+      <polygon fill="#111111" points="12.124,-7 19,-9 16,-1"/>
+    </g>
+    <g transform="rotate(240)">
+      <path d="M -12.124 -7 A 14 14 0 0 1 12.124 -7" fill="none" stroke="#111111" stroke-width="4" stroke-linecap="round"/>
+      <polygon fill="#111111" points="12.124,-7 19,-9 16,-1"/>
+    </g>
+  </g>
+</svg>

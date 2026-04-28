@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 120 120" fill="none">
+  <rect x="10" y="10" width="100" height="100" rx="6" fill="#1E5DAB" stroke="#111111" stroke-width="3"/>
+  <g fill="#FFFFFF">
+    <!-- fork -->
+    <rect x="42" y="30" width="4" height="28"/>
+    <rect x="48" y="30" width="4" height="28"/>
+    <rect x="54" y="30" width="4" height="28"/>
+    <rect x="42" y="56" width="16" height="6" rx="1"/>
+    <rect x="48" y="60" width="4" height="30"/>
+    <!-- knife -->
+    <path d="M74 30 L78 30 L78 60 L82 62 L78 66 L78 90 L74 90 Z"/>
+  </g>
+</svg>

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 120 120" fill="none">
+  <!-- 中国式 no entry: 赤円 + 白横棒 (Vienna 共通) -->
+  <circle cx="60" cy="60" r="55" fill="#DD0000" stroke="#AA0000" stroke-width="3"/>
+  <rect x="20" y="52" width="80" height="16" rx="2" fill="#FFFFFF"/>
+</svg>

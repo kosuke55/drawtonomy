@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 120 120" fill="none">
+  <polygon points="60,10 115,110 5,110" fill="#FFFFFF" stroke="#DD0000" stroke-width="8"/>
+  <!-- 跳ねる鹿のシルエット (右向き) -->
+  <g fill="#111111">
+    <!-- 体 (楕円) -->
+    <ellipse cx="55" cy="76" rx="14" ry="6"/>
+    <!-- 後脚 (左、跳ねるようにやや傾ける) -->
+    <path d="M44 80 L40 94 L44 94 L48 82 Z"/>
+    <!-- 後脚 second -->
+    <path d="M50 80 L48 94 L52 94 L54 82 Z"/>
+    <!-- 前脚 (右) -->
+    <path d="M60 80 L60 94 L64 94 L64 82 Z"/>
+    <path d="M65 80 L66 94 L70 94 L68 82 Z"/>
+    <!-- 首 (上方右へ) -->
+    <path d="M67 72 L74 62 L78 64 L74 72 Z"/>
+    <!-- 頭 -->
+    <ellipse cx="78" cy="62" rx="6" ry="4"/>
+    <!-- 角 (枝分かれ簡易) -->
+    <path d="M76 58 L74 50 L77 54 Z"/>
+    <path d="M80 58 L82 50 L80 55 Z"/>
+    <path d="M78 56 L78 48 L80 52 Z"/>
+    <!-- 尾 (後ろ上向き、白でなく黒い小三角) -->
+    <path d="M42 74 L38 70 L42 76 Z"/>
+  </g>
+</svg>

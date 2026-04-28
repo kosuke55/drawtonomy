@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 120 120" fill="none">
+  <circle cx="60" cy="60" r="55" fill="#FFFFFF" stroke="#DD0000" stroke-width="8"/>
+  <!-- 貨物部 (左、大きめ) -->
+  <rect x="22" y="46" width="44" height="34" rx="2" fill="#222222"/>
+  <!-- キャブ部 (右、小さめ + 前傾) -->
+  <rect x="66" y="56" width="28" height="24" rx="2" fill="#222222"/>
+  <rect x="92" y="62" width="6" height="14" fill="#222222"/>
+  <!-- 車輪 3 つ -->
+  <circle cx="34" cy="84" r="5" fill="#222222"/>
+  <circle cx="56" cy="84" r="5" fill="#222222"/>
+  <circle cx="82" cy="84" r="5" fill="#222222"/>
+</svg>

@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 200 300" fill="none">
-  <!-- Pole -->
-  <rect x="90" y="120" width="20" height="170" rx="3" fill="#888888"/>
-  <!-- Sign board -->
-  <rect x="20" y="10" width="160" height="120" rx="8" fill="#3366CC" stroke="#222222" stroke-width="4"/>
-  <!-- Inner border -->
-  <rect x="30" y="20" width="140" height="100" rx="4" fill="none" stroke="white" stroke-width="2"/>
-</svg>

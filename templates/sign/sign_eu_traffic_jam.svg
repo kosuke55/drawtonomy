@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 120 120" fill="none">
+  <polygon points="60,10 115,110 5,110" fill="#FFFFFF" stroke="#DD0000" stroke-width="8"/>
+  <g fill="#DD0000">
+    <!-- top car -->
+    <rect x="50" y="46" width="22" height="10" rx="1.5"/>
+    <rect x="48" y="54" width="26" height="6" rx="1"/>
+    <!-- middle car -->
+    <rect x="48" y="66" width="26" height="10" rx="1.5"/>
+    <rect x="46" y="74" width="30" height="6" rx="1"/>
+    <!-- bottom car -->
+    <rect x="44" y="86" width="32" height="10" rx="1.5"/>
+    <rect x="42" y="94" width="36" height="6" rx="1"/>
+  </g>
+</svg>

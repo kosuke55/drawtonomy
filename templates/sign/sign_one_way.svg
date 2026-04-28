@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 160 80" fill="none">
+  <rect x="6" y="6" width="148" height="68" rx="3" fill="#222222" stroke="#FFFFFF" stroke-width="2"/>
+  <!-- 白矢印 (右向き) -->
+  <polygon points="18,42 90,42 90,32 122,40 90,48 90,38" fill="#FFFFFF"/>
+  <!-- "ONE WAY" 白文字 -->
+  <text x="80" y="65" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="800" fill="#FFFFFF" text-anchor="middle" letter-spacing="0.5">ONE WAY</text>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 120 120" fill="none">
+  <circle cx="60" cy="60" r="55" fill="#FFFFFF" stroke="#DD0000" stroke-width="8"/>
+  <!-- megaphone body, kept inside inner radius (~47) -->
+  <path d="M40 52 L54 52 L70 40 L70 80 L54 68 L40 68 Z" fill="#222222"/>
+  <rect x="68" y="58" width="5" height="6" fill="#222222"/>
+  <path d="M78 50 Q83 60 78 70" stroke="#222222" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <line x1="26" y1="94" x2="94" y2="26" stroke="#DD0000" stroke-width="8" stroke-linecap="round"/>
+</svg>
