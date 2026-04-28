@@ -1,18 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 120 120" fill="none">
   <circle cx="60" cy="60" r="55" fill="#FFFFFF" stroke="#888888" stroke-width="6"/>
   <g opacity="0.7">
-    <rect x="22" y="60" width="36" height="22" rx="3" fill="#666666"/>
-    <path d="M28 60 L34 50 L52 50 L58 60 Z" fill="#666666"/>
-    <circle cx="32" cy="84" r="5" fill="#444444"/>
-    <circle cx="50" cy="84" r="5" fill="#444444"/>
-    <rect x="62" y="42" width="36" height="22" rx="3" fill="#444444"/>
-    <path d="M68 42 L74 32 L92 32 L98 42 Z" fill="#444444"/>
-    <circle cx="72" cy="66" r="5" fill="#444444"/>
-    <circle cx="90" cy="66" r="5" fill="#444444"/>
+    <!-- 左: 赤車 (彩度低) -->
+    <rect x="22" y="48" width="32" height="18" rx="3" fill="#aa6666"/>
+    <path d="M26 48 L32 40 L44 40 L50 48 Z" fill="#aa6666"/>
+    <circle cx="30" cy="68" r="4" fill="#444444"/>
+    <circle cx="46" cy="68" r="4" fill="#444444"/>
+    <!-- 右: 黒車 -->
+    <rect x="66" y="58" width="32" height="18" rx="3" fill="#666666"/>
+    <path d="M70 58 L76 50 L88 50 L94 58 Z" fill="#666666"/>
+    <circle cx="74" cy="78" r="4" fill="#444444"/>
+    <circle cx="90" cy="78" r="4" fill="#444444"/>
   </g>
-  <g stroke="#222222" stroke-width="4" stroke-linecap="round">
-    <line x1="22" y1="98" x2="98" y2="22"/>
-    <line x1="20" y1="92" x2="92" y2="20"/>
-    <line x1="28" y1="100" x2="100" y2="28"/>
+  <!-- 抹消用斜線 (4 本平行) -->
+  <g stroke="#222222" stroke-width="3" stroke-linecap="round">
+    <line x1="29" y1="91" x2="91" y2="29"/>
+    <line x1="25" y1="83" x2="83" y2="25"/>
+    <line x1="37" y1="95" x2="95" y2="37"/>
   </g>
 </svg>

@@ -1,9 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 120 135" fill="none">
-  <polygon points="60,5 115,40 115,100 60,135 5,100 5,40" fill="#2266CC"/>
-  <polygon points="60,15 105,44 105,96 60,125 15,96 15,44" fill="none" stroke="white" stroke-width="2"/>
-  <line x1="40" y1="95" x2="40" y2="55" stroke="white" stroke-width="4"/>
-  <line x1="50" y1="95" x2="50" y2="55" stroke="white" stroke-width="4"/>
-  <line x1="60" y1="95" x2="60" y2="55" stroke="white" stroke-width="4"/>
-  <line x1="70" y1="95" x2="70" y2="55" stroke="white" stroke-width="4"/>
-  <line x1="80" y1="95" x2="80" y2="55" stroke="white" stroke-width="4"/>
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 120 120" fill="none">
+  <!-- Vienna Convention E12a: 青正方形 + 白三角 + 黒歩行者 + ゼブラ -->
+  <rect x="6" y="6" width="108" height="108" rx="3" fill="#1E4FAA"/>
+  <polygon points="60,18 102,96 18,96" fill="#FFFFFF"/>
+  <!-- 歩行者 (黒、進行方向右) -->
+  <circle cx="55" cy="40" r="4" fill="#111111"/>
+  <path d="M55 45 L51 58 L51 74 L55 74 L55 62 L60 62 L60 74 L65 74 L65 58 L69 60 L72 56 L63 49 L60 45 Z" fill="#111111"/>
+  <!-- ゼブラ (黒線 4 本) -->
+  <g fill="#111111">
+    <rect x="48" y="80" width="3" height="10"/>
+    <rect x="54" y="80" width="3" height="10"/>
+    <rect x="60" y="80" width="3" height="10"/>
+    <rect x="66" y="80" width="3" height="10"/>
+  </g>
 </svg>

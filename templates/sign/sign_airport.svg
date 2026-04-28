@@ -1,6 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 120 120" fill="none">
   <rect x="10" y="10" width="100" height="100" rx="6" fill="#1E4FAA" stroke="#17408A" stroke-width="3"/>
-  <g fill="#FFFFFF">
-    <path d="M60 28 L66 50 L94 60 L66 70 L66 86 L74 92 L74 96 L60 92 L46 96 L46 92 L54 86 L54 70 L26 60 L54 50 Z"/>
+  <!-- 飛行機シルエット (上昇中、回転で角度付ける) -->
+  <g fill="#FFFFFF" transform="rotate(-30 60 60)">
+    <path d="M60 22 L65 56 L96 70 L65 70 L60 96 L72 96 L60 106 L48 96 L60 96 L55 70 L24 70 L55 56 Z"/>
   </g>
 </svg>
