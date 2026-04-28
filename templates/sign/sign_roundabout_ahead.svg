@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 120 120" fill="none">
   <polygon points="60,10 115,110 5,110" fill="#FFFFFF" stroke="#DD0000" stroke-width="8"/>
-  <path d="M 43.15 45.86 A 22 22 0 0 1 76.85 45.86" fill="none" stroke="#111111" stroke-width="5" stroke-linecap="round"/>
-  <polygon points="82.64,52.75 81.45,42.00 72.26,49.72" fill="#111111"/>
-  <path d="M 80.67 52.48 A 22 22 0 0 1 63.82 81.67" fill="none" stroke="#111111" stroke-width="5" stroke-linecap="round"/>
-  <polygon points="54.96,83.23 64.86,87.57 62.78,75.76" fill="#111111"/>
-  <path d="M 56.18 81.67 A 22 22 0 0 1 39.33 52.48" fill="none" stroke="#111111" stroke-width="5" stroke-linecap="round"/>
-  <polygon points="42.40,44.02 33.69,50.42 44.96,54.53" fill="#111111"/>
+  <path d="M 43.15 57.86 A 22 22 0 0 1 76.85 57.86" fill="none" stroke="#111111" stroke-width="5" stroke-linecap="round"/>
+  <polygon points="82.64,64.75 81.45,54.0 72.26,61.72" fill="#111111"/>
+  <path d="M 80.67 64.47999999999999 A 22 22 0 0 1 63.82 93.67" fill="none" stroke="#111111" stroke-width="5" stroke-linecap="round"/>
+  <polygon points="54.96,95.23 64.86,99.57 62.78,87.76" fill="#111111"/>
+  <path d="M 56.18 93.67 A 22 22 0 0 1 39.33 64.47999999999999" fill="none" stroke="#111111" stroke-width="5" stroke-linecap="round"/>
+  <polygon points="42.40,56.02 33.69,62.42 44.96,66.53" fill="#111111"/>
 </svg>
