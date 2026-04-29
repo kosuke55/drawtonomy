@@ -2121,9 +2121,9 @@
       "id": "marking_speed_limit",
       "name": "Speed Limit",
       "svg": "road_marking/marking_speed_limit.svg",
-      "w": 24,
-      "h": 60,
-      "viewBox": [200, 500],
+      "w": 30,
+      "h": 22,
+      "viewBox": [200, 140],
       "replaceColor": "#000000",
       "defaultColor": "white"
     },
