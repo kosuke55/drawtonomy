@@ -1,3 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 200 500" fill="none">
-  <text x="100" y="290" font-family="Arial, Helvetica, sans-serif" font-size="160" font-weight="900" fill="#000000" text-anchor="middle" textLength="160" lengthAdjust="spacingAndGlyphs">50</text>
+<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" viewBox="0 0 200 500" fill="none">
+  <!-- Placeholder used only when this SVG is loaded as an icon (template
+       picker, runtime registry preview, etc). The drawtonomy app renders
+       the actual on-canvas marking with a dedicated React component so the
+       digits stay sharp at any aspect ratio. -->
+  <text x="100" y="305" font-family="Arial, Helvetica, sans-serif" font-size="200" font-weight="900" fill="#000000" text-anchor="middle" textLength="160" lengthAdjust="spacingAndGlyphs">50</text>
 </svg>
