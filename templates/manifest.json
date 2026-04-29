@@ -2035,5 +2035,107 @@
       ],
       "defaultColor": "transparent"
     }
+  ],
+  "road_marking": [
+    {
+      "id": "marking_arrow_straight",
+      "name": "Straight",
+      "svg": "road_marking/marking_arrow_straight.svg",
+      "w": 24,
+      "h": 60,
+      "viewBox": [200, 500],
+      "replaceColor": "#000000",
+      "defaultColor": "white"
+    },
+    {
+      "id": "marking_arrow_left",
+      "name": "Left Turn",
+      "svg": "road_marking/marking_arrow_left.svg",
+      "w": 24,
+      "h": 60,
+      "viewBox": [200, 500],
+      "replaceColor": "#000000",
+      "defaultColor": "white"
+    },
+    {
+      "id": "marking_arrow_right",
+      "name": "Right Turn",
+      "svg": "road_marking/marking_arrow_right.svg",
+      "w": 24,
+      "h": 60,
+      "viewBox": [200, 500],
+      "replaceColor": "#000000",
+      "defaultColor": "white"
+    },
+    {
+      "id": "marking_arrow_straight_left",
+      "name": "Straight + Left",
+      "svg": "road_marking/marking_arrow_straight_left.svg",
+      "w": 24,
+      "h": 60,
+      "viewBox": [200, 500],
+      "replaceColor": "#000000",
+      "defaultColor": "white"
+    },
+    {
+      "id": "marking_arrow_straight_right",
+      "name": "Straight + Right",
+      "svg": "road_marking/marking_arrow_straight_right.svg",
+      "w": 24,
+      "h": 60,
+      "viewBox": [200, 500],
+      "replaceColor": "#000000",
+      "defaultColor": "white"
+    },
+    {
+      "id": "marking_arrow_left_right",
+      "name": "Left + Right",
+      "svg": "road_marking/marking_arrow_left_right.svg",
+      "w": 24,
+      "h": 60,
+      "viewBox": [200, 500],
+      "replaceColor": "#000000",
+      "defaultColor": "white"
+    },
+    {
+      "id": "marking_arrow_uturn",
+      "name": "U-Turn",
+      "svg": "road_marking/marking_arrow_uturn.svg",
+      "w": 24,
+      "h": 60,
+      "viewBox": [200, 500],
+      "replaceColor": "#000000",
+      "defaultColor": "white"
+    },
+    {
+      "id": "marking_no_uturn",
+      "name": "No U-Turn",
+      "svg": "road_marking/marking_no_uturn.svg",
+      "w": 24,
+      "h": 60,
+      "viewBox": [200, 500],
+      "replaceColor": "#000000",
+      "defaultColor": "white"
+    },
+    {
+      "id": "marking_speed_limit",
+      "name": "Speed Limit",
+      "svg": "road_marking/marking_speed_limit.svg",
+      "w": 24,
+      "h": 60,
+      "viewBox": [200, 500],
+      "replaceColor": "#000000",
+      "defaultColor": "white"
+    },
+    {
+      "id": "marking_diamond",
+      "name": "Diamond",
+      "svg": "road_marking/marking_diamond.svg",
+      "w": 24,
+      "h": 60,
+      "viewBox": [200, 500],
+      "replaceColor": "#000000",
+      "defaultColor": "white"
+    }
   ]
 }
