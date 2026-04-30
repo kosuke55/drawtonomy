@@ -1,6 +1,6 @@
 {
   "name": "@drawtonomy/sdk",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "SDK for building drawtonomy extensions",
   "type": "module",
   "main": "./dist/index.js",
