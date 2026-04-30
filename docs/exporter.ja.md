@@ -15,6 +15,7 @@ ASAM 仕様のファイル (OpenDRIVE 1.8 / OpenSCENARIO 1.3) や esmini 用の 
 
 - [Quick Start (ユーザー向け)](#quick-start-ユーザー向け)
 - [Quick Start (開発者向け)](#quick-start-開発者向け)
+- [ローカル開発](#ローカル開発)
 - [アーキテクチャ](#アーキテクチャ)
 - [API リファレンス](#api-リファレンス)
 - [Exporter を拡張する](#exporter-を拡張する)
@@ -62,6 +63,167 @@ const { blob, baseName } = exporter.buildEsminiZip(snapshot, {
 ```
 
 Exporter は純関数群です (同じ入力なら必ず同じ出力、エディタや DOM へのアクセスなし)。
+
+---
+
+## ローカル開発
+
+このセクションは **exporter 自体に手を入れる** コントリビューター向けです。
+
+開発スタイルは大きく 2 通りあります。組み合わせて使います。
+
+1. **スナップショット駆動** — snapshot のフィクスチャをコードで作って vitest を回し、
+   出力 XML をアサートする。ブラウザを起動しないので速い。新しいロジックの実装に最適。
+2. **esmini での目視確認** — 生成した `.xodr` / `.xosc` を esmini に食わせ、
+   3D 再生が期待通りかを確認する。遅いが、純粋な XML アサートでは捕まえられない
+   問題 (描画の崩れ、再生タイミング等) を捕まえられる。
+
+通常は (1) で実装を固め、PR を出す前にフィクスチャを (2) で通します。
+
+### セットアップ
+
+```bash
+git clone https://github.com/kosuke55/drawtonomy.git
+cd drawtonomy
+pnpm install   # workspace 全体をインストール
+```
+
+Exporter のソース: `packages/drawtonomy-sdk/src/exporter/`
+テスト: `packages/drawtonomy-sdk/__tests__/exporter/`
+
+### スナップショット駆動の開発 (高速ループ)
+
+Exporter は `DrawtonomySnapshot` を入力に取る純関数なので、vitest 単体で
+完結して挙動を確認できます (エディタもブラウザも esmini も不要)。
+「コードで snapshot を組み立て、exporter を呼び、出力 XML をアサート」だけで開発できます。
+
+```bash
+cd packages/drawtonomy-sdk
+
+pnpm test                       # 1 回だけ実行
+pnpm exec vitest                # watch モード (保存ごとに再実行)
+pnpm exec vitest exporter       # exporter テストファイルだけ
+pnpm build                      # tsc で型チェック (commit 前推奨)
+```
+
+最小のテスト雛形:
+
+```typescript
+// packages/drawtonomy-sdk/__tests__/exporter/my-feature.test.ts
+import { describe, it, expect } from 'vitest'
+import { exportToOpenDrive } from '../../src/exporter/opendrive'
+import type { DrawtonomySnapshot } from '../../src/types'
+
+function snapshot(shapes: any[]): DrawtonomySnapshot {
+  return { version: '1.1', timestamp: new Date().toISOString(), shapes }
+}
+
+describe('my new feature', () => {
+  it('emits something specific', () => {
+    const xml = exportToOpenDrive(snapshot([
+      // 自分のコードパスをトリガする最小のシーンを組む:
+      // 数個の point、linestring、lane など
+    ]))
+    expect(xml).toContain('<expected-element>')
+  })
+})
+```
+
+ヒント:
+
+- `__tests__/exporter/opendrive.test.ts` には `point` / `linestring` /
+  `lane` を作るための小さなヘルパが揃っているので、コピーして使うのが楽。
+- 開発中は `console.log(xml)` で全文を確認しながら回し、出力が安定したら
+  特定の行だけアサートする形に絞り込む。
+- 大きな XML 差分を扱うなら `expect(xml).toMatchInlineSnapshot()` も便利。
+
+### esmini で出力を検証する
+
+vitest は挙動の回帰を捉えますが、esmini が実際にどう描画するかまでは
+教えてくれません。snapshot テストが通ったら、生成 XML を esmini に
+直接食わせて目視確認します。
+
+ブラウザは不要です。snapshot フィクスチャから `.xodr` / `.xosc` を吐く
+小さなスクリプトを書き、それを esmini に渡すだけです。
+
+#### 1. esmini をインストール
+
+```bash
+# macOS
+brew install esmini
+
+# Linux / Windows: https://github.com/esmini/esmini を参照
+```
+
+#### 2. フィクスチャから bundle を生成
+
+```typescript
+// scripts/preview.mjs
+import { writeFileSync, mkdirSync } from 'node:fs'
+import { exporter } from '@drawtonomy/sdk'
+
+const snapshot = {
+  version: '1.1',
+  timestamp: new Date().toISOString(),
+  shapes: [
+    // 自分の変更をトリガする最小のシーンを組む。
+    // __tests__/exporter/ のフィクスチャを起点にコピペするのが楽。
+  ],
+}
+
+mkdirSync('out', { recursive: true })
+writeFileSync('out/scene.xodr', exporter.exportToOpenDrive(snapshot))
+writeFileSync('out/scene.xosc', exporter.exportToOpenScenario(snapshot, {
+  xodrFilename: 'scene.xodr',
+}))
+console.log('wrote out/scene.{xodr,xosc}')
+```
+
+SDK を `pnpm build` した後にスクリプトを実行:
+
+```bash
+cd packages/drawtonomy-sdk && pnpm build
+node scripts/preview.mjs
+```
+
+#### 3. esmini で開く
+
+```bash
+esmini --osc out/scene.xosc --window 60 60 1024 768
+```
+
+確認ポイント:
+
+- レーン形状がフィクスチャの意図通りか
+- 車両が想定の位置・向きで spawn しているか
+- trajectory がある場合、車両が想定のタイミングで path に沿って動くか
+- XML をテキストエディタで開いてもよい。exporter が出すコメントが手がかりになる
+
+esmini がパースエラーを出した場合、行番号と列を控えて生成 XML の該当箇所を
+grep するのが最短です。多くは属性の過不足程度で、vitest 側で再現して直せます。
+
+#### キャンバスからの完全な通し確認
+
+「キャンバス → snapshot → exporter → esmini」の流れを丸ごと検証したい
+場合は、公開済みの drawtonomy (`https://drawtonomy.com`) を使ってください。
+シーンを描いて **Export for esmini** を実行し、上記の手順で esmini に
+食わせます。drawtonomy.com に組み込まれている `@drawtonomy/sdk` は
+公開済みの最新リリースなので、この通し確認は **PR がマージされて SDK が
+再公開された後** に行うのが一番素直です。
+
+### テストの書き方
+
+挙動を変える PR にはテストを必ず付けてください。慣例:
+
+- ソースとテストは 1 対 1: `opendrive.ts` ↔ `opendrive.test.ts`
+- フィクスチャはコード上で plain object として組む。実エディタの snapshot を
+  そのまま貼ると、UI 側の変更で壊れやすいので避ける。
+- 全文比較ではなく狭いアサーション (`expect(xml).toContain(...)`) を優先。
+  emit のフォーマット微調整で壊れにくくなる。
+- 数値出力は `toBeCloseTo` で浮動小数の誤差を許容する。
+
+`@drawtonomy/sdk` の CI は `pnpm build` と `pnpm test` を実行します。
+PR では両方が通っている必要があります。
 
 ---
 

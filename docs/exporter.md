@@ -14,6 +14,7 @@ animation features, or entirely new target formats (CARLA, Unity, SUMO, …).
 
 - [Quick Start (User)](#quick-start-user)
 - [Quick Start (Developer)](#quick-start-developer)
+- [Local Development](#local-development)
 - [Architecture](#architecture)
 - [API Reference](#api-reference)
 - [Extending the Exporter](#extending-the-exporter)
@@ -61,6 +62,171 @@ const { blob, baseName } = exporter.buildEsminiZip(snapshot, {
 ```
 
 The exporter is pure: same input → same output, no editor or DOM access.
+
+---
+
+## Local Development
+
+This section is for contributors who want to **modify the exporter itself**.
+
+There are two complementary ways to develop:
+
+1. **Snapshot-driven** — write a snapshot fixture, run vitest, inspect the
+   generated XML. Fast iteration, no browser, ideal for new logic.
+2. **esmini visual check** — feed the generated `.xodr` / `.xosc` to esmini
+   and confirm the 3D playback matches expectations. Slower but catches
+   issues that pure XML assertions cannot.
+
+Most PRs start with (1), then run a fixture through (2) before opening the PR.
+
+### Setup
+
+```bash
+git clone https://github.com/kosuke55/drawtonomy.git
+cd drawtonomy
+pnpm install   # installs all workspace packages
+```
+
+The exporter source lives in `packages/drawtonomy-sdk/src/exporter/`.
+Tests live in `packages/drawtonomy-sdk/__tests__/exporter/`.
+
+### Snapshot-driven development (fast loop)
+
+The exporter is a set of pure functions over `DrawtonomySnapshot`, so you can
+exercise it entirely from vitest. No editor, no browser, no esmini — just
+"build a snapshot in code, call the exporter, assert on the XML string."
+
+```bash
+cd packages/drawtonomy-sdk
+
+pnpm test                       # one-shot
+pnpm exec vitest                # watch mode (re-runs on save)
+pnpm exec vitest exporter       # only the exporter test files
+pnpm build                      # tsc — catches type errors before you commit
+```
+
+Minimal test scaffold:
+
+```typescript
+// packages/drawtonomy-sdk/__tests__/exporter/my-feature.test.ts
+import { describe, it, expect } from 'vitest'
+import { exportToOpenDrive } from '../../src/exporter/opendrive'
+import type { DrawtonomySnapshot } from '../../src/types'
+
+function snapshot(shapes: any[]): DrawtonomySnapshot {
+  return { version: '1.1', timestamp: new Date().toISOString(), shapes }
+}
+
+describe('my new feature', () => {
+  it('emits something specific', () => {
+    const xml = exportToOpenDrive(snapshot([
+      // build the smallest scene that triggers your code path:
+      // a couple of points, a linestring, a lane, etc.
+    ]))
+    expect(xml).toContain('<expected-element>')
+  })
+})
+```
+
+Tips:
+
+- Look at `__tests__/exporter/opendrive.test.ts` for ready-made `point` /
+  `linestring` / `lane` factory helpers you can copy.
+- Inspect the full output with `console.log(xml)` while you iterate. Once
+  the shape stabilizes, narrow the assertion down to the specific lines
+  you care about.
+- For larger XML diffs, switch to `expect(xml).toMatchInlineSnapshot()`.
+
+### Validating the output with esmini
+
+vitest assertions catch behavioral regressions, but they cannot tell you
+whether esmini will actually render the output the way you expect. Once
+your snapshot tests pass, run the generated XML through esmini directly.
+
+You do not need to start drawtonomy or any browser for this — write a tiny
+script that produces a `.xodr` / `.xosc` pair from a snapshot fixture, then
+hand it to esmini.
+
+#### 1. Install esmini
+
+```bash
+# macOS
+brew install esmini
+
+# Linux / Windows: see https://github.com/esmini/esmini
+```
+
+#### 2. Generate a bundle from a fixture
+
+```typescript
+// scripts/preview.mjs
+import { writeFileSync, mkdirSync } from 'node:fs'
+import { exporter } from '@drawtonomy/sdk'
+
+const snapshot = {
+  version: '1.1',
+  timestamp: new Date().toISOString(),
+  shapes: [
+    // Build the smallest scene that exercises your change.
+    // Copy a fixture from __tests__/exporter/ as a starting point.
+  ],
+}
+
+mkdirSync('out', { recursive: true })
+writeFileSync('out/scene.xodr', exporter.exportToOpenDrive(snapshot))
+writeFileSync('out/scene.xosc', exporter.exportToOpenScenario(snapshot, {
+  xodrFilename: 'scene.xodr',
+}))
+console.log('wrote out/scene.{xodr,xosc}')
+```
+
+Run it once you have a fresh `pnpm build` from the SDK:
+
+```bash
+cd packages/drawtonomy-sdk && pnpm build
+node scripts/preview.mjs
+```
+
+#### 3. Open the result in esmini
+
+```bash
+esmini --osc out/scene.xosc --window 60 60 1024 768
+```
+
+What to check:
+
+- Lane geometry matches your fixture's intent.
+- Vehicles spawn at the expected positions and headings.
+- For trajectories, vehicles follow the path with the expected timing.
+- Open the XML files in a text editor; the comments emitted by the exporter
+  often help locate the relevant section.
+
+If esmini reports a parsing error, copy the line/column it prints and grep
+the corresponding part of the generated XML — most issues are off-by-one
+attributes or missing required fields, both easy to fix back in vitest.
+
+#### Going further: full canvas verification
+
+To verify the full chain (canvas → snapshot → exporter → esmini), use
+the published drawtonomy app at `https://drawtonomy.com` — draw your scene,
+hit **Export for esmini**, and feed the zip to esmini as above. The version
+of `@drawtonomy/sdk` available there matches the latest published release,
+so this flow is best used after your PR has been merged and the SDK has been
+re-published.
+
+### Writing tests
+
+Every behavioral change should land with a test. Conventions:
+
+- One spec file per source file: `opendrive.ts` ↔ `opendrive.test.ts`.
+- Tests are pure JS objects, not snapshots from the live editor — they stay
+  stable even if unrelated UI code moves around.
+- Prefer narrow assertions (`expect(xml).toContain(...)`) over full-XML
+  comparisons; the latter break on every cosmetic emit change.
+- For numerical outputs, use `toBeCloseTo` to tolerate floating-point noise.
+
+The CI job for `@drawtonomy/sdk` runs `pnpm build` and `pnpm test`; both
+must pass on PR.
 
 ---
 
