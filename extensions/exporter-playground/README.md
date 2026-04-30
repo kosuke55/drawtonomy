@@ -22,20 +22,44 @@ described in the [Exporter Developer Guide][docs].
 
 ## Quick Start
 
+You need two local servers running side-by-side: one for the canvas, one
+for this extension. Browsers block plain HTTP iframes loaded from HTTPS
+pages, so we serve the canvas locally over HTTP via
+[`@drawtonomy/dev-server`][dev-server] and keep both sides on
+`http://localhost:*`.
+
+[dev-server]: https://www.npmjs.com/package/@drawtonomy/dev-server
+
+**Terminal 1 — local canvas:**
+
 ```bash
-# 1. Install workspace deps (once at the repo root)
-pnpm install
-
-# 2. Start this extension on port 3003
-cd extensions/exporter-playground
-pnpm dev
-
-# 3. Open drawtonomy with this extension loaded.
-#    Locally with @drawtonomy/dev-server:
-open "http://localhost:3000/?ext=http://localhost:3003/manifest.json"
-#    Or against the hosted app (HTTPS-only):
-open "https://drawtonomy.com/?ext=https://your-deployed-extension.example/manifest.json"
+pnpm dlx @drawtonomy/dev-server
+# → http://localhost:3000/
 ```
+
+**Terminal 2 — this extension:**
+
+```bash
+cd extensions/exporter-playground
+pnpm install --ignore-workspace   # first time only
+pnpm dev                          # → http://localhost:3003/
+```
+
+**Open the canvas with the extension loaded:**
+
+```
+http://localhost:3000/?ext=http://localhost:3003/manifest.json
+```
+
+The extension panel appears on the right. Draw a scene, hit **Refresh
+snapshot**, and click any of the Export buttons.
+
+> **Hosted canvas?** `https://drawtonomy.com/?ext=...` only works when the
+> extension itself is also hosted on HTTPS (Mixed Content / Private Network
+> Access rules). The hosted canvas embeds the published SDK build, so it
+> will not reflect your local SDK changes — use the dev-server flow above
+> while iterating on the SDK, then deploy and switch to the hosted form
+> for distribution.
 
 In the side panel:
 
