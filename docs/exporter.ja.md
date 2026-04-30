@@ -106,10 +106,16 @@ pnpm exec vitest exporter       # exporter テストファイルだけ
 pnpm build                      # tsc で型チェック (commit 前推奨)
 ```
 
-最小のテスト雛形:
+#### snapshot を用意する 3 つの方法
+
+リアル度が低い順に 3 通りあります。
+
+**(1) 手書きの最小フィクスチャ**。特定のコードパスを狙うユニットテストに最適。
+`__tests__/exporter/` 配下の既存テストには `point` / `linestring` / `lane`
+を作る小さなヘルパが用意されているので、コピペで始められます。
 
 ```typescript
-// packages/drawtonomy-sdk/__tests__/exporter/my-feature.test.ts
+// __tests__/exporter/my-feature.test.ts
 import { describe, it, expect } from 'vitest'
 import { exportToOpenDrive } from '../../src/exporter/opendrive'
 import type { DrawtonomySnapshot } from '../../src/types'
@@ -121,21 +127,59 @@ function snapshot(shapes: any[]): DrawtonomySnapshot {
 describe('my new feature', () => {
   it('emits something specific', () => {
     const xml = exportToOpenDrive(snapshot([
-      // 自分のコードパスをトリガする最小のシーンを組む:
-      // 数個の point、linestring、lane など
+      // 自分のコードパスをトリガする最小のシーン
     ]))
     expect(xml).toContain('<expected-element>')
   })
 })
 ```
 
-ヒント:
+**(2) SDK ヘルパで組み立てる**。プロパティを 1 つずつ書きたくないけれど
+リアルなシェイプが欲しい時。`createPoint` / `createLinestring` /
+`createLane` / `createLaneWithBoundaries` / `createVehicle` /
+`createPathWithFootprints` / `createSnapshot` を組み合わせます。
 
-- `__tests__/exporter/opendrive.test.ts` には `point` / `linestring` /
-  `lane` を作るための小さなヘルパが揃っているので、コピーして使うのが楽。
+```typescript
+import {
+  createLaneWithBoundaries,
+  createVehicle,
+  createSnapshot,
+} from '@drawtonomy/sdk'
+
+const shapes = [
+  ...createLaneWithBoundaries(
+    [{ x: 0, y: -5 }, { x: 100, y: -5 }],
+    [{ x: 0, y: 5 }, { x: 100, y: 5 }]
+  ),
+  createVehicle(50, 0, { templateId: 'sedan' }),
+]
+const snapshot = createSnapshot(shapes)
+```
+
+**(3) drawtonomy で描いた実シーンを再利用する**。
+[drawtonomy.com](https://drawtonomy.com) でシーンを描き、
+**メニュー → Export → drawtonomy.svg** でダウンロード。
+このファイルは snapshot を埋め込んだ通常の SVG なので、`parseDrawtonomySvg`
+で `DrawtonomySnapshot` に戻せます。
+
+```typescript
+import { readFileSync } from 'node:fs'
+import { parseDrawtonomySvg } from '@drawtonomy/sdk'
+
+const svg = readFileSync('./fixtures/my-scene.drawtonomy.svg', 'utf-8')
+const snapshot = parseDrawtonomySvg(svg)
+if (!snapshot) throw new Error('not a drawtonomy.svg file')
+```
+
+`.drawtonomy.svg` で保存した fixture は「この実シーンを入れたらこの XML が
+出てほしい」という回帰テストの入力に向いています。
+
+#### 反復のヒント
+
 - 開発中は `console.log(xml)` で全文を確認しながら回し、出力が安定したら
   特定の行だけアサートする形に絞り込む。
 - 大きな XML 差分を扱うなら `expect(xml).toMatchInlineSnapshot()` も便利。
+- フィクスチャは小さく保つ。点 3 個 + lane 1 個でだいたい足りる。
 
 ### esmini で出力を検証する
 
@@ -155,21 +199,28 @@ brew install esmini
 # Linux / Windows: https://github.com/esmini/esmini を参照
 ```
 
-#### 2. フィクスチャから bundle を生成
+#### 2. snapshot から bundle を生成
+
+drawtonomy.com からエクスポートした `.drawtonomy.svg` を起点にするのが一番簡単です
+([snapshot を用意する 3 つの方法](#snapshot-を用意する-3-つの方法) 参照)。
+手書きフィクスチャやヘルパで組み立てた snapshot でも同じスクリプトが使えます。
 
 ```typescript
 // scripts/preview.mjs
-import { writeFileSync, mkdirSync } from 'node:fs'
-import { exporter } from '@drawtonomy/sdk'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { parseDrawtonomySvg, exporter } from '@drawtonomy/sdk'
 
-const snapshot = {
-  version: '1.1',
-  timestamp: new Date().toISOString(),
-  shapes: [
-    // 自分の変更をトリガする最小のシーンを組む。
-    // __tests__/exporter/ のフィクスチャを起点にコピペするのが楽。
-  ],
-}
+// オプション A: drawtonomy.com からの実シーン
+const svg = readFileSync('./fixtures/my-scene.drawtonomy.svg', 'utf-8')
+const snapshot = parseDrawtonomySvg(svg)
+if (!snapshot) throw new Error('not a drawtonomy.svg file')
+
+// オプション B: コードで組み立てた snapshot (使う場合はコメント解除)
+// import { createLaneWithBoundaries, createVehicle, createSnapshot } from '@drawtonomy/sdk'
+// const snapshot = createSnapshot([
+//   ...createLaneWithBoundaries([{x:0,y:-5},{x:100,y:-5}], [{x:0,y:5},{x:100,y:5}]),
+//   createVehicle(50, 0, { templateId: 'sedan' }),
+// ])
 
 mkdirSync('out', { recursive: true })
 writeFileSync('out/scene.xodr', exporter.exportToOpenDrive(snapshot))
@@ -377,6 +428,24 @@ Node どちらでも動作します。
 
 OS セーフなベース名 (path separator / 制御文字 → アンダースコア、
 最大 100 文字) を返します。空になる入力に対しては `null` を返します。
+
+### `parseDrawtonomySvg(svg)` *(SDK ルート、`exporter` サブモジュールではない)*
+
+```typescript
+function parseDrawtonomySvg(svgContent: string): DrawtonomySnapshot | null
+```
+
+`.drawtonomy.svg` のソース文字列を読み、埋め込まれた `DrawtonomySnapshot`
+を返します。snapshot を含まない通常の SVG、壊れたペイロード、文字列でない
+入力に対しては `null` を返します。`data-drawtonomy-snapshot` (現行) と
+`data-drawauto-snapshot` (旧形式) の両方を受け付けます。`DOMParser` /
+`jsdom` を使わない実装なので、純 Node でも動きます。
+
+```typescript
+import { parseDrawtonomySvg } from '@drawtonomy/sdk'
+
+const snapshot = parseDrawtonomySvg(readFileSync('scene.drawtonomy.svg', 'utf-8'))
+```
 
 ---
 

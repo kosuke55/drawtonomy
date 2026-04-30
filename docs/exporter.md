@@ -94,7 +94,7 @@ Tests live in `packages/drawtonomy-sdk/__tests__/exporter/`.
 
 The exporter is a set of pure functions over `DrawtonomySnapshot`, so you can
 exercise it entirely from vitest. No editor, no browser, no esmini — just
-"build a snapshot in code, call the exporter, assert on the XML string."
+"build a snapshot, call the exporter, assert on the XML string."
 
 ```bash
 cd packages/drawtonomy-sdk
@@ -105,10 +105,17 @@ pnpm exec vitest exporter       # only the exporter test files
 pnpm build                      # tsc — catches type errors before you commit
 ```
 
-Minimal test scaffold:
+#### How to obtain a snapshot
+
+You have three options, in order of increasing realism:
+
+**(1) Hand-build a minimal fixture in code.** Best for unit tests that target
+a specific code path. The existing exporter tests under
+`__tests__/exporter/` ship small `point` / `linestring` / `lane` factory
+helpers you can copy.
 
 ```typescript
-// packages/drawtonomy-sdk/__tests__/exporter/my-feature.test.ts
+// __tests__/exporter/my-feature.test.ts
 import { describe, it, expect } from 'vitest'
 import { exportToOpenDrive } from '../../src/exporter/opendrive'
 import type { DrawtonomySnapshot } from '../../src/types'
@@ -120,22 +127,59 @@ function snapshot(shapes: any[]): DrawtonomySnapshot {
 describe('my new feature', () => {
   it('emits something specific', () => {
     const xml = exportToOpenDrive(snapshot([
-      // build the smallest scene that triggers your code path:
-      // a couple of points, a linestring, a lane, etc.
+      // smallest scene that triggers your code path
     ]))
     expect(xml).toContain('<expected-element>')
   })
 })
 ```
 
-Tips:
+**(2) Compose with SDK helpers.** When you want a realistic shape but don't
+want to write every property by hand, use `createPoint` / `createLinestring`
+/ `createLane` / `createLaneWithBoundaries` / `createVehicle` /
+`createPathWithFootprints` / `createSnapshot`.
 
-- Look at `__tests__/exporter/opendrive.test.ts` for ready-made `point` /
-  `linestring` / `lane` factory helpers you can copy.
-- Inspect the full output with `console.log(xml)` while you iterate. Once
-  the shape stabilizes, narrow the assertion down to the specific lines
-  you care about.
+```typescript
+import {
+  createLaneWithBoundaries,
+  createVehicle,
+  createSnapshot,
+} from '@drawtonomy/sdk'
+
+const shapes = [
+  ...createLaneWithBoundaries(
+    [{ x: 0, y: -5 }, { x: 100, y: -5 }],
+    [{ x: 0, y: 5 }, { x: 100, y: 5 }]
+  ),
+  createVehicle(50, 0, { templateId: 'sedan' }),
+]
+const snapshot = createSnapshot(shapes)
+```
+
+**(3) Reuse a real scene exported from drawtonomy.** Open
+[drawtonomy.com](https://drawtonomy.com), draw the scene, then **Menu →
+Export → drawtonomy.svg**. The downloaded file is a regular SVG with the
+full snapshot embedded; pass it through `parseDrawtonomySvg` to get back a
+`DrawtonomySnapshot`.
+
+```typescript
+import { readFileSync } from 'node:fs'
+import { parseDrawtonomySvg } from '@drawtonomy/sdk'
+
+const svg = readFileSync('./fixtures/my-scene.drawtonomy.svg', 'utf-8')
+const snapshot = parseDrawtonomySvg(svg)
+if (!snapshot) throw new Error('not a drawtonomy.svg file')
+```
+
+Saved `.drawtonomy.svg` fixtures make good regression-test inputs for
+"this real scene should produce this XML".
+
+#### Iteration tips
+
+- Inspect the full output with `console.log(xml)` while you iterate, then
+  narrow the assertion to the lines you care about once the shape stabilizes.
 - For larger XML diffs, switch to `expect(xml).toMatchInlineSnapshot()`.
+- Keep fixtures small — three points and one lane is usually enough.
 
 ### Validating the output with esmini
 
@@ -156,21 +200,28 @@ brew install esmini
 # Linux / Windows: see https://github.com/esmini/esmini
 ```
 
-#### 2. Generate a bundle from a fixture
+#### 2. Generate a bundle from a snapshot
+
+The simplest way is to start from a `.drawtonomy.svg` you exported from
+drawtonomy.com (see [How to obtain a snapshot](#how-to-obtain-a-snapshot)
+above). The same script works with hand-built or helper-composed snapshots.
 
 ```typescript
 // scripts/preview.mjs
-import { writeFileSync, mkdirSync } from 'node:fs'
-import { exporter } from '@drawtonomy/sdk'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { parseDrawtonomySvg, exporter } from '@drawtonomy/sdk'
 
-const snapshot = {
-  version: '1.1',
-  timestamp: new Date().toISOString(),
-  shapes: [
-    // Build the smallest scene that exercises your change.
-    // Copy a fixture from __tests__/exporter/ as a starting point.
-  ],
-}
+// Option A: real scene from drawtonomy.com
+const svg = readFileSync('./fixtures/my-scene.drawtonomy.svg', 'utf-8')
+const snapshot = parseDrawtonomySvg(svg)
+if (!snapshot) throw new Error('not a drawtonomy.svg file')
+
+// Option B: snapshot composed in code (uncomment to use)
+// import { createLaneWithBoundaries, createVehicle, createSnapshot } from '@drawtonomy/sdk'
+// const snapshot = createSnapshot([
+//   ...createLaneWithBoundaries([{x:0,y:-5},{x:100,y:-5}], [{x:0,y:5},{x:100,y:5}]),
+//   createVehicle(50, 0, { templateId: 'sedan' }),
+// ])
 
 mkdirSync('out', { recursive: true })
 writeFileSync('out/scene.xodr', exporter.exportToOpenDrive(snapshot))
@@ -380,6 +431,24 @@ dependencies; works in browsers and Node.
 Returns an OS-safe base name (path separators / control chars replaced with
 underscores, length-capped at 100 chars), or `null` for inputs that reduce
 to empty.
+
+### `parseDrawtonomySvg(svg)` *(SDK root, not under `exporter`)*
+
+```typescript
+function parseDrawtonomySvg(svgContent: string): DrawtonomySnapshot | null
+```
+
+Reads a `.drawtonomy.svg` source string and returns the embedded
+`DrawtonomySnapshot`. Returns `null` for plain SVGs without an embedded
+snapshot, malformed payloads, or non-string inputs. Accepts both
+`data-drawtonomy-snapshot` (current) and `data-drawauto-snapshot` (legacy)
+attributes. Works in plain Node (no `DOMParser` / `jsdom` required).
+
+```typescript
+import { parseDrawtonomySvg } from '@drawtonomy/sdk'
+
+const snapshot = parseDrawtonomySvg(readFileSync('scene.drawtonomy.svg', 'utf-8'))
+```
 
 ---
 
