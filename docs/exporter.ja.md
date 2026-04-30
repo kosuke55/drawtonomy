@@ -266,6 +266,70 @@ grep するのが最短です。多くは属性の過不足程度で、vitest �
 公開済みの最新リリースなので、この通し確認は **PR がマージされて SDK が
 再公開された後** に行うのが一番素直です。
 
+リリースを待たずに **ローカル SDK のままキャンバス越しに検証したい** 場合は、
+リポジトリ同梱の
+[`extensions/exporter-playground`](../extensions/exporter-playground/)
+を使ってください。iframe Extension として読み込まれ、`requestSnapshot()`
+で取得した snapshot に対してローカル SDK の `exporter.exportTo*` を呼び、
+ブラウザにダウンロードします。
+
+ローカルサーバを 2 つ並走させる構成です: ひとつは drawtonomy のキャンバスを
+ホスト、もうひとつは Extension をホスト。HTTPS ページからの HTTP リクエスト
+(また最近のブラウザでは `*.com` から `localhost` への通信も) はブロック
+されるので、[`@drawtonomy/dev-server`][dev-server] でキャンバスをローカルに
+HTTP で配信して、両側を `http://localhost:*` に揃えます。
+
+[dev-server]: https://www.npmjs.com/package/@drawtonomy/dev-server
+
+**ターミナル 1 — ローカル canvas を起動:**
+
+```bash
+pnpm dlx @drawtonomy/dev-server
+# → http://localhost:3000/
+```
+
+`@drawtonomy/dev-server` は公開済みの `drawtonomy.com` ビルドをキャッシュ
+ディレクトリに取得して配信します。他のリポジトリやログインは不要です。
+
+**ターミナル 2 — Extension を起動:**
+
+```bash
+cd extensions/exporter-playground
+pnpm install --ignore-workspace   # 初回のみ
+pnpm dev                          # → http://localhost:3003/
+```
+
+これで `http://localhost:3003/manifest.json` がアクセス可能になります。
+
+**Extension を読み込んだ canvas を開く:**
+
+ブラウザで以下を開きます。
+
+```
+http://localhost:3000/?ext=http://localhost:3003/manifest.json
+```
+
+サイドパネルに Exporter Playground が表示されます。シーンを描き、必要なら
+**Refresh snapshot** を押して、**Export** ボタンを押すとローカル SDK で
+生成された `.xodr` / `.xosc` / `.zip` がブラウザにダウンロードされます。
+
+SDK のソースを変更したら再ビルドして、ブラウザのキャンバスタブをリロード
+してください。
+
+```bash
+cd packages/drawtonomy-sdk && pnpm build
+# ブラウザでリロード
+```
+
+> **`https://drawtonomy.com/?ext=http://localhost:3003/...` ではなぜダメか?**
+> HTTPS のページが `localhost` の HTTP iframe manifest を読み込むのは Mixed
+> Content / Private Network Access のルールでブロックされます。
+> dev-server を使えば両側が plain HTTP に揃うので回避できます。
+> Extension を HTTPS ホストにデプロイ済みなら、
+> `https://drawtonomy.com/?ext=https://your-host/manifest.json` の形は
+> 動作しますが、それは公開済みの canvas に組み込まれた SDK バージョンを
+> 使う形なので、ローカル SDK の変更は反映されません。
+
 ### テストの書き方
 
 挙動を変える PR にはテストを必ず付けてください。慣例:
