@@ -135,16 +135,31 @@ export interface TrafficLightProps {
   w: number
   h: number
   color: string
-  attributes: { type: 'traffic_light'; subtype?: string }
+  /** Visual style identifier (e.g. "pedestrian", "traffic_red"). */
+  style: string
+  /** Currently lit lamp index for the configured style. */
+  activeLight?: string
+  size?: string
+  attributes: { type?: string; subtype?: string } & Record<string, string>
   osmId: string
 }
 
 export interface CrosswalkProps {
-  pointIds: string[]
-  color: string
+  /** Crosswalk axis start in shape-local coordinates. */
+  startX: number
+  startY: number
+  /** Crosswalk axis end in shape-local coordinates. */
+  endX: number
+  endY: number
+  /** Stripe band thickness across the road. */
+  crosswalkWidth: number
+  /** Width of each white stripe. */
   stripeWidth?: number
-  stripeGap?: number
-  attributes: { type: 'crosswalk'; subtype?: string }
+  /** Spacing between stripes. */
+  stripeSpacing?: number
+  color: string
+  opacity?: number | null
+  attributes: { type?: string; subtype?: string } & Record<string, string>
   osmId: string
 }
 

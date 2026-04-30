@@ -120,6 +120,33 @@ http://localhost:3000/?ext=http://localhost:3001/manifest.json
 | `getBoundingBox(points)` | Get bounding box |
 | `distanceToSegment(point, a, b)` | Point-to-segment distance |
 
+### Exporter Module
+
+Convert a `DrawtonomySnapshot` into target-format strings (OpenDRIVE,
+OpenSCENARIO) without depending on the editor runtime — useful for headless
+tooling, server-side pipelines, or browser extensions.
+
+```typescript
+import { exporter, createSnapshot } from '@drawtonomy/sdk'
+
+const snapshot = createSnapshot(myShapes)
+const xodr = exporter.exportToOpenDrive(snapshot)
+const xosc = exporter.exportToOpenScenario(snapshot, { xodrFilename: 'scene.xodr' })
+
+// Bundle both into a single .zip ready for esmini.
+const { blob, baseName } = exporter.buildEsminiZip(snapshot, { baseName: 'my-scene' })
+```
+
+| Function | Description |
+|----------|-------------|
+| `exporter.exportToOpenDrive(snapshot)` | OpenDRIVE 1.8 (.xodr) XML |
+| `exporter.exportToOpenScenario(snapshot, options?)` | OpenSCENARIO 1.3 (.xosc) XML |
+| `exporter.buildEsminiZip(snapshot, options?)` | One-shot zip bundling .xodr + .xosc |
+| `exporter.buildPathTrajectory(input)` | Path → time-stamped vertex sequence |
+| `exporter.computeCenterlineWithWidth(left, right)` | Lane centerline + width samples |
+| `exporter.buildZip(entries)` | Pure ZIP builder (store mode, no deps) |
+| `exporter.sanitizeFileBaseName(input)` | OS-safe base-name sanitizer |
+
 ## Deployment
 
 Extensions can be deployed to any HTTPS hosting service.
