@@ -1,5 +1,9 @@
 # drawtonomy Exporter
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/4185a3c7-7662-4d01-a3b2-73e17897c27a" width="80%" />
+</p>
+
 [日本語版はこちら](exporter.ja.md)
 
 The `exporter` sub-module of `@drawtonomy/sdk` converts a `DrawtonomySnapshot`
