@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Exporter Playground</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 10px;
+      color: #374151;
+      background: #fff;
+      padding: 8px;
+    }
+    .section { margin-bottom: 8px; }
+    .section-title {
+      font-size: 0.5625rem;
+      font-weight: 600;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+    .description {
+      font-size: 0.625rem;
+      color: #6b7280;
+      line-height: 1.5;
+      margin-bottom: 6px;
+    }
+    .separator { height: 1px; background: #e4e4e7; margin: 8px 0; }
+
+    .field-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 4px 0;
+    }
+    .field-row label {
+      font-size: 0.625rem;
+      color: #374151;
+      min-width: 72px;
+    }
+    .field-row input[type="text"] {
+      flex: 1;
+      padding: 2px 6px;
+      border: 1px solid #e4e4e7;
+      border-radius: 4px;
+      font-size: 0.625rem;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      color: #374151;
+      outline: none;
+    }
+    .field-row input[type="text"]:focus { border-color: #a5b4fc; }
+
+    .btn {
+      padding: 6px 8px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.625rem;
+      font-weight: 500;
+      transition: all 0.15s;
+      outline: none;
+      width: 100%;
+      text-align: left;
+    }
+    .btn:hover:not(:disabled) { transform: translateY(-1px); }
+    .btn-primary { background: #e0e7ff; color: #4f46e5; }
+    .btn-primary:hover:not(:disabled) { background: #c7d2fe; }
+    .btn-secondary { background: #f4f4f5; color: #52525b; }
+    .btn-secondary:hover:not(:disabled) { background: #e4e4e7; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .button-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .status {
+      font-size: 0.5625rem;
+      color: #6b7280;
+      margin-top: 6px;
+      min-height: 1em;
+    }
+    .status.ok { color: #059669; }
+    .status.err { color: #dc2626; }
+
+    .hint {
+      font-size: 0.5625rem;
+      color: #9ca3af;
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
+    code {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.5625rem;
+      background: #f4f4f5;
+      padding: 1px 3px;
+      border-radius: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="section">
+    <div class="section-title">Exporter Playground</div>
+    <div class="description">
+      Run <code>@drawtonomy/sdk</code> exporters against the current snapshot.
+      Useful for SDK contributors to verify changes against a real scene.
+    </div>
+  </div>
+
+  <div class="separator"></div>
+
+  <div class="section">
+    <div class="section-title">Output</div>
+    <div class="field-row">
+      <label for="base-name">Base name</label>
+      <input type="text" id="base-name" value="my-scene" placeholder="my-scene" />
+    </div>
+  </div>
+
+  <div class="separator"></div>
+
+  <div class="section">
+    <div class="section-title">Export</div>
+    <div class="button-grid">
+      <button class="btn btn-primary" id="btn-xodr" disabled>Export OpenDRIVE (.xodr)</button>
+      <button class="btn btn-primary" id="btn-xosc" disabled>Export OpenSCENARIO (.xosc)</button>
+      <button class="btn btn-primary" id="btn-esmini" disabled>Export esmini bundle (.zip)</button>
+    </div>
+    <div class="status" id="status">Connecting…</div>
+  </div>
+
+  <div class="separator"></div>
+
+  <div class="section">
+    <div class="section-title">Snapshot</div>
+    <div class="button-grid">
+      <button class="btn btn-secondary" id="btn-refresh" disabled>Refresh snapshot</button>
+    </div>
+    <div class="hint" id="snapshot-info">No snapshot loaded.</div>
+  </div>
+
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>

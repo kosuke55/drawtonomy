@@ -269,6 +269,20 @@ of `@drawtonomy/sdk` available there matches the latest published release,
 so this flow is best used after your PR has been merged and the SDK has been
 re-published.
 
+If you want canvas-driven verification *with your local SDK build* (before
+publishing), use the bundled
+[`extensions/exporter-playground`](../extensions/exporter-playground/)
+extension. It loads as an iframe extension, calls `requestSnapshot()` over
+postMessage, and runs your local SDK's `exporter.exportTo*` against the
+real canvas — no need to wait for a release cycle.
+
+```bash
+cd extensions/exporter-playground
+pnpm install
+pnpm dev   # http://localhost:3003
+# Then open drawtonomy with ?ext=http://localhost:3003/manifest.json
+```
+
 ### Writing tests
 
 Every behavioral change should land with a test. Conventions:

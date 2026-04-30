@@ -266,6 +266,20 @@ grep するのが最短です。多くは属性の過不足程度で、vitest �
 公開済みの最新リリースなので、この通し確認は **PR がマージされて SDK が
 再公開された後** に行うのが一番素直です。
 
+リリースを待たずに **ローカル SDK のままキャンバス越しに検証したい** 場合は、
+リポジトリ同梱の
+[`extensions/exporter-playground`](../extensions/exporter-playground/)
+を使ってください。iframe Extension として読み込まれ、`requestSnapshot()`
+で取得した snapshot に対してローカル SDK の `exporter.exportTo*` を呼び、
+ブラウザにダウンロードします。
+
+```bash
+cd extensions/exporter-playground
+pnpm install
+pnpm dev   # http://localhost:3003
+# drawtonomy を ?ext=http://localhost:3003/manifest.json で開く
+```
+
 ### テストの書き方
 
 挙動を変える PR にはテストを必ず付けてください。慣例:

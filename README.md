@@ -175,7 +175,7 @@ formats (CARLA, Unity, SUMO, …).
   <img src="https://github.com/user-attachments/assets/4185a3c7-7662-4d01-a3b2-73e17897c27a" width="80%" />
 </p>
 
-📖 **[Exporter Developer Guide](docs/exporter.md)** | [日本語](docs/exporter.ja.md)
+📖 **[Exporter Developer Guide](docs/exporter.md)** | [日本語](docs/exporter.ja.md) | 🧪 **[Exporter Playground extension](extensions/exporter-playground/)** for canvas-driven verification
 
 ### 🤖 [AI Scene Generator](extensions/ai-scene-generator/)
 
