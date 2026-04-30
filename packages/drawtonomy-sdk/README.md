@@ -120,6 +120,12 @@ http://localhost:3000/?ext=http://localhost:3001/manifest.json
 | `getBoundingBox(points)` | Get bounding box |
 | `distanceToSegment(point, a, b)` | Point-to-segment distance |
 
+### Snapshot
+
+| Function | Description |
+|----------|-------------|
+| `parseDrawtonomySvg(svg)` | Read a `.drawtonomy.svg` source string and return the embedded `DrawtonomySnapshot`, or `null` if absent / malformed |
+
 ### Exporter Module
 
 Convert a `DrawtonomySnapshot` into target-format strings (OpenDRIVE,
