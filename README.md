@@ -32,6 +32,7 @@
 - 💾 **Editable Save Format** - Re-edit while preserving lane connection info
 - 🗺️ **[Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2) Support** - Import OSM format maps
 - 🤖 **ROS Map Support** - Import OccupancyGrid maps (.pgm + .yaml) from SLAM
+- 🚗 **[ASAM Export](docs/exporter.md)** - Export OpenDRIVE / OpenSCENARIO and esmini-ready zip bundles
 - 🤖 **[AI Scene Generator](extensions/ai-scene-generator/)** - Generate editable scenes from natural language, OpenSCENARIO XML, or DSL
 
 ## 🎯 Main Features
@@ -129,6 +130,9 @@ Generate footprints on a Path with the Generate button. Rectangle or any vehicle
 | **drawtonomy.svg** | ✓      | ✓      | Re-editable           |
 | **OSM (Lanelet2)** |        | ✓      |                       |
 | **PGM+YAML (ROS)** |        | ✓      | OccupancyGrid map     |
+| **OpenDRIVE (.xodr)** | ✓   |        | ASAM 1.8              |
+| **OpenSCENARIO (.xosc)** | ✓ |       | ASAM 1.3              |
+| **esmini bundle (.zip)** | ✓ |       | .xodr + .xosc together |
 
 > **Note on EPS export**: EPS format does not support transparency. When exporting shapes with opacity settings, the exported EPS will show shapes at full opacity, which may differ from the canvas display. For accurate transparency rendering, use PDF export instead.
 
@@ -156,6 +160,22 @@ Compatible with nav2, cartographer, gmapping, and other SLAM tools.
 <p align="center">
   <img src="./docs/images/ros-occupancy-grid-map.png" width="80%" />
 </p>
+
+#### ASAM Export (OpenDRIVE / OpenSCENARIO / esmini)
+
+Export the current scene as an ASAM-format file or a single zip bundle ready
+for [esmini](https://github.com/esmini/esmini) to play back. Use the **Export
+for esmini** menu item to produce a zip containing both `.xodr` and `.xosc`.
+
+The exporter is implemented in `@drawtonomy/sdk` and is the main extension
+point for adding new shapes, animation features, or entirely new target
+formats (CARLA, Unity, SUMO, …).
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/4185a3c7-7662-4d01-a3b2-73e17897c27a" width="80%" />
+</p>
+
+📖 **[Exporter Developer Guide](docs/exporter.md)** | [日本語](docs/exporter.ja.md) | 🧪 **[Exporter Playground extension](extensions/exporter-playground/)** for canvas-driven verification
 
 ### 🤖 [AI Scene Generator](extensions/ai-scene-generator/)
 
@@ -235,3 +255,5 @@ Available npm packages:
 | [`@drawtonomy/dev-server`](https://www.npmjs.com/package/@drawtonomy/dev-server) | Local dev server for extension development |
 
 📖 **[Extension Development Guide](docs/extensions.md)** | [日本語](docs/extensions.ja.md) | [AI Scene Generator](extensions/ai-scene-generator/) | [Template Preview](extensions/template-preview/)
+
+📖 **[Exporter Developer Guide](docs/exporter.md)** | [日本語](docs/exporter.ja.md) — extend OpenDRIVE / OpenSCENARIO output, or add a new target format (CARLA, Unity, SUMO, …)

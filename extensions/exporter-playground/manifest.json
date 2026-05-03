@@ -1,0 +1,13 @@
+{
+  "id": "exporter-playground",
+  "name": "Exporter Playground",
+  "version": "0.1.0",
+  "description": "Run @drawtonomy/sdk exporters (OpenDRIVE / OpenSCENARIO / esmini bundle) against the current canvas snapshot",
+  "author": { "name": "@kosuke55", "url": "https://github.com/kosuke55" },
+  "entry": "./index.html",
+  "capabilities": [
+    "snapshot:read",
+    "ui:panel",
+    "ui:notify"
+  ]
+}
