@@ -118,6 +118,42 @@ https://drawtonomy.com?ext=http://localhost:3001/manifest.json
 | `getBoundingBox(points)` | バウンディングボックスを取得 |
 | `distanceToSegment(point, a, b)` | 点からセグメントまでの距離 |
 
+### Exporter モジュール
+
+`DrawtonomySnapshot` を OpenDRIVE / OpenSCENARIO / Lanelet2 OSM 形式の文字列に変換します。エディタランタイムに依存しないため、ヘッドレスツール、サーバーサイドパイプライン、ブラウザ拡張等から利用可能です。Lanelet2 については OSM XML をエディタが扱える形式（point / linestring / lane）に戻すパーサも提供し、ラウンドトリップを実現します。
+
+```typescript
+import { exporter, createSnapshot } from '@drawtonomy/sdk'
+
+const snapshot = createSnapshot(myShapes)
+const xodr = exporter.exportToOpenDrive(snapshot)
+const xosc = exporter.exportToOpenScenario(snapshot, { xodrFilename: 'scene.xodr' })
+
+// .xodr + .xosc を 1 つの zip にまとめて esmini で実行可能に
+const { blob, baseName } = exporter.buildEsminiZip(snapshot, { baseName: 'my-scene' })
+
+// Lanelet2 (.osm XML) のエクスポート + 再インポート
+const osm = exporter.exportToLanelet2(snapshot, { mapOrigin: { lat: 35.0, lon: 139.0 } })
+const data = exporter.parseOsmXml(osm)
+const imported = exporter.osmToShapes(data)
+```
+
+| 関数 | 説明 |
+|------|------|
+| `exporter.exportToOpenDrive(snapshot)` | OpenDRIVE 1.8 (.xodr) XML |
+| `exporter.exportToOpenScenario(snapshot, options?)` | OpenSCENARIO 1.3 (.xosc) XML |
+| `exporter.buildEsminiZip(snapshot, options?)` | .xodr + .xosc を 1 つの zip にまとめる |
+| `exporter.exportToLanelet2(snapshot, options?)` | Lanelet2 (.osm XML) ドキュメント |
+| `exporter.parseOsmXml(xml)` | Lanelet2 OSM XML を構造化データへパース |
+| `exporter.osmToShapes(data, options?)` | OSM → エディタが使う point / linestring / lane レコード |
+| `exporter.alignBoundaries(left, right)` | レーンの左右境界の反転フラグを判定 |
+| `exporter.createShapeIdAllocator()` | `osmToShapes` で使用する ID アロケータ |
+| `exporter.latLonToCanvas(lat, lon, ...)` / `canvasToLatLon(...)` | 等距円筒投影ヘルパ |
+| `exporter.buildPathTrajectory(input)` | Path → 時刻付き頂点列 |
+| `exporter.computeCenterlineWithWidth(left, right)` | レーン中心線 + 幅サンプル |
+| `exporter.buildZip(entries)` | 純粋な ZIP ビルダー (store mode、依存なし) |
+| `exporter.sanitizeFileBaseName(input)` | OS-safe なベース名サニタイザ |
+
 ## デプロイ
 
 エクステンションは任意のHTTPSホスティングサービスにデプロイできます。

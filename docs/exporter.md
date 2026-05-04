@@ -7,9 +7,12 @@
 [日本語版はこちら](exporter.ja.md)
 
 The `exporter` sub-module of `@drawtonomy/sdk` converts a `DrawtonomySnapshot`
-into ASAM-format files (OpenDRIVE 1.8 / OpenSCENARIO 1.3) and esmini-ready
-zip bundles. It has no runtime dependency on the editor, so it can be used
-in headless tooling, server-side pipelines, browser extensions, or CI checks.
+into ASAM-format files (OpenDRIVE 1.8 / OpenSCENARIO 1.3), esmini-ready zip
+bundles, and Lanelet2 (.osm XML) maps. It has no runtime dependency on the
+editor, so it can be used in headless tooling, server-side pipelines, browser
+extensions, or CI checks. The Lanelet2 module additionally exposes a parser
+that turns OSM XML back into editor-ready primitives, enabling import /
+round-trip workflows.
 
 This is the main extension point for adding support for new shapes,
 animation features, or entirely new target formats (CARLA, Unity, SUMO, …).
@@ -63,6 +66,13 @@ const xosc = exporter.exportToOpenScenario(snapshot, {
 const { blob, baseName } = exporter.buildEsminiZip(snapshot, {
   baseName: 'my-scene',
 })
+
+// Lanelet2 (.osm XML) export and round-trip.
+const osm = exporter.exportToLanelet2(snapshot, {
+  mapOrigin: { lat: 35.0, lon: 139.0 },
+})
+const data = exporter.parseOsmXml(osm)
+const imported = exporter.osmToShapes(data)
 ```
 
 The exporter is pure: same input → same output, no editor or DOM access.
@@ -380,6 +390,9 @@ the exporter resolves these via an internal id map.
 ├── trajectory.ts       Path → time-stamped vertex sequence
 ├── laneCenterline.ts   Two boundary polylines → centerline + width samples
 ├── packageEsmini.ts    .xodr + .xosc → single .zip
+├── lanelet2.ts         Snapshot → Lanelet2 .osm XML (with sidecar round-trip)
+├── osmParser.ts        Lanelet2 .osm XML → structured data + lat/lon ↔ canvas projection
+├── osmToShapes.ts      OSM data → editor-ready point / linestring / lane records
 ├── zip.ts              Pure ZIP builder (store mode, no deps)
 ├── sanitize.ts         OS-safe file base name normalization
 └── units.ts            Canvas px ↔ ENU meters, XML formatting helpers
@@ -503,6 +516,91 @@ dependencies; works in browsers and Node.
 Returns an OS-safe base name (path separators / control chars replaced with
 underscores, length-capped at 100 chars), or `null` for inputs that reduce
 to empty.
+
+### `exportToLanelet2(snapshot, options?)`
+
+```typescript
+interface OsmSidecar {
+  rawXml: string         // original .osm XML captured at import time
+  originLat: number
+  originLon: number
+}
+
+interface MapOrigin {
+  lat: number | null
+  lon: number | null
+}
+
+interface Lanelet2ExportOptions {
+  sidecar?: OsmSidecar | null
+  mapOrigin?: MapOrigin | null
+}
+
+function exportToLanelet2(
+  snapshot: DrawtonomySnapshot,
+  options?: Lanelet2ExportOptions
+): string
+```
+
+Returns a Lanelet2 `.osm` XML document. Each `PointShape` becomes a `<node>`,
+each `LinestringShape` becomes a `<way>`, and each `LaneShape` becomes a
+`<relation type="lanelet">` with `<member role="left">` / `<member role="right">`
+referencing the boundary ways.
+
+When a `sidecar` (the original `.osm` XML captured at import time) is supplied,
+unrelated entries (regulatory_element, ele tags, untouched relations) are
+round-tripped verbatim; shape-derived entries override the sidecar copies for
+the same OSM IDs. The root `<osm>` element carries `drawtonomy_origin_lat` /
+`drawtonomy_origin_lon` so re-importing the file restores the same canvas
+origin (standard OSM consumers ignore unknown attributes).
+
+Origin precedence: `sidecar` > `mapOrigin` > built-in default.
+
+### `parseOsmXml(xml)`
+
+```typescript
+interface OsmData {
+  nodes: Map<string, OsmNode>
+  ways: Map<string, OsmWay>
+  relations: OsmRelation[]
+  drawtonomyOrigin?: { lat: number; lon: number }
+}
+
+function parseOsmXml(xmlString: string): OsmData
+```
+
+Parses Lanelet2 `.osm` XML into structured data. Uses the global `DOMParser`
+when available (browser, jsdom) and falls back to a hand-rolled regex parser
+sufficient for the OSM subset, so it works in plain Node without `jsdom`.
+Non-lanelet relations (regulatory_element, multipolygon, …) are kept as-is so
+they survive a round-trip.
+
+### `osmToShapes(data, options?)`
+
+```typescript
+interface OsmToShapesOptions {
+  idAllocator?: ShapeIdAllocator
+  selectedLaneIds?: readonly string[]
+}
+
+function osmToShapes(data: OsmData, options?: OsmToShapesOptions): ImportedShapes
+```
+
+Converts parsed OSM data into editor-ready records: shared points, boundary
+linestrings, lanes, plus a bounding box and the geographic origin used for the
+projection. Lane direction is preserved when possible; boundaries are flipped
+only when needed to keep the right-of-left invariant. Lane connectivity
+(`next` / `prev`) is detected by matching boundary endpoints.
+
+Pass `selectedLaneIds` to import only a subset of lanelet relations. Pass a
+custom `idAllocator` (built via `createShapeIdAllocator`) to coordinate IDs
+with the host editor's counters.
+
+### `latLonToCanvas(lat, lon, centerLat, centerLon, scale?)` / `canvasToLatLon(...)`
+
+Equirectangular projection helpers used by both the exporter and importer.
+The default `scale = 1_855_000` corresponds to 16.67 px/m, matching
+drawtonomy's visual sizing convention (3 m lane = 50 px).
 
 ### `parseDrawtonomySvg(svg)` *(SDK root, not under `exporter`)*
 

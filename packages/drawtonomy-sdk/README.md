@@ -129,8 +129,11 @@ http://localhost:3000/?ext=http://localhost:3001/manifest.json
 ### Exporter Module
 
 Convert a `DrawtonomySnapshot` into target-format strings (OpenDRIVE,
-OpenSCENARIO) without depending on the editor runtime — useful for headless
-tooling, server-side pipelines, or browser extensions.
+OpenSCENARIO, Lanelet2 OSM) without depending on the editor runtime — useful
+for headless tooling, server-side pipelines, or browser extensions. The
+Lanelet2 module additionally exposes a parser that turns OSM XML back into
+editor-ready primitives (points / linestrings / lanes), enabling round-trip
+workflows.
 
 ```typescript
 import { exporter, createSnapshot } from '@drawtonomy/sdk'
@@ -141,6 +144,11 @@ const xosc = exporter.exportToOpenScenario(snapshot, { xodrFilename: 'scene.xodr
 
 // Bundle both into a single .zip ready for esmini.
 const { blob, baseName } = exporter.buildEsminiZip(snapshot, { baseName: 'my-scene' })
+
+// Lanelet2 (.osm XML) export and round-trip.
+const osm = exporter.exportToLanelet2(snapshot, { mapOrigin: { lat: 35.0, lon: 139.0 } })
+const data = exporter.parseOsmXml(osm)
+const imported = exporter.osmToShapes(data)
 ```
 
 | Function | Description |
@@ -148,6 +156,12 @@ const { blob, baseName } = exporter.buildEsminiZip(snapshot, { baseName: 'my-sce
 | `exporter.exportToOpenDrive(snapshot)` | OpenDRIVE 1.8 (.xodr) XML |
 | `exporter.exportToOpenScenario(snapshot, options?)` | OpenSCENARIO 1.3 (.xosc) XML |
 | `exporter.buildEsminiZip(snapshot, options?)` | One-shot zip bundling .xodr + .xosc |
+| `exporter.exportToLanelet2(snapshot, options?)` | Lanelet2 (.osm XML) document |
+| `exporter.parseOsmXml(xml)` | Parse Lanelet2 OSM XML into structured data |
+| `exporter.osmToShapes(data, options?)` | OSM → editor-ready point / linestring / lane records |
+| `exporter.alignBoundaries(left, right)` | Decide invert flags for a lane's left / right boundary |
+| `exporter.createShapeIdAllocator()` | Pluggable id allocator used by `osmToShapes` |
+| `exporter.latLonToCanvas(lat, lon, ...)` / `canvasToLatLon(...)` | Equirectangular projection helpers |
 | `exporter.buildPathTrajectory(input)` | Path → time-stamped vertex sequence |
 | `exporter.computeCenterlineWithWidth(left, right)` | Lane centerline + width samples |
 | `exporter.buildZip(entries)` | Pure ZIP builder (store mode, no deps) |
