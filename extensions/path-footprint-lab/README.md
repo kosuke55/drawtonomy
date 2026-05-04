@@ -61,3 +61,7 @@ This extension uses `footprint.mode = 'variable'` with `footprint.tValues` to po
 - Dragging a footprint updates only that footprint's t-value
 - Path editing causes footprints to reposition along the new curve while preserving t-values
 - Template, color, and size changes on one footprint do not sync to siblings
+
+## Contributors
+
+- [@vishwesh5](https://github.com/vishwesh5)
