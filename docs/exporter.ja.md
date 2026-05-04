@@ -7,10 +7,12 @@
 [English](exporter.md)
 
 `@drawtonomy/sdk` の `exporter` サブモジュールは、`DrawtonomySnapshot` を
-ASAM 仕様のファイル (OpenDRIVE 1.8 / OpenSCENARIO 1.3) や esmini 用の zip
-バンドルに変換します。エディタランタイムへの依存はゼロなので、ヘッドレス
-ツール、サーバーサイドパイプライン、ブラウザ拡張、CI チェックなどから
-そのまま呼べます。
+ASAM 仕様のファイル (OpenDRIVE 1.8 / OpenSCENARIO 1.3)、esmini 用の zip
+バンドル、Lanelet2 (.osm XML) マップに変換します。エディタランタイムへの
+依存はゼロなので、ヘッドレスツール、サーバーサイドパイプライン、
+ブラウザ拡張、CI チェックなどからそのまま呼べます。Lanelet2 については
+OSM XML をエディタが扱える形式（point / linestring / lane）に戻すパーサも
+提供し、インポート / ラウンドトリップワークフローを実現します。
 
 新しいシェイプ対応、アニメーション仕様の拡張、別フォーマットアダプタ
 (CARLA / Unity / SUMO 等) を追加する際の主要な拡張ポイントです。
@@ -64,6 +66,13 @@ const xosc = exporter.exportToOpenScenario(snapshot, {
 const { blob, baseName } = exporter.buildEsminiZip(snapshot, {
   baseName: 'my-scene',
 })
+
+// Lanelet2 (.osm XML) のエクスポート + 再インポート
+const osm = exporter.exportToLanelet2(snapshot, {
+  mapOrigin: { lat: 35.0, lon: 139.0 },
+})
+const data = exporter.parseOsmXml(osm)
+const imported = exporter.osmToShapes(data)
 ```
 
 Exporter は純関数群です (同じ入力なら必ず同じ出力、エディタや DOM へのアクセスなし)。
@@ -373,6 +382,9 @@ Exporter 内部では id ルックアップ用 Map を作って解決してい�
 ├── trajectory.ts       Path → 時系列頂点列
 ├── laneCenterline.ts   2 本の境界ポリライン → 中心線 + 幅サンプル
 ├── packageEsmini.ts    .xodr + .xosc → 1 つの .zip
+├── lanelet2.ts         Snapshot → Lanelet2 .osm XML (sidecar によるラウンドトリップ対応)
+├── osmParser.ts        Lanelet2 .osm XML → 構造化データ + 緯度経度 ↔ canvas 投影
+├── osmToShapes.ts      OSM データ → エディタが扱う point / linestring / lane レコード
 ├── zip.ts              純 ZIP ビルダー (store mode、依存ゼロ)
 ├── sanitize.ts         OS セーフなファイル名サニタイズ
 └── units.ts            canvas px ↔ ENU m、XML 整形ヘルパ
@@ -496,6 +508,91 @@ Node どちらでも動作します。
 
 OS セーフなベース名 (path separator / 制御文字 → アンダースコア、
 最大 100 文字) を返します。空になる入力に対しては `null` を返します。
+
+### `exportToLanelet2(snapshot, options?)`
+
+```typescript
+interface OsmSidecar {
+  rawXml: string         // インポート時に保存した元の .osm XML
+  originLat: number
+  originLon: number
+}
+
+interface MapOrigin {
+  lat: number | null
+  lon: number | null
+}
+
+interface Lanelet2ExportOptions {
+  sidecar?: OsmSidecar | null
+  mapOrigin?: MapOrigin | null
+}
+
+function exportToLanelet2(
+  snapshot: DrawtonomySnapshot,
+  options?: Lanelet2ExportOptions
+): string
+```
+
+Lanelet2 `.osm` XML 文字列を返します。各 `PointShape` は `<node>`、各
+`LinestringShape` は `<way>`、各 `LaneShape` は `<relation type="lanelet">`
+として `<member role="left">` / `<member role="right">` で境界の way を参照
+する形で出力されます。
+
+`sidecar` (インポート時に保存した元の `.osm` XML) を渡すと、shape 由来でない
+要素 (regulatory_element、ele タグ、未編集 relation 等) が原文のまま保持され、
+shape 由来の要素は同じ OSM ID については上書きされます。ルートの `<osm>`
+要素には `drawtonomy_origin_lat` / `drawtonomy_origin_lon` が埋め込まれる
+ため、再インポート時に同じ canvas 原点が復元されます (標準の OSM
+コンシューマは未知の属性を無視します)。
+
+原点の優先順位: `sidecar` > `mapOrigin` > 組み込みのデフォルト。
+
+### `parseOsmXml(xml)`
+
+```typescript
+interface OsmData {
+  nodes: Map<string, OsmNode>
+  ways: Map<string, OsmWay>
+  relations: OsmRelation[]
+  drawtonomyOrigin?: { lat: number; lon: number }
+}
+
+function parseOsmXml(xmlString: string): OsmData
+```
+
+Lanelet2 `.osm` XML を構造化データへパースします。`DOMParser` がグローバルに
+存在する環境 (ブラウザ・jsdom) ではそれを使い、無い環境では OSM XML の
+サブセットに対応した手書き正規表現パーサにフォールバックするため、`jsdom`
+無しの素の Node でも動きます。lanelet 以外の relation (regulatory_element、
+multipolygon 等) もそのまま保持され、ラウンドトリップで失われません。
+
+### `osmToShapes(data, options?)`
+
+```typescript
+interface OsmToShapesOptions {
+  idAllocator?: ShapeIdAllocator
+  selectedLaneIds?: readonly string[]
+}
+
+function osmToShapes(data: OsmData, options?: OsmToShapesOptions): ImportedShapes
+```
+
+パース済み OSM データをエディタが扱う形式に変換します: 共有された point、
+境界 linestring、lane、それに bounding box と投影に使った地理原点を返します。
+レーンの方向は可能な限り維持され、左右関係 (right-of-left invariant) を満たす
+ためにのみ境界が反転されます。lane の前後接続 (`next` / `prev`) は境界の
+端点一致から検出されます。
+
+`selectedLaneIds` を渡すと指定した lanelet relation のみインポートされます。
+`createShapeIdAllocator` で作った独自の `idAllocator` を渡すことで、ホスト
+エディタ側のカウンタと ID を整合させられます。
+
+### `latLonToCanvas(lat, lon, centerLat, centerLon, scale?)` / `canvasToLatLon(...)`
+
+エクスポーターとインポーターの両方で使う等距円筒投影ヘルパ。デフォルトの
+`scale = 1_855_000` は 16.67 px/m に相当し、drawtonomy の見た目の寸法
+(3 m レーン = 50 px) と一致します。
 
 ### `parseDrawtonomySvg(svg)` *(SDK ルート、`exporter` サブモジュールではない)*
 
