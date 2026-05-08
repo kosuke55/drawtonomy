@@ -23,6 +23,7 @@
 - 🎨 **Infinite Canvas** - Draw extensive road networks
 - 🛣️ **Lane Connection Management** - Edit with understanding of lane relationships
 - ⚡ **Lane Tool** - Auto-generate from centerline or create from existing boundaries. Smooth boundaries with one click
+- 🛰️ **Lane Generator (Satellite Map → Lane)** - Click or drag on road/satellite map to generate lanes from OSM data
 - ➕ **Intersection Templates** - Place complex intersections with one click
 - 🚙 **Rich Drawing Tools & Templates** - Various vehicles, pedestrians, traffic lights. [Add your own](templates/TEMPLATE_GUIDE.md)
 - 🧲 **Snap Function** - Auto-snap to existing points and lines
@@ -52,6 +53,12 @@ Auto-generate left and right boundaries by clicking the centerline. Efficiently 
 Smooth lane boundaries with one click from the Attribute Panel.
 
 <video src="https://github.com/user-attachments/assets/2f38637e-59e6-4e63-9126-f3b6dd05f143" width="80%" controls></video>
+
+### 🛰️ Lane Generator (Satellite Map → Lane)
+
+Switch on the road or satellite map background, then click a road to generate a single lane, or drag to enclose a region and generate every road inside it. OSM road data is fetched and converted into editable Lane shapes aligned to the map.
+
+<video src="https://github.com/user-attachments/assets/1239b952-211e-418a-840a-fbe9b6c3a0f0" width="80%" controls></video>
 
 ### ➕ Intersection
 
