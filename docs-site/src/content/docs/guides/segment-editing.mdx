@@ -1,0 +1,54 @@
+---
+title: Edit segments and add points
+description: Refine a Linestring, Lane, or Polygon by editing the segment between two points.
+---
+
+import Demo from '../../../components/Demo.astro';
+
+Segment editing lets you tweak shapes between any two adjacent
+vertices, add a new vertex, or delete one — without redrawing the
+shape from scratch.
+
+<Demo src="/videos/segment-demo.mp4" caption="Double-click to enter segment edit mode, then drag a point or click a segment to add one." />
+
+## Enter segment-editing mode
+
+1. Press <kbd>V</kbd> for the Select tool.
+2. Double-click a Linestring, Lane, or Polygon.
+3. The shape switches to point-edit mode: each vertex becomes a
+   draggable indigo handle.
+
+## Move a point
+
+Click and drag a vertex. If the point is shared with another shape
+(see [Point Sharing](/guides/point-sharing/)), every shape that
+holds it moves together.
+
+For lanes, dragging a boundary point updates both lanes that share
+the boundary — see
+[Lane connection model](/explanation/lane-model/).
+
+## Add a point
+
+Click anywhere on a segment (the line between two existing points).
+A new vertex is inserted at the click position.
+
+This is the fastest way to introduce a curve into a previously
+straight section: add a point, then drag it.
+
+## Remove a point
+
+Select the vertex (it turns solid indigo) and press
+<kbd>Delete</kbd> or <kbd>Backspace</kbd>.
+
+## Exit segment editing
+
+Press <kbd>Esc</kbd>, click outside the shape, or pick another
+tool. The shape returns to normal selection mode.
+
+## See also
+
+- [Smooth lane boundaries](/guides/smooth-lanes/) — useful after
+  you've added many points and want to clean things up.
+- [Snap to existing geometry](/guides/snap/) — drag points onto
+  snap targets to keep them aligned.

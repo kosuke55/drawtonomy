@@ -1,0 +1,34 @@
+name: docs-site
+
+on:
+  pull_request:
+    paths:
+      - 'docs-site/**'
+      - 'pnpm-workspace.yaml'
+      - '.npmrc'
+      - '.github/workflows/docs-site.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs-site/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Lint docs
+        run: ./docs-site/scripts/lint-docs.sh
+
+      - name: Build site
+        run: pnpm --filter @drawtonomy/docs-site build
