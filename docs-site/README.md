@@ -38,21 +38,24 @@ pnpm --filter @drawtonomy/docs-site preview
 The build emits `dist/` with prerendered HTML, a Pagefind search index,
 and a sitemap.
 
-## Deploying to Vercel
+## How the site is hosted
 
-`docs.drawtonomy.com` is hosted as a **separate** Vercel project pointing
-at this folder. Steps:
+`docs.drawtonomy.com` is served by Vercel as a separate project that
+points at this `docs-site/` folder. The settings on the Vercel side are:
 
-1. In the Vercel dashboard → **Add New… → Project**.
-2. Import `kosuke55/drawtonomy` (the public repo).
-3. **Root Directory**: `docs-site`.
-4. **Framework preset**: Astro (auto-detected).
-5. **Build command**: `pnpm build`.
-6. **Output directory**: `dist`.
-7. **Install command**: `pnpm install --frozen-lockfile`.
-8. Add the custom domain `docs.drawtonomy.com`.
+| Setting | Value |
+|---|---|
+| Root Directory | `docs-site` |
+| Framework preset | Astro (auto-detected) |
+| Build command | `pnpm build` |
+| Output directory | `dist` |
+| Install command | `pnpm install --frozen-lockfile` |
+| Custom domain | `docs.drawtonomy.com` |
 
-Preview deployments fire automatically on every PR.
+Preview deployments run on every PR. Production deploys when changes
+land on `main`. If you fork the repo and want to host your own copy,
+the same settings work on Vercel, Netlify, or any other static host
+that can build an Astro project.
 
 ## Adding a page
 
