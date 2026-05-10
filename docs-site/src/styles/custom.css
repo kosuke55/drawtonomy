@@ -1,0 +1,58 @@
+/* drawtonomy theme — match the app's indigo-300 (#a5b4fc) palette. */
+
+:root {
+	/* Accent palette derived from Tailwind indigo. */
+	--sl-color-accent-low: #1f1f3d;
+	--sl-color-accent: #818cf8;       /* indigo-400 — links, focus */
+	--sl-color-accent-high: #c7d2fe;  /* indigo-200 — hovered links on dark */
+
+	/* Hero gradient for the splash page. */
+	--sl-hero-gradient: linear-gradient(
+		120deg,
+		#a5b4fc 0%,
+		#c4b5fd 50%,
+		#e9d5ff 100%
+	);
+}
+
+:root[data-theme='light'] {
+	--sl-color-accent-low: #eef2ff;   /* indigo-50 */
+	--sl-color-accent: #6366f1;       /* indigo-500 — readable on white */
+	--sl-color-accent-high: #4338ca;  /* indigo-700 — hover */
+}
+
+/* Splash hero: tint the background with a soft indigo wash. */
+.hero {
+	background:
+		radial-gradient(
+			ellipse at top right,
+			rgba(165, 180, 252, 0.18),
+			transparent 60%
+		),
+		radial-gradient(
+			ellipse at bottom left,
+			rgba(196, 181, 253, 0.14),
+			transparent 60%
+		);
+}
+
+/* Gentle indigo border on cards / link cards. */
+.card,
+.sl-link-card {
+	border-color: color-mix(in srgb, var(--sl-color-accent) 20%, transparent);
+}
+
+.sl-link-card:hover {
+	border-color: var(--sl-color-accent);
+}
+
+/* Inline code & kbd pick up the accent. */
+:not(pre) > code {
+	color: var(--sl-color-accent-high);
+	background: color-mix(in srgb, var(--sl-color-accent) 12%, transparent);
+}
+
+kbd {
+	background: color-mix(in srgb, var(--sl-color-accent) 14%, transparent);
+	border-color: color-mix(in srgb, var(--sl-color-accent) 35%, transparent);
+}

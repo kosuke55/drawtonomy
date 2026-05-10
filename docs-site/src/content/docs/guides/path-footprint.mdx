@@ -1,0 +1,51 @@
+---
+title: Use Path Footprint
+description: Auto-place vehicles or rectangles along a Path with synced style, size, and orientation.
+---
+
+import Demo from '../../../components/Demo.astro';
+
+Path Footprint takes a Path shape and stamps copies of a template along
+it, equally spaced and oriented along the path direction. Edit one
+footprint and every footprint updates.
+
+<Demo src="/videos/footprints-demo.mp4" caption="Generate vehicle footprints along a path; spacing, anchor, and template are all live-editable." />
+
+## Generate footprints
+
+1. Press <kbd>H</kbd> for the Path tool and draw a path.
+2. With the path selected, open the Attribute Panel.
+3. Pick a footprint template (Rectangle, Sedan, Bus, Truck,
+   Motorcycle…).
+4. Click **Generate**. drawtonomy lays out copies along the path.
+
+## Tune the layout
+
+In the Attribute Panel:
+
+| Control | Effect |
+|---|---|
+| Spacing | Distance between footprints. |
+| Anchor Offset | Slide the reference point along travel direction — set to your base link or front bumper instead of the centre. |
+| Color / Opacity / Size | Applied to every footprint at once. |
+
+## Change the template later
+
+Pick a different template in the Attribute Panel — every footprint
+switches in place, keeping spacing and orientation.
+
+## Why footprints share style
+
+Footprints are linked: changing color, template, opacity, or size on
+one applies to all. This keeps the diagram consistent when you iterate
+on a scenario. To diverge, ungroup the footprint set first.
+
+## Orientation
+
+Footprint headings are computed from the path tangent at each position,
+including smooth curves. You do not need to rotate them manually.
+
+## See also
+
+- [Add vehicles, pedestrians, and traffic lights](/guides/participants/)
+- [Customise color, opacity, width, and style](/guides/styling/)

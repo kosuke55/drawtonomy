@@ -1,0 +1,52 @@
+---
+title: Manage lane connections
+description: Set Next, Previous, Left, and Right relationships so the editor understands your road topology.
+---
+
+import Demo from '../../../components/Demo.astro';
+
+Lane connections tell the editor which lanes are neighbours. Once set,
+moving a shared boundary updates every connected lane, and exporters
+(OpenDRIVE, Lanelet2) emit a coherent road network.
+
+<Demo src="/videos/lane-connection-demo.mp4" caption="Editing one boundary moves the neighbouring lane that shares it." />
+
+For a deeper explanation, see [Lane connection model](/explanation/lane-model/).
+
+## Inspect existing connections
+
+1. Press <kbd>V</kbd> for Select.
+2. Click a lane.
+3. The **Attribute Panel** on the right lists **Next**, **Previous**,
+   **Left**, **Right**.
+4. Hover an entry to highlight that neighbour on the canvas in indigo.
+
+## Set a connection
+
+1. With the lane selected, click the **+** (or **Set**) button next to
+   **Next** (or another slot).
+2. Click the neighbouring lane on the canvas.
+
+drawtonomy adds the reciprocal connection automatically — if you set
+Lane A's **Next** to Lane B, Lane B's **Previous** becomes Lane A.
+
+## Clear a connection
+
+In the Attribute Panel, click the ✕ next to the connection you want to
+remove. The reciprocal entry on the neighbour is cleared too.
+
+## When connections are set automatically
+
+| Action | What gets connected |
+|---|---|
+| Draw a new lane starting on an existing endpoint | New lane → **Previous** = existing lane |
+| Use the parallel-lane shortcut (<kbd>Alt</kbd>+click with Lane tool) | New lane → **Left** or **Right** = source lane |
+| Place an [intersection template](/guides/participants/) | All approach lanes pre-connected |
+| [Generate from map](/guides/lane-from-map/) | Connections inferred from OSM topology where unambiguous |
+
+## See also
+
+- [Lane connection model](/explanation/lane-model/) — what these slots
+  mean and what exporters do with them.
+- [drawtonomy.svg format](/reference/drawtonomy-svg/) — how connections
+  are persisted on save.

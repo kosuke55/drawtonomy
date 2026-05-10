@@ -1,0 +1,59 @@
+---
+title: Generate a scene with AI, then refine by hand
+description: Describe a scenario in natural language with the AI Scene Generator and edit the result on the canvas.
+sidebar:
+  order: 3
+---
+
+import Demo from '../../../components/Demo.astro';
+
+The [AI Scene Generator](https://github.com/kosuke55/drawtonomy/tree/main/extensions/ai-scene-generator)
+extension reads a natural-language prompt, OpenSCENARIO XML, or DSL,
+and emits a fully editable canvas.
+
+<Demo src="/videos/ai-scene-natural.mp4" caption="Natural-language scenario → editable scene on the canvas." maxWidth="900px" />
+
+## 1. Open the AI Scene Generator
+
+1. Click **Extensions** in the bottom-right of the canvas.
+2. Pick **AI Scene Generator**.
+3. Choose your AI provider (Anthropic Claude, OpenAI GPT, or Google
+   Gemini) and paste your API key. The key stays in your browser.
+
+## 2. Describe the scene
+
+Paste a prompt like:
+
+> A 3-lane highway going left-to-right. An ego sedan (blue) in the
+> centre lane, a truck (grey) in the right lane slightly ahead. Show a
+> dashed path for the ego vehicle changing to the left lane.
+
+Click **Generate**. The extension places lanes, vehicles, and a Path
+shape on the canvas.
+
+## 3. Refine
+
+Everything generated is a regular shape. Try:
+
+- Selecting the truck and changing its template to **Bus**.
+- Dragging the ego vehicle's path to a different curve.
+- Adding a pedestrian on the shoulder.
+
+## 4. Or start from OpenSCENARIO
+
+In the same panel, switch the input mode to **OpenSCENARIO XML** and
+paste a `.xosc` file. The extension lays out actors and trajectories on
+the canvas. This is the fastest way to visualise a scenario you
+already have.
+
+<Demo src="/videos/ai-scene-dsl.mp4" caption="An ASAM OpenSCENARIO DSL example placed on the canvas." maxWidth="900px" />
+
+## What you learned
+
+- AI generation is a starting point, not a final product — every
+  shape is editable.
+- Switching between natural-language and OpenSCENARIO inputs lets you
+  go from rough idea to formal spec without leaving the canvas.
+
+For the prompt patterns that work best, see the
+[AI Scene Generator README](https://github.com/kosuke55/drawtonomy/tree/main/extensions/ai-scene-generator).

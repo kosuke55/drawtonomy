@@ -1,0 +1,72 @@
+---
+title: Use the Lane tool
+description: Draw lanes from a centerline, from existing linestrings, or as parallels.
+---
+
+import Demo from '../../../components/Demo.astro';
+
+The Lane tool is the workhorse of drawtonomy. It draws lanes three
+different ways depending on what you click.
+
+<Demo src="/videos/lane-tool-demo.mp4" caption="Drawing a centerline; left and right boundaries are generated automatically." />
+
+## From a centerline
+
+1. Press <kbd>N</kbd> to activate the Lane tool, or click the lane icon
+   in the toolbar.
+2. Click on the canvas to drop the first centerline vertex, click again
+   for the next vertex, and so on.
+3. Press <kbd>Enter</kbd> (or double-click the last vertex) to finish.
+
+drawtonomy generates the left and right boundaries using the current
+default width.
+
+:::tip[Change the default width]
+Open the **hamburger** menu → **Defaults** → **Lane** to change the
+width of newly created lanes. Existing lanes keep their width — only
+new lanes use the new default.
+:::
+
+## From two existing linestrings
+
+If you already drew two boundaries by hand:
+
+1. Press <kbd>L</kbd> and draw two linestrings (left and right
+   boundary).
+2. Press <kbd>N</kbd>, then click each linestring in turn.
+3. drawtonomy creates a Lane that uses those linestrings as its
+   boundaries. The shared linestrings stay live — drag a point on the
+   linestring and the Lane updates.
+
+This is the path to take when you imported boundary data from another
+tool and want it reinterpreted as lanes.
+
+## As a parallel lane
+
+To add a lane next to an existing one:
+
+1. With the Lane tool active, hold <kbd>Alt</kbd>.
+2. Click the existing lane on the side where you want the new one.
+3. drawtonomy creates a parallel lane on that side with the same width,
+   and sets the [Left or Right](/guides/lane-connections/) connection
+   automatically.
+
+<Demo src="/videos/vehicle-curve-lane-snap-demo.mp4" caption="Vehicles snap to a lane as you drop them — useful right after creating a parallel lane." />
+
+## Continuous lanes (chain)
+
+To draw a chain that already has Next / Previous connections set:
+
+1. Start a new centerline by clicking on the **endpoint of an existing
+   lane**. Snapping engages, and the resulting lane is registered as
+   the **Next** of the existing one.
+2. Continue clicking to extend.
+
+Drag-snap lights up in indigo (`#a5b4fc`) when the cursor is close
+enough to engage.
+
+## See also
+
+- [Smooth lane boundaries](/guides/smooth-lanes/)
+- [Manage lane connections](/guides/lane-connections/)
+- [Lane connection model](/explanation/lane-model/)

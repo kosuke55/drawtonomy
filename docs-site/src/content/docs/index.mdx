@@ -1,0 +1,100 @@
+---
+title: drawtonomy documentation
+description: Whiteboard for driving diagrams. Build lanes, vehicles, and traffic scenarios in the browser.
+template: splash
+hero:
+  tagline: Whiteboard for driving diagrams. Build lanes, vehicles, and traffic scenarios in the browser.
+  image:
+    file: ../../assets/logo.png
+  actions:
+    - text: Quickstart
+      link: /start/quickstart/
+      icon: right-arrow
+    - text: Try the app
+      link: https://drawtonomy.com
+      icon: external
+      variant: secondary
+    - text: GitHub
+      link: https://github.com/kosuke55/drawtonomy
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+import Demo from '../../components/Demo.astro';
+
+<Demo src="/videos/drawtonomy-demo.mp4" maxWidth="900px" />
+
+## Find what you need
+
+The documentation is organised around four kinds of need.
+Pick the one that matches what you are trying to do right now.
+
+<CardGrid>
+	<LinkCard
+		title="Tutorials"
+		href="/tutorials/"
+		description="Learn by doing. Step-by-step lessons from a blank canvas to a finished scene."
+	/>
+	<LinkCard
+		title="How-to guides"
+		href="/guides/"
+		description="Get a specific job done. Recipes for lanes, vehicles, exports, and imports."
+	/>
+	<LinkCard
+		title="Reference"
+		href="/reference/"
+		description="Look up the facts. Shortcuts, file formats, shape catalog, and SDK APIs."
+	/>
+	<LinkCard
+		title="Explanation"
+		href="/explanation/"
+		description="Understand the model. Why drawtonomy works the way it does."
+	/>
+</CardGrid>
+
+## What is drawtonomy?
+
+drawtonomy is a browser-based whiteboard built for driving scenarios.
+Place lanes, vehicles, pedestrians, traffic lights, and intersections, then export
+to image formats, [Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2),
+or [ASAM OpenDRIVE / OpenSCENARIO](/guides/export-asam/) bundles ready for
+[esmini](https://github.com/esmini/esmini).
+
+It is used for autonomous-driving development, traffic planning, and
+driving education.
+
+## Highlights
+
+<CardGrid>
+	<Card title="Lane-aware editing" icon="seti:default">
+		Move a boundary and connected lanes follow. Set Next / Previous / Left / Right
+		to model real road topology.
+	</Card>
+	<Card title="Map → Lanes" icon="seti:graphql">
+		Click a road on the satellite view to fetch OSM data and convert it into
+		editable lanes.
+	</Card>
+	<Card title="Re-editable saves" icon="seti:json">
+		`drawtonomy.svg` keeps every connection so you can pick up where you left
+		off, or hand the file to a teammate.
+	</Card>
+	<Card title="ASAM export" icon="rocket">
+		Export OpenDRIVE + OpenSCENARIO together as an esmini-ready zip.
+	</Card>
+	<Card title="Extension SDK" icon="puzzle">
+		Build iframe extensions with `@drawtonomy/sdk`. Add new exporters,
+		generators, or tooling without forking.
+	</Card>
+	<Card title="AI scene generator" icon="comment-alt">
+		Describe a scenario in natural language or paste OpenSCENARIO XML; get an
+		editable canvas back.
+	</Card>
+</CardGrid>
+
+## For extension developers
+
+If you want to build on top of drawtonomy rather than just use it,
+jump to [Extending drawtonomy](/extend/).
+The SDK source, examples, and reference live alongside this site at
+[github.com/kosuke55/drawtonomy](https://github.com/kosuke55/drawtonomy).

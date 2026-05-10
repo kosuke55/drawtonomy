@@ -1,0 +1,39 @@
+---
+title: Snap to existing geometry
+description: Use snapping to align new shapes with existing points and lines.
+---
+
+import Demo from '../../../components/Demo.astro';
+
+Snapping is on by default. While drawing or moving a point, drawtonomy
+highlights the nearest snap target — an existing vertex, edge midpoint,
+or line — and pulls your cursor onto it.
+
+<Demo src="/videos/snap-demo.mp4" caption="Indigo highlights show the active snap target." />
+
+## Disable snap temporarily
+
+Hold <kbd>Shift</kbd> while drawing or dragging to bypass snap for that
+single action. Release <kbd>Shift</kbd> to re-enable.
+
+This is the right move when you intentionally want a point near, but
+not exactly on, an existing target.
+
+## What snap targets exist
+
+| Target | When it engages |
+|---|---|
+| Existing point | Cursor near a vertex of any shape |
+| Edge | Cursor near a line, anywhere along it |
+| Lane endpoint | Cursor near a Lane's start or end — also triggers automatic Next/Previous connection |
+| Bounding box edges | When dragging vehicles, pedestrians, or images |
+
+Snap indicators are drawn in indigo (`#a5b4fc`) so they are visible on
+both light and dark canvases.
+
+## See also
+
+- [Share points between shapes](/guides/point-sharing/) — make snap
+  produce a *shared* point rather than a coincident one.
+- [Snap & point sharing model](/explanation/snap-and-sharing/) — the
+  difference between snapping to and sharing with.

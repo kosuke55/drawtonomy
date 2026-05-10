@@ -1,0 +1,60 @@
+---
+title: Recreate a real road from a satellite map
+description: Use the Lane Generator to convert OSM roads under a satellite background into editable lanes.
+sidebar:
+  order: 2
+---
+
+import Demo from '../../../components/Demo.astro';
+
+In this lesson you start from a real-world location, drop in a
+satellite background, and turn the road network into editable
+drawtonomy lanes.
+
+<Demo src="/videos/map-to-lane-demo.mp4" caption="Click for one lane, drag for many." maxWidth="900px" />
+
+## 1. Switch on the satellite layer
+
+1. Open the canvas background menu (top-left of the canvas).
+2. Pick **Satellite** (or **Roadmap** if you prefer schematic colours).
+3. Pan and zoom to the location you want to model.
+
+## 2. Click a road to generate a single lane
+
+1. Press <kbd>N</kbd> for the **Lane** tool, then enable **Generator**
+   mode in the toolbar.
+2. Hover a road. The Lane Generator highlights the road segment under
+   your cursor.
+3. Click. drawtonomy fetches OSM data for that segment and converts it
+   to a Lane shape with realistic geometry.
+
+## 3. Drag a region to generate many lanes
+
+1. Drag a rectangle on the map to enclose the area you want to capture.
+2. Release. Every road inside the rectangle becomes a Lane shape, all
+   aligned to the underlying map.
+
+## 4. Tidy up
+
+Generated lanes are normal Lane shapes — you can:
+
+- Drag them, edit their boundaries with [Segment Editing](/guides/segment-editing/),
+- Connect them with the Attribute Panel,
+- Or [smooth their boundaries](/guides/smooth-lanes/).
+
+<Demo src="/videos/smooth-lane.mp4" caption="Smooth a generated lane to replace dense polylines with splines." />
+
+## 5. Save
+
+Export as `drawtonomy.svg` to keep the satellite alignment and lane
+connection info, or as PNG/SVG for sharing.
+
+## What you learned
+
+- The Lane Generator turns OSM roads into editable lanes.
+- Drag-to-region is the fastest way to capture a network.
+- Generated lanes behave like any other lane and can be refined
+  further.
+
+For the full set of generator options, see
+[Generate lanes from a map](/guides/lane-from-map/).

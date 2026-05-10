@@ -1,0 +1,52 @@
+---
+title: Smooth lane boundaries
+description: Replace polyline boundaries with smooth curves while preserving the centerline.
+---
+
+import Demo from '../../../components/Demo.astro';
+
+Lanes drawn click-by-click have polyline boundaries, which look angular.
+Smoothing replaces them with spline-fitted curves in one click; the
+centerline is preserved so connections and length are unchanged.
+
+<Demo src="/videos/smooth-lane.mp4" caption="One click on Smooth in the Attribute Panel." />
+
+## Smooth a single lane
+
+1. Press <kbd>V</kbd> for the Select tool.
+2. Click the lane.
+3. In the **Attribute Panel** on the right, click **Smooth**.
+
+The boundaries are recomputed in place. The change is a single undo
+step — press <kbd>Cmd/Ctrl+Z</kbd> to revert.
+
+## Smooth multiple lanes
+
+1. Drag a selection box around the lanes (or <kbd>Shift</kbd>-click
+   each one).
+2. Click **Smooth** in the Attribute Panel. The action applies to every
+   selected lane in one undo step.
+
+## When smoothing is the right move
+
+- After you draw a curved approach with the [Lane tool](/guides/lane-tool/).
+- After [Lane Generator](/guides/lane-from-map/) imports OSM roads,
+  which often arrive as dense polylines.
+- After [segment editing](/guides/segment-editing/) when you have added
+  many intermediate points by hand.
+
+## What smoothing does not change
+
+- The lane's centerline geometry.
+- The lane's length, width, or [connections](/guides/lane-connections/).
+- Shared boundary points with neighbouring lanes — they stay shared.
+
+If you smooth a lane whose neighbour shares a boundary, the neighbour's
+side of the boundary moves with it. This is the correct behaviour for
+adjacent lanes; if you want to smooth one side only, ungroup the
+neighbour first.
+
+## See also
+
+- [Lane connection model](/explanation/lane-model/) — why smoothing is
+  safe with connected neighbours.
