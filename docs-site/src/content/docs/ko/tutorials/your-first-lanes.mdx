@@ -1,0 +1,75 @@
+---
+title: 첫 세 개의 차선 그리기
+description: Lane 도구 데모를 따라 중앙선으로 두 개의 차선을 그린 뒤, 기존 경계 사이에 세 번째 차선을 만들어 보세요.
+sidebar:
+  order: 1
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+이번 학습은 공식 Lane 도구 데모를 따라갑니다. 끝나면 drawtonomy에서 차선을 만드는 두 가지 방법을 모두 사용해 본 셈입니다.
+
+- **Center Line(중앙선) 모드** — 중앙선을 그리면 좌우 경계가 자동으로 생성됩니다.
+- **Boundary(경계) 모드** — 기존 경계 두 개를 선택하면 drawtonomy가 그 사이에 차선을 맞춰 끼워 넣습니다.
+
+데모는 먼저 Center Line 모드로 두 개의 차선을 그린 뒤, Boundary 모드로 전환해 그 사이를 채우는 세 번째 차선을 만듭니다.
+
+<Demo src="/videos/lane-tool-demo.mp4" caption="Center Line으로 두 차선을 그린 뒤, Boundary 모드에서 기존 경계로 세 번째 차선을 만드는 모습." />
+
+## 1. Lane 도구 선택
+
+[drawtonomy.com](https://drawtonomy.com)을 엽니다. <kbd>N</kbd>을 누르거나(또는 하단 툴바에서 차선 아이콘을 클릭) Lane 도구를 활성화합니다.
+
+화면 오른쪽에 **Lane** 생성 패널이 나타나고, 기본값으로 **Center Line**이 선택되어 있습니다.
+
+![Lane 패널 — Center Line 모드 활성, Lane Width 50 px](/img/frames/lane-tool-panel.png)
+
+당분간 기본값을 그대로 사용합니다.
+
+## 2. Center Line 모드로 두 개의 차선 그리기
+
+Center Line 모드에서는 캔버스를 클릭해 첫 중앙선 점을 찍고, 다음 위치를 다시 클릭한 뒤 <kbd>Enter</kbd>를 눌러 마칩니다. 좌우 경계가 **Lane Width** 값(기본 50 px)을 사용해 자동으로 생성됩니다.
+
+Lane 도구는 차선을 그린 뒤에도 활성 상태를 유지하므로, 다른 곳을 클릭해 두 번째 차선을 시작할 수 있습니다. 첫 번째 차선의 오른쪽에 두 점 정도를 찍고 <kbd>Enter</kbd>를 누릅니다.
+
+![Center Line 모드로 나란히 그려진 두 개의 차선](/img/frames/lane-tool-two-lanes.png)
+
+지금은 두 차선이 서로 독립적입니다 — 경계를 공유하지도, 서로의 존재를 알지도 못합니다.
+
+## 3. Boundary 모드로 전환
+
+같은 패널에서 **Center Line** 옆의 **Boundary**를 클릭해 생성 모드를 전환합니다. Boundary 모드에서는 빈 공간을 클릭하지 않고, **기존 경계 라인스트링**을 클릭하면 drawtonomy가 그 사이에 차선을 맞춰 만듭니다.
+
+**왼쪽 차선의 오른쪽 경계** 위로 마우스를 올리세요 — 커서가 충분히 가까워지면 drawtonomy가 라인스트링을 인디고 색으로 강조합니다 — 그리고 클릭합니다.
+
+![Boundary 모드 — 왼쪽 차선의 오른쪽 경계가 강조되어 선택을 기다리는 모습](/img/frames/lane-tool-boundary-mode.png)
+
+이어서 **오른쪽 차선의 왼쪽 경계**를 클릭합니다. 그 사이에 새 차선이 채워지고, 두 라인스트링이 새 차선의 좌우 경계로 사용됩니다.
+
+## 4. 결과 살펴보기
+
+<kbd>V</kbd>를 눌러 Select 도구로 전환하고 새로 만든 가운데 차선을 클릭합니다. 오른쪽 패널이 해당 차선의 속성으로 바뀝니다.
+
+![Attribute Panel — 새 가운데 차선이 양옆 이웃과 way/1, way/2 경계를 공유](/img/frames/lane-attributes.png)
+
+경계가 재사용되고 있습니다.
+
+- **Lane ID** — `lane/2`, 새로 생성된 차선.
+- **Left Boundary** — `way/1`, 왼쪽 차선의 오른쪽 경계와 동일한 라인스트링.
+- **Right Boundary** — `way/2`, 마찬가지로 오른쪽 차선과 공유.
+
+경계가 공유되어 있으므로 어느 한쪽의 점을 드래그하면 인접한 두 차선이 함께 움직입니다. 이것이 [차선 연결](/ko/explanation/lane-model/)의 기반입니다. 다음 단계로 해당 페이지를 읽고 내부 모델을 확인해 보세요.
+
+패널은 또한 **Direction**, **Lane Color**, **Lane Opacity**, 그리고 네 개의 연결 슬롯 **Next Lanes / Prev Lanes / Left Lane / Right Lane**도 노출하지만, 지금은 비워 둡니다.
+
+## 학습한 내용
+
+- 차선은 두 가지 방식으로 그릴 수 있습니다: 중앙선에서 시작하거나, 기존 경계 라인스트링 두 개를 선택하기.
+- Center Line 모드는 빈 캔버스에 빠르게 그릴 때 적합하고, Boundary 모드는 기존 형상 사이에 차선을 끼워 넣을 때 적합합니다.
+- 기존 경계로 만든 차선은 그 경계를 양옆 차선과 공유합니다.
+
+## 다음 단계
+
+- [차선 연결 관리](/ko/guides/lane-connections/) — Attribute Panel의 네 가지 연결 슬롯.
+- [부드러운 차선 경계](/ko/guides/smooth-lanes/) — 같은 패널의 Smooth Boundary 토글로 각진 경계를 곡선으로 바꾸기.
+- [위성 지도에서 실제 도로 따라 그리기](/ko/tutorials/road-from-map/) — 직접 그리는 대신 OSM에서 차선 가져오기.

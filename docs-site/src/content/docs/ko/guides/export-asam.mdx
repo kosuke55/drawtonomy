@@ -1,0 +1,63 @@
+---
+title: OpenDRIVE / OpenSCENARIO / esmini로 내보내기
+description: drawtonomy 장면을 ASAM OpenDRIVE 1.8(.xodr) 또는 OpenSCENARIO 1.3(.xosc)으로, 또는 시뮬레이터 재생을 위한 esmini용 zip 번들로 내보냅니다.
+keywords:
+  - 무료 OpenSCENARIO 에디터
+  - 무료 OpenDRIVE 에디터 브라우저
+  - OpenSCENARIO 온라인 작성
+  - esmini 시나리오 작성
+  - ASAM 시나리오 다이어그램 도구
+  - 그림을 OpenDRIVE로 변환
+---
+
+drawtonomy는 장면을 ASAM [OpenDRIVE](https://www.asam.net/standards/detail/opendrive/)(`.xodr`) 및 [OpenSCENARIO](https://www.asam.net/standards/detail/openscenario/)(`.xosc`)로 내보낼 수 있으며, [esmini](https://github.com/esmini/esmini) 재생용으로 둘을 zip으로 묶을 수도 있습니다.
+
+![내보내기 후 esmini에서 재생되는 drawtonomy 장면](/img/asam-esmini.png)
+
+## 에디터에서 내보내기
+
+1. 장면을 그립니다(차선, 차량, 신호등 등).
+2. **File → Export → Export for esmini**를 엽니다.
+3. 표시되는 프롬프트에 베이스 이름을 입력합니다.
+4. `<name>.xodr`과 `<name>.xosc`를 포함한 `<name>.zip`이 다운로드됩니다.
+
+## 재생하기
+
+```bash
+unzip my-scene.zip
+esmini --osc my-scene/my-scene.xosc --window 60 60 1024 768
+```
+
+## 개별 형식
+
+둘 중 하나만 필요하다면:
+
+- **File → Export → OpenDRIVE (.xodr)**
+- **File → Export → OpenSCENARIO (.xosc)**
+
+## 프로그래밍 방식 내보내기
+
+내보내기 도구는 `@drawtonomy/sdk`의 일부이며 에디터 없이 실행됩니다. CI 파이프라인, 서버 사이드 도구, 브라우저 확장에서 사용할 수 있습니다.
+
+```ts
+import { exporter, createSnapshot } from '@drawtonomy/sdk'
+
+const snapshot = createSnapshot(shapes)
+const { blob, baseName } = exporter.buildEsminiZip(snapshot, {
+  baseName: 'my-scene',
+})
+```
+
+전체 API와 확장 지점은 [Exporter SDK 레퍼런스](/ko/extend/exporter-sdk/)를 참고하세요.
+
+## 출력되는 버전
+
+| 형식 | 버전 |
+|---|---|
+| OpenDRIVE | 1.8 |
+| OpenSCENARIO | 1.3 |
+
+## 함께 보기
+
+- [내보내기 도구 아키텍처](/ko/explanation/exporter-architecture/) — 스냅샷에서 파일까지 파이프라인이 하는 일.
+- [대상 형식 추가하기](/ko/extend/exporter-sdk/) — CARLA, SUMO, Unity 등 새로운 대상 연결.

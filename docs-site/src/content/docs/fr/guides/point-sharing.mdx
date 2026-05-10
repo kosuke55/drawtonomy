@@ -1,0 +1,31 @@
+---
+title: Partager des points entre formes
+description: Connectez des linestrings, polygones et trajectoires pour qu'ils partagent un sommet et se déplacent ensemble.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Un *point partagé* est un sommet unique référencé par plusieurs formes. Déplacez-le une fois et chaque forme qui le référence suit. Utilisez ceci pour garder verrouillés ensemble les bords de voies adjacentes, les coins de polygones et les jonctions de trajectoires.
+
+<Demo src="/videos/share-demo.mp4" caption="Maintenez Alt + clic pour partager un point existant avec une nouvelle forme." />
+
+## Créer un point partagé pendant le tracé
+
+1. Choisissez l'outil Linestring (<kbd>L</kbd>), Polygone (<kbd>G</kbd>) ou Trajectoire (<kbd>H</kbd>).
+2. Maintenez <kbd>Alt</kbd> (Option sur macOS).
+3. Cliquez sur un sommet existant d'une autre forme.
+
+La nouvelle forme acquiert un sommet *partagé* avec celui de la forme existante — pas seulement accroché à la même coordonnée.
+
+## Convertir un sommet existant en sommet partagé
+
+1. Double-cliquez sur une forme pour entrer dans l'[édition de segments](/fr/guides/segment-editing/).
+2. Maintenez <kbd>Alt</kbd> et glissez un sommet sur un sommet existant.
+
+## Indice visuel
+
+Les points partagés s'affichent comme une poignée double en mode édition de segments. Les points simplement accrochés s'affichent comme une poignée simple.
+
+## Voir aussi
+
+- [Modèle d'accrochage et de partage de points](/fr/explanation/snap-and-sharing/) — pourquoi partagé et accroché sont des choses différentes.

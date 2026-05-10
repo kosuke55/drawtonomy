@@ -1,0 +1,68 @@
+---
+title: Bana med fotavtryck
+description: Rita en bana från ett fordon och fordonsmallen kachlar sig själv längs banan.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Ett *fotavtryck* är en kopia av ett fordon (eller annan mall) som
+placeras automatiskt längs en bana. Demon börjar med ett
+egofordon, ritar en bana från det, och banan fylls genast med
+kopior av det fordonet — samma mall, orienterade längs kurvan,
+jämnt fördelade.
+
+<Demo src="/videos/footprints-demo.mp4" caption="Ett egofordon, en bana ritad från det, och det resulterande fotavtrycksspåret." />
+
+## Förberedelse
+
+Placera ett fordon var som helst på canvasen med Vehicle-verktyget,
+tryck sedan på <kbd>H</kbd> för Path-verktyget. Höger panel visar
+Path-inställningar:
+
+![Path-verktygspanel — Color, Opacity 90%, Style Solid, Width 5px, Arrow Head 20px, Smooth ikryssad](/img/frames/footprints-path-panel.png)
+
+Standardvärdena som visas — solid grön, 5 px bred, smooth, med
+ett 20 px pilhuvud — är vad demon använder.
+
+## Rita banan
+
+Klicka på fordonet för att starta banan. Den första punkten haka
+fast på fordonets ankare. Klicka på fler punkter för att förlänga
+banan; pilhuvudet visas vid den sista punkten du släpper. Tryck på
+<kbd>Enter</kbd> för att avsluta.
+
+Så snart banan är klar kachlar drawtonomy en kopia av
+källfordonet längs den:
+
+![Banan är ritad; fordons-fotavtryck visas längs den med jämna mellanrum](/img/frames/footprints-along-path.png)
+
+Varje kopia roteras för att matcha banans tangent vid sin
+position, så spåret följer kurvor naturligt.
+
+## Stil och mall förblir länkade
+
+Fotavtryck delar stil med sitt källfordon: ändra källans färg,
+opacitet eller mall, och varje fotavtryck följer. Du behöver inte
+handredigera varje kopia för att hålla ett manöverdiagram visuellt
+konsekvent.
+
+Nästa demo-bild döljer själva banan så att bara fotavtrycken kvar
+— användbart för exportbilder när du inte vill att den
+underliggande banan ska skräpa ner diagrammet:
+
+![Endast fotavtryck, utan banan ritad](/img/frames/footprints-result.png)
+
+## Vad du kan justera
+
+- **Spacing** — avstånd mellan fotavtryck.
+- **Anchor offset** — skjut referenspunkten längs färdriktningen
+  (t.ex. base link eller frontstötfångare istället för centrum).
+- **Smooth** — kryssrutan i Path-panelen får själva banan att
+  kröka mjukt mellan punkter; fotavtrycksorienteringen följer.
+- **Color / Opacity / Size** — appliceras på varje fotavtryck på
+  en gång via källfordonet.
+
+## Se även
+
+- [Lägg till fordon, fotgängare och trafiksignaler](/sv/guides/participants/)
+- [Anpassa färg, opacitet, bredd och stil](/sv/guides/styling/)

@@ -1,0 +1,65 @@
+---
+title: Rijstroken genereren uit een kaart
+description: Converteer OSM-weggegevens onder een satelliet- of wegenkaartachtergrond naar bewerkbare rijstroken.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+De Lane Generator haalt echte weggeometrie uit OpenStreetMap en
+zet deze om in bewerkbare Lane-vormen die zijn uitgelijnd met de
+kaartachtergrond.
+
+<Demo src="/videos/map-to-lane-demo.mp4" caption="Klik op een weg voor één rijstrook, sleep een gebied voor meerdere." maxWidth="900px" />
+
+## Schakel een kaartachtergrond in
+
+1. Open het **Background**-menu linksboven op het canvas.
+2. Kies **Satellite** (fotografisch) of **Roadmap** (schematisch).
+3. Pan en zoom naar het gewenste gebied.
+
+De kaart wordt achter het canvas weergegeven en blijft verankerd
+terwijl u tekent.
+
+## Eén rijstrook genereren
+
+1. Druk op <kbd>N</kbd> voor de Lane-tool.
+2. Schakel **Generator**-modus in op de werkbalk.
+3. Beweeg over een weg. drawtonomy markeert het overeenkomende
+   OSM-wegsegment onder de cursor.
+4. Klik. Het segment wordt opgehaald en omgezet naar een
+   Lane-vorm.
+
+## Elke weg in een gebied genereren
+
+Met Generator-modus aan:
+
+1. Sleep een rechthoek over het gebied dat u wilt vastleggen.
+2. Laat los. Elke weg binnen de rechthoek wordt in één keer een
+   Lane.
+
+Handig voor hele kruispunten, wijken of testlocaties.
+
+## Aanbevolen limieten
+
+De OSM-fetch en conversie draaien in de browser. Voor responsief
+bewerken houdt u de resulterende scène onder ongeveer **500
+rijstroken** — splits een groter gebied over meerdere bestanden
+als u meer nodig heeft.
+
+## Na de generatie
+
+Gegenereerde rijstroken zijn gewone Lane-vormen. U kunt:
+
+- Punten slepen om de geometrie te verfijnen.
+- [Smooth](/nl/guides/smooth-lanes/) toepassen om dichte polylijnen
+  te vervangen door splines.
+- [Verbindingen](/nl/guides/lane-connections/) instellen waar de
+  generator deze niet automatisch heeft afgeleid.
+- Voertuigen, voetgangers of paden eroverheen plaatsen.
+
+## Zie ook
+
+- [Tutorial: Een echte weg uit een satellietkaart reconstrueren](/nl/tutorials/road-from-map/)
+- [Een Lanelet2 (.osm)-bestand importeren](/nl/guides/import-lanelet2/) —
+  wanneer u al een verzorgd kaartbestand heeft in plaats van ruwe
+  OSM.

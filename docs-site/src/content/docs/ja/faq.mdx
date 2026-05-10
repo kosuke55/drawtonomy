@@ -1,0 +1,136 @@
+---
+title: FAQ — drawtonomy 自動運転シナリオ用ホワイトボード
+description: 自動運転シナリオを描くための無料・ブラウザベースのホワイトボード drawtonomy に関するよくある質問。自動運転の図、OpenSCENARIO 作成、OpenDRIVE エクスポート、Lanelet2 編集、ROS 占有格子地図のアノテーション、AI シーン生成について解説します。
+sidebar:
+  label: FAQ
+  order: 99
+keywords:
+  - drawtonomy faq
+  - drawtonomy よくある質問
+  - 自動運転 作図ツール 質問
+  - 自動運転 論文 図 作成
+  - 運転シナリオ オンライン 描画
+  - 無料 OpenSCENARIO エディタ 質問
+  - Lanelet2 ブラウザ エディタ
+  - 自動運転 スケッチツール 無料
+  - ADAS 図 ツール
+  - Autoware 地図 編集
+jsonLd:
+  '@context': 'https://schema.org'
+  '@type': FAQPage
+  mainEntity:
+    - '@type': Question
+      name: drawtonomy で自動運転論文・スライド・ドキュメントの図を描けますか？
+      acceptedAnswer:
+        '@type': Answer
+        text: はい、これは主要なユースケースの 1 つです。レーン、交差点、車両、歩行者がビルトイン図形として用意されているため、一般的な作図ツールで 30 分かかるような自動運転シナリオの図が数分で完成します。LaTeX、スライド、Markdown 用に drawtonomy.svg、PDF、EPS でエクスポートできます。
+    - '@type': Question
+      name: drawtonomy は無料で使えますか？
+      acceptedAnswer:
+        '@type': Answer
+        text: はい。drawtonomy.com はブラウザ内で完全に動作します。アカウント不要、インストール不要、データのアップロードもありません。SDK とエクステンションは GitHub 上でオープンソースとして公開されています。
+    - '@type': Question
+      name: drawtonomy は無料の OpenSCENARIO・OpenDRIVE エディタですか？
+      acceptedAnswer:
+        '@type': Answer
+        text: drawtonomy はホワイトボードであり、ASAM OpenDRIVE 1.8 および OpenSCENARIO 1.3 にエクスポートできます。esmini 再生用の zip バンドルも 1 ファイルで生成可能です。シーンを視覚的にスケッチすると、drawtonomy が .xodr と .xosc ファイルを生成します。
+    - '@type': Question
+      name: drawtonomy で Lanelet2 (.osm) 地図をブラウザ内で編集できますか？
+      acceptedAnswer:
+        '@type': Answer
+        text: はい。drawtonomy は Lanelet2 OSM ファイル（Autoware サンプル地図を含む）をインポートし、レーンジオメトリと接続を視覚的に編集して Lanelet2 OSM へ書き戻せます。パフォーマンスを保つため、1 シーンあたり約 500 レーン以下に抑えることを推奨します。
+    - '@type': Question
+      name: ROS の占有格子地図をインポートできますか？
+      acceptedAnswer:
+        '@type': Answer
+        text: はい。drawtonomy は nav2、Cartographer、Gmapping などの SLAM ツールで使われる ROS map_server 形式（.pgm + .yaml）を読み込みます。グリッドは背景レイヤーとしてレンダリングされるので、その上にレーン、パス、障害物を直接スケッチできます。
+    - '@type': Question
+      name: 一般的な作図ツールと drawtonomy の違いは？
+      acceptedAnswer:
+        '@type': Answer
+        text: 一般的な作図ツールは汎用的な図形しか知らないため、レーンは道路が曲がるたびに描き直す矩形でしかありません。drawtonomy はレーン、交差点、横断歩道、信号機、道路標示、車両、歩行者をビルトイン図形として備え、レーンには Next / Previous / Left / Right の接続情報があります。境界をドラッグすると、つながったレーンも追従します。
+    - '@type': Question
+      name: 何かインストールする必要はありますか？
+      acceptedAnswer:
+        '@type': Answer
+        text: いいえ。drawtonomy はモダンな Web ブラウザで動作します。drawtonomy.com を開けばすぐに描き始められます。エクステンション開発用にはローカルでエディタをホストする npm 開発サーバー（@drawtonomy/dev-server）も用意しています。
+    - '@type': Question
+      name: drawtonomy は自然言語から運転シナリオを生成できますか？
+      acceptedAnswer:
+        '@type': Answer
+        text: はい。AI シーン生成エクステンションは自然言語のプロンプトや OpenSCENARIO XML を読み取り、編集可能なキャンバスを生成します。レーン、車両、パス、歩行者は通常の drawtonomy 図形として配置されます。Anthropic Claude、OpenAI GPT、Google Gemini に対応しています。
+    - '@type': Question
+      name: drawtonomy のシーンを再編集できる形式はどれですか？
+      acceptedAnswer:
+        '@type': Answer
+        text: drawtonomy.svg です。これは通常の SVG ファイル（ブラウザ、GitHub、スライド、Markdown レンダラーでプレビュー可能）に、再オープン時にすべての図形、接続、共有点、重なり関係を再構築するためのメタデータが追加された形式です。
+    - '@type': Question
+      name: 独自の車両や標識テンプレートを追加できますか？
+      acceptedAnswer:
+        '@type': Answer
+        text: はい。テンプレートは templates/manifest.json に登録された SVG ファイルです。適切なフォルダ（vehicle、pedestrian、road_marking、sign、other）に配置して PR を作成すれば、エディタのメニューにビルトインテンプレートと並んで表示されます。
+    - '@type': Question
+      name: drawtonomy は大規模な道路ネットワークに対応していますか？
+      acceptedAnswer:
+        '@type': Answer
+        text: drawtonomy は都市規模の地図ではなく、図表向けに最適化されています。快適に編集するには、1 シーンあたり約 500 レーン以下に抑えてください。広域を扱う場合は複数ファイルに分割するか、必要な領域だけをインポートしてください。
+    - '@type': Question
+      name: drawtonomy の図を論文、スライド、ドキュメントで使えますか？
+      acceptedAnswer:
+        '@type': Answer
+        text: はい。drawtonomy.svg 形式は有効な SVG なので、論文、スライド、Markdown、ウェブサイトに変換なしで埋め込めます。従来の出版パイプライン用に PDF、PNG、JPG、EPS も利用できます。
+---
+
+import { LinkCard } from '@astrojs/starlight/components';
+
+## drawtonomy で自動運転論文・スライド・ドキュメントの図を描けますか？
+
+はい — これは主要なユースケースの 1 つです。レーン、交差点、車両、歩行者はビルトイン図形として用意されているため、一般的な作図ツールで 30 分かかるような自動運転シナリオの図が数分で完成します。LaTeX、スライド、Markdown 用に [`drawtonomy.svg`](/ja/guides/export/)、PDF、EPS としてエクスポートできます。
+
+## drawtonomy は無料で使えますか？
+
+はい。[drawtonomy.com](https://drawtonomy.com) はブラウザ内で完全に動作します。アカウント不要、インストール不要、データのアップロードもありません。SDK とエクステンションは [GitHub](https://github.com/kosuke55/drawtonomy) 上でオープンソースとして公開されています。
+
+## drawtonomy は無料の OpenSCENARIO・OpenDRIVE エディタですか？
+
+drawtonomy はホワイトボードであり、ASAM OpenDRIVE 1.8 および OpenSCENARIO 1.3 へ **エクスポート** できます。[esmini](https://github.com/esmini/esmini) 再生用の zip バンドルも 1 ファイルで生成可能です。シーンを視覚的に — レーン、交差点、車両、パスを — スケッチすると、drawtonomy が `.xodr` と `.xosc` ファイルを生成します。詳しくは [OpenDRIVE / OpenSCENARIO / esmini へエクスポート](/ja/guides/export-asam/) をご覧ください。
+
+## drawtonomy で Lanelet2 (.osm) 地図をブラウザ内で編集できますか？
+
+はい。drawtonomy は [Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2) の OSM ファイル（[Autoware サンプル地図](https://autowarefoundation.github.io/autoware-documentation/main/demos/planning-sim/#download-the-sample-map) を含む）をインポートし、レーンジオメトリと接続を視覚的に編集して Lanelet2 OSM へ書き戻せます。パフォーマンスを保つため、1 シーンあたり約 500 レーン以下に抑えることを推奨します。詳しくは [Lanelet2 (.osm) ファイルをインポートする](/ja/guides/import-lanelet2/) をご覧ください。
+
+## ROS の占有格子地図をインポートできますか？
+
+はい。drawtonomy は [nav2](https://navigation.ros.org/)、Cartographer、Gmapping などの SLAM ツールで使われる ROS `map_server` 形式（`.pgm` + `.yaml`）を読み込みます。グリッドは背景レイヤーとしてレンダリングされるので、その上にレーン、パス、障害物を直接スケッチできます。詳しくは [ROS OccupancyGrid をインポートする](/ja/guides/import-ros-map/) をご覧ください。
+
+## 一般的な作図ツールと drawtonomy の違いは？
+
+一般的な作図ツールは汎用的な図形しか知らないため、レーンは道路が曲がるたびに描き直す矩形でしかありません。drawtonomy は **レーン、交差点、横断歩道、信号機、道路標示、車両、歩行者をビルトイン図形** として備え、レーンには **Next / Previous / Left / Right** の接続情報があります。境界をドラッグすると、つながったレーンも追従します。詳しくは [なぜ drawtonomy なのか](/ja/explanation/why-drawtonomy/) と [レーン接続モデル](/ja/explanation/lane-model/) をご覧ください。
+
+## 何かインストールする必要はありますか？
+
+いいえ。drawtonomy はモダンな Web ブラウザで動作します。[drawtonomy.com](https://drawtonomy.com) を開けばすぐに描き始められます。エクステンション開発者は、localhost でエディタをホストするローカル開発サーバー（[`@drawtonomy/dev-server`](https://www.npmjs.com/package/@drawtonomy/dev-server)）も利用できます。
+
+## drawtonomy は自然言語から運転シナリオを生成できますか？
+
+はい。[AI シーン生成](/ja/tutorials/ai-scene/) エクステンションは自然言語のプロンプトや OpenSCENARIO XML を読み取り、編集可能なキャンバスを生成します。レーン、車両、パス、歩行者は通常の drawtonomy 図形として配置されます。Anthropic Claude、OpenAI GPT、Google Gemini に対応しています。
+
+## drawtonomy のシーンを再編集できる形式はどれですか？
+
+`drawtonomy.svg` です。これは通常の SVG ファイル（ブラウザ、GitHub、スライド、Markdown レンダラーでプレビュー可能）に、再オープン時にすべての図形、接続、共有点、重なり関係を再構築するためのメタデータが追加された形式です。詳しくは [シーンをエクスポートする](/ja/guides/export/) と [drawtonomy.svg 形式リファレンス](/ja/reference/drawtonomy-svg/) をご覧ください。
+
+## 独自の車両や標識テンプレートを追加できますか？
+
+はい。テンプレートは `templates/manifest.json` に登録された SVG ファイルです。適切なフォルダ（`vehicle`、`pedestrian`、`road_marking`、`sign`、`other`）に配置して PR を作成すれば、エディタのメニューにビルトインテンプレートと並んで表示されます。詳しくは [テンプレートを貢献する](/ja/extend/templates/) をご覧ください。
+
+## drawtonomy は大規模な道路ネットワークに対応していますか？
+
+drawtonomy は都市規模の地図ではなく、図表向けに最適化されています。快適に編集するには、1 シーンあたり約 **500 レーン** 以下に抑えてください。広域を扱う場合は複数ファイルに分割するか、必要な領域だけをインポートしてください。
+
+## drawtonomy の図を論文、スライド、ドキュメントで使えますか？
+
+はい。[`drawtonomy.svg`](/ja/guides/export/) 形式は有効な SVG なので、論文、スライド、Markdown、ウェブサイトに変換なしで埋め込めます。従来の出版パイプライン用に PDF、PNG、JPG、EPS も利用できます。
+
+## ソースコードはどこにありますか？
+
+SDK、エクステンション、テンプレート、このドキュメントサイトはすべて [github.com/kosuke55/drawtonomy](https://github.com/kosuke55/drawtonomy) にあります。アプリケーション本体は [drawtonomy.com](https://drawtonomy.com) で動作します。

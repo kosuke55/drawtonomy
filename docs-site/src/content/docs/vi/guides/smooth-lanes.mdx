@@ -1,0 +1,37 @@
+---
+title: Biên làn đường mượt mà
+description: Bật Smooth Boundary trong bảng Lane trước khi vẽ — các biên được khớp bằng spline thay vì góc cạnh.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+drawtonomy có thể tạo các biên làn đường được khớp bằng spline thay vì các polyline góc cạnh. Công tắc nằm trong bảng tạo Lane và áp dụng cho các làn đường bạn vẽ tiếp theo; nó không làm mượt một làn đường hiện có.
+
+<Demo src="/videos/smooth-lane.mp4" caption="Một làn đường được vẽ với Smooth Boundary tắt (trái, góc cạnh) và bật (phải, mượt)." />
+
+## Công tắc ở đâu
+
+Nhấn <kbd>N</kbd> để dùng công cụ Lane. Bảng bên phải bao gồm một hàng **SMOOTH BOUNDARY** với các nút **On** và **Off**:
+
+![Bảng tạo Lane — công tắc SMOOTH BOUNDARY được làm nổi bật, hiện đang Off](/img/frames/smooth-toggle-off.png)
+
+Mặc định là **Off**. Bật nó trước khi bạn bắt đầu nhấp đường tâm.
+
+## So sánh
+
+Hai ảnh chụp màn hình bên dưới được vẽ với cùng đường tâm. Điều duy nhất thay đổi là công tắc:
+
+| Smooth Boundary = Off | Smooth Boundary = On |
+| --- | --- |
+| ![Đường cong góc cạnh được vẽ với smoothing tắt](/img/frames/smooth-off-result.png) | ![Đường cong mượt được vẽ với smoothing bật](/img/frames/smooth-on-result.png) |
+
+Với công tắc tắt, mỗi cặp nhấp đường tâm trở thành một đoạn biên thẳng. Với nó bật, cùng đường tâm được khớp với một đường cong.
+
+## Chuyển đổi giữa phiên
+
+Bạn có thể chuyển công tắc bất cứ khi nào bạn muốn. Các làn đường mới lấy giá trị hiện tại lần tiếp theo bạn nhấp. Các làn đường hiện có giữ kiểu biên mà chúng được vẽ.
+
+## Xem thêm
+
+- [Sử dụng công cụ Lane](/vi/guides/lane-tool/) — phần còn lại của bảng.
+- [Mô hình kết nối làn đường](/vi/explanation/lane-model/) — vì sao đường tâm vẫn dẫn dắt kết nối ngay cả khi các biên cong.

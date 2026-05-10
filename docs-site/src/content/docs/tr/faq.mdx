@@ -1,0 +1,200 @@
+---
+title: SSS — sürüş senaryoları için drawtonomy beyaz tahtası
+description: drawtonomy hakkında sıkça sorulan sorular — sürüş senaryoları için ücretsiz, tarayıcı tabanlı beyaz tahta. Otonom sürüş görselleri, OpenSCENARIO yazımı, OpenDRIVE dışa aktarımı, Lanelet2 düzenleme, ROS doluluk ızgarası açıklaması, AI Scene Generator.
+sidebar:
+  label: SSS
+  order: 99
+keywords:
+  - drawtonomy sss
+  - otonom sürüş diyagram aracı sss
+  - otonom sürüş makale görseli
+  - çevrimiçi sürüş senaryosu nasıl çizilir
+  - ücretsiz OpenSCENARIO düzenleyici sorusu
+  - tarayıcıda Lanelet2 düzenleyici var mı
+  - ücretsiz otonom sürüş taslak aracı
+  - otonom araç simülasyonu sss
+  - ADAS senaryo aracı
+  - otonom sürüş için beyaz tahta
+jsonLd:
+  '@context': 'https://schema.org'
+  '@type': FAQPage
+  mainEntity:
+    - '@type': Question
+      name: drawtonomy'yi otonom sürüş makalesi, slaytı veya belgesi için görsel çizmek amacıyla kullanabilir miyim?
+      acceptedAnswer:
+        '@type': Answer
+        text: Evet. Bu ana kullanım durumlarından biri. Şeritler, kavşaklar, araçlar ve yayalar yerleşik şekiller olduğundan, genel bir çizim aracında yarım saat alacak bir sürüş senaryosu görseli dakikalar içinde tamamlanır. LaTeX, slayt setleri ve Markdown için drawtonomy.svg, PDF veya EPS olarak dışa aktarın.
+    - '@type': Question
+      name: drawtonomy'yi kullanmak ücretsiz mi?
+      acceptedAnswer:
+        '@type': Answer
+        text: Evet. drawtonomy.com tamamen tarayıcınızda çalışır. Hesap yok, kurulum yok ve hiçbir şey yüklenmiyor. SDK ve uzantılar GitHub'da açık kaynaktır.
+    - '@type': Question
+      name: drawtonomy ücretsiz bir OpenSCENARIO ve OpenDRIVE düzenleyicisi mi?
+      acceptedAnswer:
+        '@type': Answer
+        text: drawtonomy, esmini oynatmak için tek bir zip paketi dahil olmak üzere ASAM OpenDRIVE 1.8 ve OpenSCENARIO 1.3'e dışa aktaran bir beyaz tahtadır. Sahneyi görsel olarak çizersiniz ve drawtonomy .xodr ve .xosc dosyalarını üretir.
+    - '@type': Question
+      name: drawtonomy tarayıcıda Lanelet2 (.osm) haritalarını düzenleyebilir mi?
+      acceptedAnswer:
+        '@type': Answer
+        text: Evet. drawtonomy, Lanelet2 OSM dosyalarını (Autoware örnek haritaları dahil) içe aktarabilir, şerit geometrisini ve bağlantılarını görsel olarak düzenleyebilir ve Lanelet2 OSM'ye geri dışa aktarabilir. En iyi performans için, içe aktarımları sahne başına yaklaşık 500 şeridin altında tutun.
+    - '@type': Question
+      name: ROS doluluk ızgarası haritası içe aktarabilir miyim?
+      acceptedAnswer:
+        '@type': Answer
+        text: Evet. drawtonomy, nav2, Cartographer, Gmapping ve benzeri SLAM araçları tarafından kullanılan ROS map_server formatını (.pgm + .yaml) okur. Izgara bir arka plan katmanı olarak işlenir, böylece şeritleri, yolları ve engelleri doğrudan üzerine taslayabilirsiniz.
+    - '@type': Question
+      name: drawtonomy genel çizim araçlarından nasıl farklı?
+      acceptedAnswer:
+        '@type': Answer
+        text: Genel çizim araçları yalnızca genel şekilleri bilir, bu nedenle bir şerit yol döndüğünde yeniden çizdiğiniz bir dikdörtgendir. drawtonomy şeritleri, kavşakları, yaya geçitlerini, trafik ışıklarını, yol işaretlemelerini, araçları ve yayaları yerleşik şekiller olarak sunar ve şeritler Sonraki / Önceki / Sol / Sağ bağlantıları taşır. Bir sınırı sürükleyin, bağlı şeritler takip eder.
+    - '@type': Question
+      name: Bir şey kurmam gerekiyor mu?
+      acceptedAnswer:
+        '@type': Answer
+        text: Hayır. drawtonomy herhangi bir modern web tarayıcısında çalışır. drawtonomy.com'u açın ve hemen çizmeye başlayabilirsiniz. Uzantı geliştirme için ayrıca düzenleyiciyi yerel olarak barındıran bir npm geliştirme sunucusu (@drawtonomy/dev-server) vardır.
+    - '@type': Question
+      name: drawtonomy doğal dilden bir sürüş senaryosu üretebilir mi?
+      acceptedAnswer:
+        '@type': Answer
+        text: Evet. AI Scene Generator uzantısı, doğal dil bir komut veya OpenSCENARIO XML'i okur ve düzenlenebilir bir tuval — şeritler, araçlar, yollar ve yayaları normal drawtonomy şekilleri olarak — yayar. Anthropic Claude, OpenAI GPT ve Google Gemini'yi destekler.
+    - '@type': Question
+      name: Bir drawtonomy sahnesini yeniden düzenlenebilir tutan dosya formatı nedir?
+      acceptedAnswer:
+        '@type': Answer
+        text: drawtonomy.svg. Bu, drawtonomy'nin dosyayı yeniden açtığınızda her şekli, bağlantıyı, paylaşılan noktayı ve çakışma ilişkisini yeniden oluşturmak için kullandığı ekstra meta veriye sahip normal bir SVG dosyasıdır (yani tarayıcılarda, GitHub'da, slayt setlerinde ve Markdown render araçlarında önizleme yapar).
+    - '@type': Question
+      name: Kendi araç veya işaret şablonlarımı ekleyebilir miyim?
+      acceptedAnswer:
+        '@type': Answer
+        text: Evet. Şablonlar, templates/manifest.json içinde kayıtlı SVG'lerdir. Sizinkini doğru klasöre (vehicle, pedestrian, road_marking, sign, other) bırakın, bir PR açın ve düzenleyici menüsünde yerleşik şablonların yanında yer alır.
+    - '@type': Question
+      name: drawtonomy büyük yol ağlarını destekler mi?
+      acceptedAnswer:
+        '@type': Answer
+        text: drawtonomy, şehir ölçekli haritalardan ziyade diyagramlar için ayarlanmıştır. Hızlı düzenleme için tek bir sahneyi yaklaşık 500 şeridin altında tutun. Daha büyük alanlar için işi birden fazla dosyaya bölün veya yalnızca ihtiyacınız olan bölgeyi içe aktarın.
+    - '@type': Question
+      name: drawtonomy diyagramlarını makalelerde, slaytlarda veya belgelerde kullanabilir miyim?
+      acceptedAnswer:
+        '@type': Answer
+        text: Evet. drawtonomy.svg formatı geçerli SVG'dir, böylece makalelere, slaytlara, Markdown'a ve web sitelerine dönüştürme olmadan gömülür. PDF, PNG, JPG ve EPS de geleneksel yayın işlem hatları için mevcuttur.
+---
+
+import { LinkCard } from '@astrojs/starlight/components';
+
+## drawtonomy'yi otonom sürüş makalesi, slaytı veya belgesi için görsel çizmek amacıyla kullanabilir miyim?
+
+Evet — bu ana kullanım durumlarından biri. Şeritler, kavşaklar,
+araçlar ve yayalar yerleşik şekiller olduğundan, genel bir çizim
+aracında yarım saat alacak bir sürüş senaryosu görseli dakikalar
+içinde tamamlanır. LaTeX, slayt setleri ve Markdown için
+[`drawtonomy.svg`](/tr/guides/export/), PDF veya EPS olarak dışa
+aktarın.
+
+## drawtonomy'yi kullanmak ücretsiz mi?
+
+Evet. [drawtonomy.com](https://drawtonomy.com) tamamen tarayıcınızda
+çalışır. Hesap yok, kurulum yok ve hiçbir şey yüklenmiyor. SDK ve
+uzantılar [GitHub](https://github.com/kosuke55/drawtonomy)'da açık
+kaynaktır.
+
+## drawtonomy ücretsiz bir OpenSCENARIO ve OpenDRIVE düzenleyicisi mi?
+
+drawtonomy, [esmini](https://github.com/esmini/esmini) oynatmaya hazır
+tek bir zip paketi dahil olmak üzere ASAM OpenDRIVE 1.8 ve OpenSCENARIO
+1.3'e **dışa aktaran** bir beyaz tahtadır. Sahneyi görsel olarak
+çizersiniz — şeritler, kavşaklar, araçlar, yollar — ve drawtonomy
+`.xodr` ve `.xosc` dosyalarını üretir.
+[OpenDRIVE / OpenSCENARIO / esmini'ye dışa aktarım](/tr/guides/export-asam/)
+sayfasına bakın.
+
+## drawtonomy tarayıcıda Lanelet2 (.osm) haritalarını düzenleyebilir mi?
+
+Evet. drawtonomy, [Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2)
+OSM dosyalarını ([Autoware örnek haritaları](https://autowarefoundation.github.io/autoware-documentation/main/demos/planning-sim/#download-the-sample-map)
+dahil) içe aktarabilir, şerit geometrisini ve bağlantılarını görsel
+olarak düzenleyebilir ve Lanelet2 OSM'ye geri dışa aktarabilir. En
+iyi performans için, içe aktarımları sahne başına yaklaşık 500
+şeridin altında tutun.
+[Bir Lanelet2 (.osm) dosyası içe aktarın](/tr/guides/import-lanelet2/)
+sayfasına bakın.
+
+## ROS doluluk ızgarası haritası içe aktarabilir miyim?
+
+Evet. drawtonomy, [nav2](https://navigation.ros.org/), Cartographer,
+Gmapping ve benzeri SLAM araçları tarafından kullanılan ROS
+`map_server` formatını (`.pgm` + `.yaml`) okur. Izgara bir arka plan
+katmanı olarak işlenir, böylece şeritleri, yolları ve engelleri
+doğrudan üzerine taslayabilirsiniz.
+[Bir ROS OccupancyGrid içe aktarın](/tr/guides/import-ros-map/)
+sayfasına bakın.
+
+## drawtonomy genel çizim araçlarından nasıl farklı?
+
+Genel çizim araçları yalnızca genel şekilleri bilir, bu nedenle bir
+şerit yol döndüğünde yeniden çizdiğiniz bir dikdörtgendir. drawtonomy
+**şeritleri, kavşakları, yaya geçitlerini, trafik ışıklarını, yol
+işaretlemelerini, araçları ve yayaları yerleşik şekiller olarak**
+sunar ve şeritler **Sonraki / Önceki / Sol / Sağ** bağlantılarını
+taşır. Bir sınırı sürükleyin, bağlı şeritler takip eder.
+[Neden drawtonomy](/tr/explanation/why-drawtonomy/) ve
+[şerit bağlantı modeli](/tr/explanation/lane-model/) sayfalarına bakın.
+
+## Bir şey kurmam gerekiyor mu?
+
+Hayır. drawtonomy herhangi bir modern web tarayıcısında çalışır.
+[drawtonomy.com](https://drawtonomy.com)'u açın ve çizmeye başlayın.
+Uzantı geliştiriciler ayrıca düzenleyiciyi localhost üzerinde
+barındıran yerel geliştirme sunucusunu
+([`@drawtonomy/dev-server`](https://www.npmjs.com/package/@drawtonomy/dev-server))
+da kullanabilir.
+
+## drawtonomy doğal dilden bir sürüş senaryosu üretebilir mi?
+
+Evet. [AI Scene Generator](/tr/tutorials/ai-scene/) uzantısı, doğal
+dil bir komut veya OpenSCENARIO XML'i okur ve düzenlenebilir bir
+tuval — şeritler, araçlar, yollar ve yayaları normal drawtonomy
+şekilleri olarak — yayar. Anthropic Claude, OpenAI GPT ve Google
+Gemini'yi destekler.
+
+## Bir drawtonomy sahnesini yeniden düzenlenebilir tutan dosya formatı nedir?
+
+`drawtonomy.svg`. Bu, drawtonomy'nin dosyayı yeniden açtığınızda her
+şekli, bağlantıyı, paylaşılan noktayı ve çakışma ilişkisini yeniden
+oluşturmak için kullandığı meta veriye sahip normal bir SVG
+dosyasıdır — tarayıcılarda, GitHub'da, slayt setlerinde ve Markdown
+render araçlarında önizleme yapar.
+[Sahnenizi dışa aktarın](/tr/guides/export/) ve
+[drawtonomy.svg format referansı](/tr/reference/drawtonomy-svg/)
+sayfalarına bakın.
+
+## Kendi araç veya işaret şablonlarımı ekleyebilir miyim?
+
+Evet. Şablonlar, `templates/manifest.json` içinde kayıtlı SVG'lerdir.
+Sizinkini doğru klasöre (`vehicle`, `pedestrian`, `road_marking`,
+`sign`, `other`) bırakın, bir PR açın ve düzenleyici menüsünde
+yerleşik şablonların yanında yer alır.
+[Şablonlara katkıda bulunma](/tr/extend/templates/) sayfasına bakın.
+
+## drawtonomy büyük yol ağlarını destekler mi?
+
+drawtonomy, şehir ölçekli haritalardan ziyade diyagramlar için
+ayarlanmıştır. Hızlı düzenleme için tek bir sahneyi yaklaşık
+**500 şeridin** altında tutun. Daha büyük alanlar için işi birden
+fazla dosyaya bölün veya yalnızca ihtiyacınız olan bölgeyi içe
+aktarın.
+
+## drawtonomy diyagramlarını makalelerde, slaytlarda veya belgelerde kullanabilir miyim?
+
+Evet. [`drawtonomy.svg`](/tr/guides/export/) formatı geçerli SVG'dir,
+böylece makalelere, slaytlara, Markdown'a ve web sitelerine dönüştürme
+olmadan gömülür. PDF, PNG, JPG ve EPS de geleneksel yayın işlem
+hatları için mevcuttur.
+
+## Kaynak kodu nerede?
+
+SDK, uzantılar, şablonlar ve bu dokümantasyon sitesi
+[github.com/kosuke55/drawtonomy](https://github.com/kosuke55/drawtonomy)
+üzerinde yer alıyor. Uygulamanın kendisi
+[drawtonomy.com](https://drawtonomy.com) adresindedir.

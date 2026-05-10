@@ -1,0 +1,41 @@
+---
+title: Punten delen tussen vormen
+description: Verbind Linestrings, Polygonen en Paden zodat ze een vertex delen en samen bewegen.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Een *gedeeld punt* is een enkel vertex dat door meerdere vormen
+wordt gerefereerd. Verplaats het één keer en elke vorm die ernaar
+verwijst, volgt. Gebruik dit om aangrenzende rijstrookgrenzen,
+polygoon-hoeken en padverbindingen aan elkaar gekoppeld te houden.
+
+<Demo src="/videos/share-demo.mp4" caption="Houd Alt + klik om een bestaand punt te delen met een nieuwe vorm." />
+
+## Een gedeeld punt maken tijdens het tekenen
+
+1. Kies de Linestring- (<kbd>L</kbd>), Polygon- (<kbd>G</kbd>) of
+   Path- (<kbd>H</kbd>) tool.
+2. Houd <kbd>Alt</kbd> (Option op macOS) ingedrukt.
+3. Klik op een bestaand vertex van een andere vorm.
+
+De nieuwe vorm krijgt een vertex dat *gedeeld* wordt met de
+bestaande — niet alleen gesnapt naar dezelfde coördinaat.
+
+## Een bestaand vertex omzetten naar een gedeeld vertex
+
+1. Dubbelklik op een vorm om
+   [segmentbewerking](/nl/guides/segment-editing/) te openen.
+2. Houd <kbd>Alt</kbd> ingedrukt en sleep een vertex op een
+   bestaand vertex.
+
+## Visuele aanwijzing
+
+Gedeelde punten worden weergegeven als een dubbel handvat in
+segmentbewerkingsmodus. Gewone gesnapte punten worden weergegeven
+als een enkel handvat.
+
+## Zie ook
+
+- [Snap- en puntdelingsmodel](/nl/explanation/snap-and-sharing/) —
+  waarom gedeeld en gesnapt verschillende dingen zijn.

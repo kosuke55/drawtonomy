@@ -1,0 +1,47 @@
+---
+title: Générer une scène avec l'IA, puis affiner à la main
+description: Décrivez un scénario en langage naturel avec le Générateur de scènes par IA et éditez le résultat sur le canevas.
+sidebar:
+  order: 4
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+L'extension [Générateur de scènes par IA](https://github.com/kosuke55/drawtonomy/tree/main/extensions/ai-scene-generator) prend en entrée une invite en langage naturel, du XML OpenSCENARIO ou du DSL, et produit un canevas modifiable.
+
+<Demo src="/videos/ai-scene-natural.mp4" caption="Scénario en langage naturel → scène modifiable sur le canevas." maxWidth="900px" />
+
+## 1. Ouvrir le Générateur de scènes par IA
+
+1. Cliquez sur **Extensions** en bas à droite du canevas.
+2. Choisissez **Générateur de scènes par IA**.
+3. Choisissez votre fournisseur d'IA (Anthropic Claude, OpenAI GPT ou Google Gemini) et collez votre clé d'API. La clé reste dans votre navigateur.
+
+## 2. Décrire la scène
+
+Collez une invite comme :
+
+> Une autoroute à 3 voies allant de gauche à droite. Une berline ego (bleue) sur la voie centrale, un camion (gris) sur la voie de droite légèrement en avant. Affichez une trajectoire en pointillés pour le véhicule ego changeant vers la voie de gauche.
+
+Cliquez sur **Générer**. L'extension dispose voies, véhicules et une forme Trajectoire sur le canevas.
+
+## 3. Affiner
+
+Tout ce qui est généré est une forme classique. Essayez :
+
+- Sélectionner le camion et changer son modèle pour **Bus**.
+- Glisser la trajectoire du véhicule ego vers une autre courbe.
+- Ajouter un piéton sur le bas-côté.
+
+## 4. Ou partir d'OpenSCENARIO
+
+Dans le même panneau, basculez le mode d'entrée sur **XML OpenSCENARIO** et collez un fichier `.xosc`. L'extension dispose les acteurs et leurs trajectoires sur le canevas — la façon la plus rapide de visualiser un scénario existant.
+
+<Demo src="/videos/ai-scene-dsl.mp4" caption="Un exemple ASAM OpenSCENARIO DSL placé sur le canevas." maxWidth="900px" />
+
+## Ce que vous avez appris
+
+- La génération par IA est un point de départ — toutes les formes ensuite sont éditables comme n'importe quelle autre sur le canevas.
+- Le même panneau accepte des invites en langage naturel et de l'entrée OpenSCENARIO ; vous pouvez ainsi passer de l'idée approximative à la spécification formelle sans quitter l'éditeur.
+
+Pour les schémas d'invites qui fonctionnent bien, voir le [README du Générateur de scènes par IA](https://github.com/kosuke55/drawtonomy/tree/main/extensions/ai-scene-generator).

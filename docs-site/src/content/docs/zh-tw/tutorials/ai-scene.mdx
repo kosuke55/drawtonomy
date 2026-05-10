@@ -1,0 +1,56 @@
+---
+title: 用 AI 生成場景,再手動修飾
+description: 用 AI 場景產生器以自然語言描述場景,並在畫布上編輯結果。
+sidebar:
+  order: 4
+keywords:
+  - AI 場景產生器
+  - 自然語言生成自駕場景
+  - drawtonomy AI
+  - OpenSCENARIO 視覺化
+  - 自駕場景 AI
+  - Anthropic Claude 場景
+  - OpenAI GPT 場景
+  - Google Gemini 場景
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+[AI 場景產生器](https://github.com/kosuke55/drawtonomy/tree/main/extensions/ai-scene-generator)擴充功能可接收自然語言提示、OpenSCENARIO XML 或 DSL 輸入,並輸出可編輯的畫布。
+
+<Demo src="/videos/ai-scene-natural.mp4" caption="自然語言場景 → 畫布上可編輯的場景。" maxWidth="900px" />
+
+## 1. 開啟 AI 場景產生器
+
+1. 點擊畫布右下角的**擴充功能**。
+2. 選擇 **AI 場景產生器**。
+3. 選擇您的 AI 提供者(Anthropic Claude、OpenAI GPT 或 Google Gemini)並貼上 API 金鑰。金鑰僅保留在您的瀏覽器中。
+
+## 2. 描述場景
+
+貼上類似的提示:
+
+> 一條由左至右的三線道高速公路。一輛 ego 房車(藍色)位於中線車道,一輛卡車(灰色)位於右線車道並略微在前。顯示一條虛線路徑,表示 ego 車輛變換到左線車道。
+
+點擊**生成**。擴充功能會在畫布上配置車道、車輛與一個路徑形狀。
+
+## 3. 修飾
+
+所有產生的內容都是普通形狀。試試看:
+
+- 選取卡車並將其範本變更為**巴士**。
+- 將 ego 車輛的路徑拖曳成不同的曲線。
+- 在路肩加入一名行人。
+
+## 4. 或從 OpenSCENARIO 開始
+
+在同一面板中,將輸入模式切換為 **OpenSCENARIO XML** 並貼上 `.xosc` 檔案。擴充功能會在畫布上配置演員與軌跡——這是視覺化既有場景最快的方式。
+
+<Demo src="/videos/ai-scene-dsl.mp4" caption="一個 ASAM OpenSCENARIO DSL 範例放置於畫布上。" maxWidth="900px" />
+
+## 您學到了什麼
+
+- AI 生成只是起點——之後每個形狀都和畫布上其他內容一樣可編輯。
+- 同一面板可接受自然語言提示與 OpenSCENARIO 輸入,讓您在草稿想法與正式規格之間移動,而不必離開編輯器。
+
+關於有效的提示模式,請參閱 [AI 場景產生器 README](https://github.com/kosuke55/drawtonomy/tree/main/extensions/ai-scene-generator)。

@@ -1,0 +1,211 @@
+---
+title: drawtonomy — quadro branco para cenários de condução
+description: Um quadro branco gratuito, baseado em navegador, para cenários de condução. Esboce faixas, cruzamentos, veículos e pedestres para artigos, slides, discussões de design e criação de cenários. Exporta para OpenDRIVE, OpenSCENARIO e Lanelet2.
+template: splash
+keywords:
+  - quadro branco para cenários de condução
+  - ferramenta de diagrama de cenário de condução
+  - ferramenta de diagrama para condução autônoma
+  - figura de condução autônoma para artigo
+  - figura de condução autônoma para slides
+  - figura de condução autônoma para apresentação
+  - software de figura para veículo autônomo
+  - ferramenta de ilustração de veículo autônomo
+  - software de diagrama de cenário de tráfego
+  - ferramenta de esboço de cenário de condução
+  - ferramenta de desenho de diagrama de faixas
+  - software de diagrama de cruzamento
+  - desenhar cenário de condução online
+  - software de ilustração de cena viária
+  - quadro branco para equipes de condução autônoma
+  - diagrama de cenário ADAS
+  - editor OpenSCENARIO grátis no navegador
+  - editor OpenDRIVE grátis
+  - editor Lanelet2 no navegador
+  - editor de cenário esmini
+  - ferramenta de anotação de grade de ocupação ROS
+jsonLd:
+  '@context': 'https://schema.org'
+  '@type': SoftwareApplication
+  name: drawtonomy
+  alternateName: drawtonomy — quadro branco para cenários de condução
+  url: 'https://drawtonomy.com'
+  sameAs:
+    - 'https://github.com/kosuke55/drawtonomy'
+  description: Um quadro branco gratuito, baseado em navegador, para cenários de condução. Faixas, cruzamentos, veículos, pedestres e marcações viárias como formas integradas — para artigos, slides, discussões de design e criação de cenários. Exporta para OpenDRIVE, OpenSCENARIO e Lanelet2.
+  applicationCategory: DesignApplication
+  applicationSubCategory: Editor de diagramas
+  operatingSystem: Qualquer (baseado em navegador)
+  browserRequirements: Requer um navegador web moderno
+  offers:
+    '@type': Offer
+    price: '0'
+    priceCurrency: USD
+  featureList:
+    - Faixas com conexões Próxima / Anterior / Esquerda / Direita
+    - Modelos de cruzamento, faixa de pedestres, semáforo, placa de trânsito e marcação viária
+    - Modelos de veículos e pedestres com trajetórias e pegadas
+    - Snap e edição de pontos compartilhados
+    - Geometria de borda editável por arraste que se propaga entre faixas conectadas
+    - Salvamento drawtonomy.svg reeditável, pronto para incorporar em artigos e slides
+    - Round-trip Lanelet2 (.osm)
+    - Exportação OpenDRIVE 1.8 e OpenSCENARIO 1.3, zip pronto para esmini
+    - Importação ROS OccupancyGrid (.pgm + .yaml)
+    - Extensão AI Scene Generator
+hero:
+  tagline: Um quadro branco gratuito, baseado em navegador, para cenários de condução. Esboce faixas, cruzamentos e cenas de tráfego para artigos, slides, discussões de design e criação de cenários — sem redesenhar a estrada toda vez que ela faz uma curva.
+  image:
+    file: ../../../assets/logo.png
+  actions:
+    - text: Início rápido
+      link: /pt/start/quickstart/
+      icon: right-arrow
+    - text: Experimente o app
+      link: https://drawtonomy.com
+      icon: external
+      variant: secondary
+    - text: GitHub
+      link: https://github.com/kosuke55/drawtonomy
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## Encontre o que você precisa
+
+A documentação está organizada em torno de quatro tipos de
+necessidade. Escolha aquela que combina com o que você está tentando fazer.
+
+<CardGrid>
+	<LinkCard
+		title="Tutoriais"
+		href="/pt/tutorials/"
+		description="Aprenda fazendo. Lições passo a passo de uma tela em branco até uma cena finalizada."
+	/>
+	<LinkCard
+		title="Guias práticos"
+		href="/pt/guides/"
+		description="Resolva uma tarefa específica. Receitas para faixas, veículos, exportações e importações."
+	/>
+	<LinkCard
+		title="Referência"
+		href="/pt/reference/"
+		description="Consulte os fatos. Atalhos, formatos de arquivo, catálogo de formas e APIs do SDK."
+	/>
+	<LinkCard
+		title="Explicação"
+		href="/pt/explanation/"
+		description="Entenda o modelo. Por que o drawtonomy funciona do jeito que funciona."
+	/>
+</CardGrid>
+
+## O que é o drawtonomy?
+
+O drawtonomy é um **quadro branco para cenários de condução** —
+as figuras que você coloca em um artigo, o slide que você
+esboça antes de uma revisão de design, o diagrama que você
+desenha em uma chamada quando está tentando explicar um caso
+limítrofe ao resto da equipe, a cena que você esboça antes de
+escrever o arquivo OpenSCENARIO.
+
+Abra a URL, desenhe faixas e cruzamentos em uma tela infinita,
+adicione veículos, pedestres, semáforos, faixas de pedestres e
+marcações viárias, e depois salve ou exporte. Nada para instalar,
+sem conta, nada enviado.
+
+A razão de existir: ferramentas de desenho genéricas e
+apresentações de slides não sabem o que é uma faixa, então a
+geometria da via tem que ser reconstruída sempre que algo se
+move. O drawtonomy trata faixas, cruzamentos e o resto do
+vocabulário de cenários de condução como formas integradas, então
+a figura permanece correta enquanto você itera.
+
+## Para que as pessoas usam
+
+<CardGrid>
+	<Card title="Figuras para artigos e teses" icon="document">
+		Figuras vetoriais de cenários de condução autônoma nítidas
+		que se incorporam perfeitamente em LaTeX, slides e Markdown —
+		exportadas como `drawtonomy.svg`, PDF ou EPS.
+	</Card>
+	<Card title="Diagramas para discussão de design" icon="comment-alt">
+		Esboce uma manobra de mudança de faixa, uma conversão à
+		esquerda sem proteção ou um caso de oclusão em segundos.
+		Compartilhe o resultado e retome a discussão na mesma tela amanhã.
+	</Card>
+	<Card title="Esboços de cenário antes da criação" icon="seti:graphql">
+		Desenhe a cena antes de escrever o XML do OpenSCENARIO — e
+		exporte para `.xosc` / `.xodr` quando o esboço estiver pronto.
+	</Card>
+	<Card title="Anotação de mapa e ROS" icon="seti:json">
+		Trace faixas sobre um fundo de satélite, edite mapas OSM do
+		Lanelet2 ou anote uma grade de ocupação ROS com trajetórias e
+		obstáculos.
+	</Card>
+</CardGrid>
+
+## Por que é mais rápido que uma ferramenta de desenho genérica
+
+<CardGrid>
+	<Card title="Formas do domínio de condução" icon="seti:default">
+		Faixas, cruzamentos, faixas de pedestres, semáforos,
+		marcações viárias, veículos e pedestres já vêm integrados.
+		Você também pode adicionar seus próprios modelos SVG e
+		contribuí-los via PR.
+	</Card>
+	<Card title="Faixas com consciência de topologia" icon="seti:graphql">
+		Cada faixa carrega conexões Próxima / Anterior / Esquerda /
+		Direita. Duas faixas que compartilham uma borda compartilham
+		os mesmos pontos de borda, então arrastar uma vez move ambas.
+	</Card>
+	<Card title="Tela infinita, fundos de satélite" icon="seti:html">
+		Movimente e dê zoom em layouts arbitrariamente grandes.
+		Adicione um fundo de satélite ou mapa rodoviário e trace a
+		partir de uma localização real. Snap e pontos compartilhados
+		mantêm a geometria alinhada sem limpeza manual.
+	</Card>
+	<Card title="Gratuito e só no navegador" icon="rocket">
+		Sem instalação, sem conta, sem upload. Reabra um
+		drawtonomy.svg salvo mais tarde e a cena volta exatamente
+		como você deixou, com conexões e relações de sobreposição
+		incluídas.
+	</Card>
+</CardGrid>
+
+## Pontes para sua pilha de simulação e mapeamento
+
+O quadro branco é a coisa principal; estes são como o diagrama
+flui para o resto do fluxo de trabalho.
+
+<CardGrid>
+	<Card title="SVG reeditável para artigos e slides" icon="document">
+		`drawtonomy.svg` é um SVG comum que tem pré-visualização em
+		navegadores, GitHub e slides, e reabre no drawtonomy com
+		todas as conexões intactas. O padrão para figuras em
+		documentação e artigos de pesquisa.
+	</Card>
+	<Card title="Round-trip Lanelet2" icon="seti:json">
+		Abra mapas OSM do Lanelet2 para edição e exporte de volta
+		para OSM — incluindo mapas de exemplo do Autoware. Útil para
+		esboçar mudanças sobre um mapa HD existente.
+	</Card>
+	<Card title="ASAM OpenDRIVE / OpenSCENARIO" icon="seti:db">
+		Exporte OpenDRIVE 1.8 e OpenSCENARIO 1.3 — juntos como um zip
+		pronto para
+		[esmini](https://github.com/esmini/esmini) quando você quiser
+		reproduzir sua cena em um simulador.
+	</Card>
+	<Card title="AI Scene Generator" icon="comment-alt">
+		Descreva um cenário em linguagem natural ou cole XML de
+		OpenSCENARIO, e receba uma tela editável. A saída é uma cena
+		drawtonomy normal; refine como qualquer outra coisa.
+	</Card>
+</CardGrid>
+
+## Para desenvolvedores de extensões
+
+Se você quer construir em cima do drawtonomy em vez de apenas
+usá-lo, veja [Estendendo o drawtonomy](/pt/extend/). O código-fonte
+do SDK, exemplos e referência ficam ao lado deste site em
+[github.com/kosuke55/drawtonomy](https://github.com/kosuke55/drawtonomy).

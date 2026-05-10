@@ -1,0 +1,70 @@
+---
+title: Trajetória com pegadas
+description: Desenhe uma Trajetória a partir de um veículo e o modelo de veículo se replica ao longo da trajetória.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Uma *pegada* é uma cópia de um veículo (ou outro modelo) posicionada
+automaticamente ao longo de uma Trajetória. A demo começa com um
+veículo ego, desenha uma Trajetória a partir dele, e a trajetória
+imediatamente se preenche com cópias daquele veículo — mesmo modelo,
+orientado ao longo da curva, com espaçamento igual.
+
+<Demo src="/videos/footprints-demo.mp4" caption="Um veículo ego, uma Trajetória desenhada a partir dele e o rastro de pegadas resultante." />
+
+## Configuração
+
+Posicione um veículo em qualquer lugar da tela com a ferramenta
+Veículo, depois pressione <kbd>H</kbd> para a ferramenta Trajetória.
+O painel direito mostra as configurações de Trajetória:
+
+![Painel da ferramenta Trajetória — Cor, Opacidade 90%, Estilo Sólido, Largura 5px, Cabeça de Seta 20px, Suave marcado](/img/frames/footprints-path-panel.png)
+
+Os padrões mostrados — verde sólido, 5 px de largura, suave, com
+cabeça de seta de 20 px — são o que a demo usa.
+
+## Desenhando a trajetória
+
+Clique no veículo para começar a trajetória. O primeiro ponto se
+prende à âncora do veículo. Clique mais pontos para estender a
+trajetória; a cabeça de seta aparece no último ponto que você
+soltar. Pressione <kbd>Enter</kbd> para finalizar.
+
+Assim que a trajetória é finalizada, o drawtonomy posiciona uma cópia
+do veículo de origem ao longo dela:
+
+![A Trajetória é desenhada; pegadas de veículo aparecem ao longo dela com espaçamento igual](/img/frames/footprints-along-path.png)
+
+Cada cópia é girada para combinar com a tangente da trajetória em
+sua posição, então o rastro segue curvas naturalmente.
+
+## Estilo e modelo permanecem ligados
+
+As pegadas compartilham o estilo com seu veículo de origem: mude a
+cor, opacidade ou modelo da origem, e cada pegada segue. Você não
+precisa editar cada cópia à mão para manter um diagrama de manobra
+visualmente consistente.
+
+O próximo quadro da demo esconde a trajetória em si para que apenas
+as pegadas permaneçam — útil para capturas de exportação quando você
+não quer que a trajetória subjacente atrapalhe o diagrama:
+
+![Pegadas sozinhas, sem a trajetória desenhada](/img/frames/footprints-result.png)
+
+## O que você pode ajustar
+
+- **Espaçamento** — distância entre pegadas.
+- **Deslocamento da âncora** — desloca o ponto de referência ao longo
+  da direção de viagem (por exemplo, base link ou para-choque
+  dianteiro em vez do centro).
+- **Suave** — a caixa de seleção no painel da Trajetória faz a
+  trajetória em si curvar suavemente entre pontos; a orientação da
+  pegada segue.
+- **Cor / Opacidade / Tamanho** — aplicado a cada pegada de uma vez
+  via o veículo de origem.
+
+## Veja também
+
+- [Adicionar veículos, pedestres e semáforos](/pt/guides/participants/)
+- [Personalizar cor, opacidade, largura e estilo](/pt/guides/styling/)

@@ -1,0 +1,53 @@
+---
+title: Pürüzsüz şerit sınırları
+description: Çizmeden önce Şerit panelindeki Pürüzsüz Sınır'ı açın — sınırlar açısal yerine spline ile uydurulur.
+keywords:
+  - drawtonomy pürüzsüz şerit
+  - spline sınırlı şerit
+  - eğri şerit çizimi
+  - drawtonomy sınır pürüzsüzleştirme
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+drawtonomy, açısal çoklu çizgiler yerine spline ile uydurulmuş şerit
+sınırları oluşturabilir. Geçiş Şerit oluşturma panelinde yer alır ve
+sonradan çizdiğiniz şeritlere uygulanır; mevcut bir şeridi geriye
+dönük olarak pürüzsüzleştirmez.
+
+<Demo src="/videos/smooth-lane.mp4" caption="Pürüzsüz Sınır kapalı (sol, açısal) ve açıkken (sağ, pürüzsüz) çizilen bir şerit." />
+
+## Geçiş nerede
+
+Şerit aracı için <kbd>N</kbd> tuşuna basın. Sağ panelde **Açık** ve
+**Kapalı** düğmeleri ile bir **PÜRÜZSÜZ SINIR** satırı bulunur:
+
+![Şerit oluşturma paneli — PÜRÜZSÜZ SINIR geçişi vurgulanmış, şu anda Kapalı](/img/frames/smooth-toggle-off.png)
+
+Varsayılan **Kapalı**'dır. Merkez çizgiye tıklamaya başlamadan önce
+açın.
+
+## Karşılaştırma
+
+Aşağıdaki iki ekran görüntüsü aynı merkez çizgi ile çizildi.
+Değişen tek şey geçiştir:
+
+| Pürüzsüz Sınır = Kapalı | Pürüzsüz Sınır = Açık |
+| --- | --- |
+| ![Pürüzsüzleştirme kapalı çizilmiş açısal eğri](/img/frames/smooth-off-result.png) | ![Pürüzsüzleştirme açık çizilmiş pürüzsüz eğri](/img/frames/smooth-on-result.png) |
+
+Geçiş kapalıyken, her merkez çizgi tıklama çifti düz bir sınır
+segmenti olur. Açıkken, aynı merkez çizgi bir eğriye uydurulur.
+
+## Oturum ortasında geçiş yapma
+
+Geçişi istediğiniz zaman çevirebilirsiniz. Yeni şeritler bir sonraki
+tıklamanızda geçerli değeri alır. Mevcut şeritler hangi sınır
+stiliyle çizildiyse onu korur.
+
+## Ayrıca bakın
+
+- [Şerit aracını kullanın](/tr/guides/lane-tool/) — panelin geri
+  kalanı.
+- [Şerit bağlantı modeli](/tr/explanation/lane-model/) — sınırlar
+  eğrildiğinde bile merkez çizginin neden hala bağlantıyı yönettiği.

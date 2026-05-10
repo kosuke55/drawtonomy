@@ -1,0 +1,48 @@
+---
+title: Path với dấu chân
+description: Vẽ một Path từ một phương tiện và mẫu phương tiện tự xếp dọc theo path.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Một *dấu chân* (footprint) là một bản sao của một phương tiện (hoặc mẫu khác) được đặt tự động dọc theo một Path. Bản demo bắt đầu với một phương tiện ego, vẽ một Path từ nó, và path lập tức được điền với các bản sao của phương tiện đó — cùng mẫu, định hướng dọc theo đường cong, cách đều nhau.
+
+<Demo src="/videos/footprints-demo.mp4" caption="Một phương tiện ego, một Path được vẽ từ nó, và đường mòn dấu chân kết quả." />
+
+## Thiết lập
+
+Đặt một phương tiện ở bất kỳ đâu trên canvas bằng công cụ Vehicle, sau đó nhấn <kbd>H</kbd> để dùng công cụ Path. Bảng bên phải hiển thị các cài đặt Path:
+
+![Bảng công cụ Path — Color, Opacity 90%, Style Solid, Width 5px, Arrow Head 20px, Smooth được tích](/img/frames/footprints-path-panel.png)
+
+Các giá trị mặc định được hiển thị — màu xanh lá đặc, rộng 5 px, mượt, với đầu mũi tên 20 px — là những gì bản demo sử dụng.
+
+## Vẽ path
+
+Nhấp lên phương tiện để bắt đầu path. Điểm đầu tiên kẹp vào điểm neo của phương tiện. Nhấp các điểm xa hơn để mở rộng path; đầu mũi tên xuất hiện ở điểm cuối cùng bạn đặt. Nhấn <kbd>Enter</kbd> để hoàn thành.
+
+Ngay khi path hoàn thành, drawtonomy xếp một bản sao của phương tiện nguồn dọc theo nó:
+
+![Path được vẽ; các dấu chân phương tiện xuất hiện dọc theo nó với khoảng cách đều](/img/frames/footprints-along-path.png)
+
+Mỗi bản sao được xoay để khớp với tiếp tuyến của path tại vị trí của nó, vì vậy đường mòn theo các đường cong một cách tự nhiên.
+
+## Kiểu và mẫu vẫn được liên kết
+
+Dấu chân chia sẻ kiểu với phương tiện nguồn của chúng: thay đổi màu, độ trong suốt hoặc mẫu của nguồn, và mọi dấu chân theo sau. Bạn không phải chỉnh sửa thủ công từng bản sao để giữ một sơ đồ thao tác đồng nhất về mặt trực quan.
+
+Khung hình demo tiếp theo ẩn bản thân path để chỉ còn lại dấu chân — hữu ích cho ảnh xuất khi bạn không muốn path bên dưới làm rối sơ đồ:
+
+![Chỉ riêng dấu chân, không có path được vẽ](/img/frames/footprints-result.png)
+
+## Những gì bạn có thể tinh chỉnh
+
+- **Spacing** — khoảng cách giữa các dấu chân.
+- **Anchor offset** — trượt điểm tham chiếu dọc theo hướng di chuyển (ví dụ: base link hoặc cản trước thay vì trung tâm).
+- **Smooth** — hộp kiểm trong bảng Path làm cho bản thân path cong mượt giữa các điểm; định hướng dấu chân theo sau.
+- **Color / Opacity / Size** — áp dụng cho mọi dấu chân cùng một lúc thông qua phương tiện nguồn.
+
+## Xem thêm
+
+- [Thêm phương tiện, người đi bộ và đèn tín hiệu](/vi/guides/participants/)
+- [Tùy chỉnh màu sắc, độ trong suốt, độ rộng và kiểu](/vi/guides/styling/)

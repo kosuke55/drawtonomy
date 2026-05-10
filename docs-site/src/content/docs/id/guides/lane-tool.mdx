@@ -1,0 +1,97 @@
+---
+title: Gunakan alat Lane — gambar jalur dari centerline atau batas
+description: Alat Lane drawtonomy memiliki dua mode pembuatan. Gambar centerline dan biarkan drawtonomy menghasilkan batasnya, atau pilih dua linestring batas yang ada untuk menyesuaikan jalur di antaranya. Cara cepat untuk menggambar jalur untuk gambar dan skenario berkendara otonom.
+keywords:
+  - editor jalur browser
+  - menggambar jalur jalan online
+  - menggambar diagram jalur berkendara otonom
+  - gambar jalur kendaraan otonom
+  - centerline ke geometri jalur
+  - menggambar jalur berbasis batas
+  - alat Lane drawtonomy
+  - editor diagram jalur gratis
+  - menggambar persimpangan online
+  - sketsa jaringan jalan
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Tekan <kbd>N</kbd> untuk alat **Lane**. Panel terbuka di sebelah
+kanan dan tetap terlihat selama alat aktif. Bagian atas panel adalah
+sakelar **CREATION MODE**:
+
+![Panel Lane — CREATION MODE memiliki tombol Center Line dan Boundary; Center Line dipilih; Lane Width 50 px](/img/frames/lane-tool-panel.png)
+
+Kedua mode melakukan hal yang berbeda; pilih yang sesuai dengan
+situasi Anda.
+
+<Demo src="/videos/lane-tool-demo.mp4" caption="Dua jalur digambar dalam mode Center Line, jalur ketiga disisipkan dalam mode Boundary." />
+
+## Mode Center Line
+
+Anda menggambar centerline; drawtonomy menghasilkan batas kiri dan
+kanan dari nilai **Lane Width**. Gunakan ini saat Anda memulai dari
+nol.
+
+1. Klik di kanvas untuk menjatuhkan titik centerline pertama.
+2. Klik lagi untuk menjatuhkan yang berikutnya, dan seterusnya.
+3. Tekan <kbd>Enter</kbd> (atau klik dua kali pada titik terakhir)
+   untuk menyelesaikan.
+
+Alat Lane tetap aktif, jadi klik lagi di tempat lain untuk memulai
+jalur baru. Dua jalur yang digambar dengan cara ini:
+
+![Dua jalur digambar dari centerline](/img/frames/lane-tool-two-lanes.png)
+
+Anda dapat mengubah Color, Opacity, atau Lane Width di panel di
+antara jalur — nilai baru berlaku untuk jalur berikutnya yang Anda
+gambar, bukan yang dipilih.
+
+## Mode Boundary
+
+Klik **Boundary** di bagian atas panel untuk beralih mode. Dalam mode
+Boundary Anda tidak mengklik ruang kosong; Anda mengklik dua
+linestring batas yang sudah ada, dan drawtonomy membuat jalur yang
+menggunakannya sebagai batas kiri dan kanan.
+
+Arahkan kursor ke linestring — drawtonomy menyorotnya dengan warna
+indigo ketika kursor cukup dekat — dan klik:
+
+![Mode Boundary — batas kanan yang ada disorot, siap dipilih](/img/frames/lane-tool-boundary-mode.png)
+
+Klik linestring kedua dan jalur baru muncul di antaranya. Jalur baru
+berbagi kedua batas dengan apa pun yang menggunakannya, sehingga
+memindahkan titik batas memperbarui setiap jalur yang bergantung
+padanya.
+
+Gunakan mode Boundary ketika Anda sudah memiliki geometri (digambar
+manual, diimpor dari Lanelet2, atau dihasilkan oleh Lane Generator)
+dan ingin jalur dipasang di antaranya.
+
+## Memeriksa jalur
+
+Tekan <kbd>V</kbd> untuk Select, lalu klik jalur. Panel beralih ke
+atribut jalur:
+
+![Lane Attribute Panel — Lane ID, ID batas bersama, Direction, empat slot koneksi](/img/frames/lane-attributes.png)
+
+Yang ditampilkan:
+
+- **Lane ID** dan ID dari linestring **Left Boundary** /
+  **Right Boundary** (mis. `way/1`, `way/2`). Dua jalur yang berbagi
+  linestring akan menampilkan ID yang sama di sini.
+- **Lane Color**, **Lane Opacity**, **Direction (Reverse)** —
+  pengaturan visual dan topologi untuk jalur itu sendiri.
+- **Next Lanes / Prev Lanes / Left Lane / Right Lane** — empat slot
+  koneksi, masing-masing dengan **Create** (membuat jalur tetangga
+  baru) dan **Set** (menunjuk ke yang sudah ada). Lihat
+  [Kelola koneksi jalur](/id/guides/lane-connections/).
+
+## Lihat juga
+
+- [Batas jalur yang mulus](/id/guides/smooth-lanes/) — toggle Smooth
+  Boundary di panel yang sama mengubah batas bersudut menjadi
+  spline.
+- [Kelola koneksi jalur](/id/guides/lane-connections/)
+- [Model koneksi jalur](/id/explanation/lane-model/) — mengapa batas
+  bersama menjadi fondasi model jalan drawtonomy.

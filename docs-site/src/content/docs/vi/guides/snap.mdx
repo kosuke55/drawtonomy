@@ -1,0 +1,43 @@
+---
+title: Snap vào hình học hiện có
+description: drawtonomy snap mọi công cụ vẽ vào các điểm và cạnh gần đó — qua các linestring, làn đường, phương tiện và hình mẫu cơ bản.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Snap được bật mặc định và hoạt động trên mọi công cụ. Khi con trỏ lại gần một điểm hoặc cạnh hiện có, drawtonomy khóa vào nó và làm sáng một chỉ báo màu chàm.
+
+<Demo src="/videos/snap-demo.mp4" caption="Một linestring đơn lẻ là mục tiêu khởi đầu; một linestring thứ hai snap vào nó, sau đó một phương tiện và một hình chữ nhật snap vào các đặc điểm lần lượt." />
+
+## Qua các loại hình mẫu
+
+Bản demo chạy ba công cụ khác nhau với cùng loại mục tiêu.
+
+### Linestring snap vào linestring
+
+Bắt đầu từ một linestring dọc đơn lẻ, linestring thứ hai được vẽ sao cho góc của nó nằm chính xác trên cạnh trên của linestring đầu tiên. Kết quả là một góc vuông chia sẻ một điểm — không chỉ chồng lấp pixel về mặt trực quan.
+
+![Hai linestring, linestring thứ hai snap vào linestring đầu tiên để tạo thành một góc](/img/frames/snap-linestring.png)
+
+### Phương tiện snap vào một làn đường
+
+Chuyển sang công cụ Vehicle và thả một xe lên một làn đường sẽ snap phương tiện lên đường tâm của làn và định hướng nó dọc theo hướng của làn.
+
+![Một phương tiện được đặt trên một làn đường nằm ngang, snap vào đường tâm của nó](/img/frames/snap-vehicle.png)
+
+### Hình chữ nhật snap vào một phương tiện / điểm canvas
+
+Công cụ Rectangle có cùng hành vi snap. Chỉ báo nét đứt cho thấy góc đang được kéo đến đâu.
+
+![Hình chữ nhật đang được vẽ gần một phương tiện; một đường nét đứt cho thấy mục tiêu snap](/img/frames/snap-rectangle.png)
+
+## Tắt snap tạm thời
+
+Giữ <kbd>Shift</kbd> khi nhấp hoặc kéo để bỏ qua snap cho hành động đơn lẻ đó. Thả <kbd>Shift</kbd> để tiếp tục snap.
+
+Đây là động tác đúng khi bạn muốn một điểm gần, nhưng không chính xác trên, một mục tiêu hiện có.
+
+## Xem thêm
+
+- [Chia sẻ điểm giữa các hình mẫu](/vi/guides/point-sharing/) — khi bạn muốn điểm mới *chính là* mục tiêu, không chỉ trùng vị trí.
+- [Mô hình snap & chia sẻ điểm](/vi/explanation/snap-and-sharing/)

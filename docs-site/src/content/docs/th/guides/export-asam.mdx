@@ -1,0 +1,74 @@
+---
+title: ส่งออกเป็น OpenDRIVE / OpenSCENARIO / esmini
+description: ส่งออกฉาก drawtonomy เป็น ASAM OpenDRIVE 1.8 (.xodr), OpenSCENARIO 1.3 (.xosc) หรือไฟล์ zip ชุดที่พร้อมใช้กับ esmini สำหรับเล่นในตัวจำลอง
+keywords:
+  - โปรแกรมแก้ไข OpenSCENARIO ฟรี
+  - โปรแกรมแก้ไข OpenDRIVE ฟรีบนเบราว์เซอร์
+  - การสร้าง OpenSCENARIO ออนไลน์
+  - การสร้างสถานการณ์ esmini
+  - เครื่องมือแผนภาพสถานการณ์ ASAM
+  - แปลงภาพวาดเป็น OpenDRIVE
+---
+
+drawtonomy ส่งออกฉากเป็น ASAM
+[OpenDRIVE](https://www.asam.net/standards/detail/opendrive/)
+(`.xodr`) และ
+[OpenSCENARIO](https://www.asam.net/standards/detail/openscenario/)
+(`.xosc`) หรือรวมเป็น zip ที่พร้อมใช้กับ
+[esmini](https://github.com/esmini/esmini) ได้
+
+![ฉาก drawtonomy ที่เล่นใน esmini หลังการส่งออก](/img/asam-esmini.png)
+
+## ส่งออกจากโปรแกรมแก้ไข
+
+1. วาดฉาก (เลน ยานพาหนะ สัญญาณไฟจราจร...)
+2. เปิด **File → Export → Export for esmini**
+3. กรอกชื่อฐานเมื่อระบบถาม
+4. ไฟล์ `<name>.zip` ที่มี `<name>.xodr` และ `<name>.xosc`
+   จะดาวน์โหลด
+
+## เล่นกลับ
+
+```bash
+unzip my-scene.zip
+esmini --osc my-scene/my-scene.xosc --window 60 60 1024 768
+```
+
+## รูปแบบเดี่ยว
+
+หากต้องการเพียงอย่างเดียว:
+
+- **File → Export → OpenDRIVE (.xodr)**
+- **File → Export → OpenSCENARIO (.xosc)**
+
+## การส่งออกเชิงโปรแกรม
+
+ตัวส่งออกเป็นส่วนหนึ่งของ `@drawtonomy/sdk` และทำงานได้โดย
+ไม่ต้องมีโปรแกรมแก้ไข ใช้ใน CI pipeline เครื่องมือฝั่งเซิร์ฟเวอร์
+หรือส่วนขยายเบราว์เซอร์:
+
+```ts
+import { exporter, createSnapshot } from '@drawtonomy/sdk'
+
+const snapshot = createSnapshot(shapes)
+const { blob, baseName } = exporter.buildEsminiZip(snapshot, {
+  baseName: 'my-scene',
+})
+```
+
+สำหรับ API ครบถ้วนและจุดต่อขยาย ดู
+[เอกสารอ้างอิง Exporter SDK](/th/extend/exporter-sdk/)
+
+## เวอร์ชันที่ส่งออก
+
+| รูปแบบ | เวอร์ชัน |
+|---|---|
+| OpenDRIVE | 1.8 |
+| OpenSCENARIO | 1.3 |
+
+## ดูเพิ่มเติม
+
+- [สถาปัตยกรรมตัวส่งออก](/th/explanation/exporter-architecture/) —
+  สิ่งที่ pipeline ทำระหว่าง snapshot และไฟล์
+- [การเพิ่มรูปแบบเป้าหมาย](/th/extend/exporter-sdk/) — เชื่อม CARLA,
+  SUMO, Unity หรืออะไรก็ตาม

@@ -1,0 +1,47 @@
+---
+title: AI로 장면을 생성한 뒤 직접 다듬기
+description: AI Scene Generator로 자연어로 시나리오를 설명하고 결과를 캔버스에서 편집해 보세요.
+sidebar:
+  order: 4
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+[AI Scene Generator](https://github.com/kosuke55/drawtonomy/tree/main/extensions/ai-scene-generator) 확장은 자연어 프롬프트, OpenSCENARIO XML, 또는 DSL 입력을 받아 편집 가능한 캔버스를 출력합니다.
+
+<Demo src="/videos/ai-scene-natural.mp4" caption="자연어 시나리오 → 캔버스에서 편집 가능한 장면." maxWidth="900px" />
+
+## 1. AI Scene Generator 열기
+
+1. 캔버스 우측 하단의 **Extensions**를 클릭합니다.
+2. **AI Scene Generator**를 선택합니다.
+3. AI 제공자(Anthropic Claude, OpenAI GPT 또는 Google Gemini)를 선택하고 API 키를 붙여넣습니다. 키는 사용자의 브라우저 안에만 저장됩니다.
+
+## 2. 장면 설명하기
+
+다음과 같은 프롬프트를 붙여넣어 보세요.
+
+> 좌에서 우로 진행하는 3차선 고속도로. 가운데 차선에는 Ego 세단(파란색), 오른쪽 차선에는 약간 앞선 위치에 트럭(회색). Ego 차량이 왼쪽 차선으로 이동하는 점선 경로를 표시.
+
+**Generate**를 클릭합니다. 확장이 차선, 차량, Path 도형을 캔버스에 배치합니다.
+
+## 3. 다듬기
+
+생성된 모든 것은 일반 도형입니다. 다음을 시도해 보세요.
+
+- 트럭을 선택해 템플릿을 **Bus**로 변경.
+- Ego 차량의 경로를 다른 곡선으로 드래그해 변경.
+- 갓길에 보행자 추가.
+
+## 4. OpenSCENARIO에서 시작하기
+
+같은 패널에서 입력 모드를 **OpenSCENARIO XML**로 전환하고 `.xosc` 파일을 붙여넣으세요. 확장이 액터와 궤적을 캔버스에 배치합니다 — 기존 시나리오를 시각화하는 가장 빠른 방법입니다.
+
+<Demo src="/videos/ai-scene-dsl.mp4" caption="ASAM OpenSCENARIO DSL 예제를 캔버스에 배치한 모습." maxWidth="900px" />
+
+## 학습한 내용
+
+- AI 생성은 출발점일 뿐입니다 — 이후 모든 도형은 캔버스의 다른 도형과 마찬가지로 편집할 수 있습니다.
+- 같은 패널이 자연어 프롬프트와 OpenSCENARIO 입력을 모두 받으므로, 거친 아이디어와 형식적인 명세 사이를 에디터를 떠나지 않고 오갈 수 있습니다.
+
+잘 동작하는 프롬프트 패턴은 [AI Scene Generator README](https://github.com/kosuke55/drawtonomy/tree/main/extensions/ai-scene-generator)를 참고하세요.

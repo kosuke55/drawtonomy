@@ -1,0 +1,73 @@
+---
+title: Gerenciar conexões de faixa (Próxima / Anterior / Esquerda / Direita)
+description: As faixas do drawtonomy carregam slots de conexão Próxima, Anterior, Esquerda e Direita para que a rede viária seja interpretável, não apenas visual. Arraste uma borda compartilhada e as faixas conectadas atualizam juntas.
+keywords:
+  - editor de conexão de faixas
+  - diagrama de topologia viária
+  - modelo de faixa próxima anterior esquerda direita
+  - esboço de rede viária interpretável
+  - rede de faixas para condução autônoma
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Quando duas faixas compartilham um ponto de borda, arrastar esse ponto
+move ambas as faixas de uma vez. O Painel de Atributos expõe quatro
+slots de conexão explícitos para que você também possa conectar
+Próxima / Anterior / Esquerda / Direita à mão.
+
+<Demo src="/videos/lane-connection-demo.mp4" caption="Uma faixa desenhada primeiro, depois uma segunda é adicionada estendendo um ponto existente — a borda fica compartilhada." />
+
+## Desenhando faixas conectadas
+
+O vídeo começa de uma tela vazia com a ferramenta Faixa aberta. A
+primeira faixa é uma única faixa curva:
+
+![Uma única faixa curva](/img/frames/lane-connection-curve.png)
+
+Uma segunda faixa é então iniciada para que sua borda inicial caia
+sobre os pontos de borda existentes da primeira faixa. O drawtonomy
+faz snap nesses pontos e registra a nova faixa como uma continuação:
+
+![Uma segunda faixa adicionada; as duas agora compartilham uma borda na parte inferior](/img/frames/lane-connection-split.png)
+
+As faixas agora compartilham um segmento de borda. Arraste a borda
+compartilhada em qualquer faixa e ambas se movem juntas. A
+extremidade superior divergente é independente em cada lado.
+
+## Os quatro slots de conexão
+
+Pressione <kbd>V</kbd> para Selecionar, clique em qualquer faixa e
+olhe para o painel direito. Os slots são:
+
+| Slot | Significa |
+| --- | --- |
+| **Próximas Faixas** | Faixas para as quais o tráfego desta faixa flui. |
+| **Faixas Anteriores** | Faixas que fluem para esta faixa. |
+| **Faixa Esquerda** | A faixa imediatamente à esquerda, compartilhando uma borda. |
+| **Faixa Direita** | A faixa imediatamente à direita, compartilhando uma borda. |
+
+Cada slot tem dois botões:
+
+- **Create** — cria uma faixa vizinha novinha e aponta o slot para ela.
+- **Set** — escolhe uma faixa existente na tela para preencher o slot.
+
+As conexões são bidirecionais. Definir as *Próximas Faixas* da Faixa
+A para B também adiciona B às *Faixas Anteriores* de A; o drawtonomy
+mantém o link reverso automaticamente.
+
+## Quando as conexões acontecem automaticamente
+
+- Desenhar uma nova faixa que começa em um ponto de borda de uma
+  faixa existente — o caso na demo acima. A borda compartilhada é
+  suficiente; você não precisa clicar em Set.
+- Posicionar um [modelo de cruzamento](/pt/reference/shapes/) — toda
+  faixa de aproximação é conectada.
+
+Para todo o resto, clique em **Set** e escolha o vizinho.
+
+## Veja também
+
+- [Modelo de conexão de faixas](/pt/explanation/lane-model/) — por que
+  essa abstração existe e o que os exportadores fazem com ela.
+- [Use a ferramenta Faixa](/pt/guides/lane-tool/)

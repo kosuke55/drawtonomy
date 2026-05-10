@@ -1,0 +1,79 @@
+---
+title: Pfad mit Footprints
+description: Zeichnen Sie einen Pfad ausgehend von einem Fahrzeug, und die Fahrzeugvorlage kachelt sich automatisch entlang des Pfads.
+keywords:
+  - Path Footprint
+  - Fahrzeugkette Pfad
+  - Folgeabstand Diagramm
+  - Trajektorie Fahrzeug
+  - Whiteboard für autonomes Fahren
+  - drawtonomy Path
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Ein *Footprint* ist eine Kopie eines Fahrzeugs (oder einer anderen
+Vorlage), die automatisch entlang eines Pfads platziert wird. Die
+Demo startet mit einem Ego-Fahrzeug, zeichnet einen Pfad davon
+ausgehend, und der Pfad füllt sich sofort mit Kopien dieses
+Fahrzeugs — gleiche Vorlage, an der Kurve ausgerichtet, gleichmäßig
+beabstandet.
+
+<Demo src="/videos/footprints-demo.mp4" caption="Ein Ego-Fahrzeug, ein davon ausgehend gezeichneter Pfad und die resultierende Footprint-Spur." />
+
+## Vorbereitung
+
+Platzieren Sie ein Fahrzeug irgendwo auf dem Canvas mit dem
+Vehicle-Werkzeug, dann drücken Sie <kbd>H</kbd> für das
+Path-Werkzeug. Das rechte Panel zeigt die Path-Einstellungen:
+
+![Path-Werkzeugpanel — Color, Opacity 90%, Style Solid, Width 5px, Arrow Head 20px, Smooth aktiviert](/img/frames/footprints-path-panel.png)
+
+Die gezeigten Standardwerte — durchgehendes Grün, 5 px breit,
+glatt, mit 20 px Pfeilkopf — sind die in der Demo verwendeten.
+
+## Den Pfad zeichnen
+
+Klicken Sie auf das Fahrzeug, um den Pfad zu beginnen. Der erste
+Punkt rastet am Ankerpunkt des Fahrzeugs ein. Klicken Sie weitere
+Punkte, um den Pfad zu verlängern; der Pfeilkopf erscheint am
+zuletzt gesetzten Punkt. Drücken Sie <kbd>Enter</kbd> zum
+Abschluss.
+
+Sobald der Pfad fertig ist, kachelt drawtonomy eine Kopie des
+Quell-Fahrzeugs daran entlang:
+
+![Der Pfad ist gezeichnet; Fahrzeug-Footprints erscheinen in gleichem Abstand entlang des Pfads](/img/frames/footprints-along-path.png)
+
+Jede Kopie wird entsprechend der Pfadtangente an ihrer Position
+gedreht, sodass die Spur Kurven natürlich folgt.
+
+## Stil und Vorlage bleiben verbunden
+
+Footprints teilen den Stil mit ihrem Quell-Fahrzeug: Ändern Sie
+Farbe, Deckkraft oder Vorlage des Originals, folgt jeder Footprint.
+Sie müssen nicht jede Kopie von Hand anpassen, um ein
+Manöver-Diagramm visuell konsistent zu halten.
+
+Das nächste Demo-Frame blendet den Pfad selbst aus, sodass nur die
+Footprints bleiben — nützlich für Export-Aufnahmen, wenn der
+darunterliegende Pfad das Diagramm nicht überfrachten soll:
+
+![Nur Footprints, ohne den gezeichneten Pfad](/img/frames/footprints-result.png)
+
+## Was Sie justieren können
+
+- **Spacing** — Abstand zwischen Footprints.
+- **Anchor offset** — den Referenzpunkt entlang der Fahrtrichtung
+  verschieben (zum Beispiel Base-Link oder vordere Stoßstange
+  statt Mitte).
+- **Smooth** — die Checkbox im Path-Panel lässt den Pfad selbst
+  zwischen den Punkten glatt verlaufen; die Footprint-Ausrichtung
+  folgt.
+- **Color / Opacity / Size** — werden über das Quell-Fahrzeug auf
+  jeden Footprint gleichzeitig angewendet.
+
+## Siehe auch
+
+- [Fahrzeuge, Fußgänger und Ampeln hinzufügen](/de/guides/participants/)
+- [Farbe, Deckkraft, Breite und Stil anpassen](/de/guides/styling/)

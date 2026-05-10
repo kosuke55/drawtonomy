@@ -1,0 +1,62 @@
+---
+title: Generera körfält från en karta
+description: Konvertera OSM-vägdata under en satellit- eller vägkartbakgrund till redigerbara körfält.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Lane Generator hämtar verklig väggeometri från OpenStreetMap och
+gör om den till redigerbara Lane-former linjerade med
+kartbakgrunden.
+
+<Demo src="/videos/map-to-lane-demo.mp4" caption="Klicka på en väg för ett körfält, dra en region för många." maxWidth="900px" />
+
+## Slå på en kartbakgrund
+
+1. Öppna **Background**-menyn uppe till vänster på canvasen.
+2. Välj **Satellite** (fotografisk) eller **Roadmap** (schematisk).
+3. Panorera och zooma till området du vill ha.
+
+Kartan renderas bakom canvasen och förblir förankrad medan du
+ritar.
+
+## Generera ett enskilt körfält
+
+1. Tryck på <kbd>N</kbd> för Lane-verktyget.
+2. Aktivera **Generator**-läge i verktygsfältet.
+3. Hovra över en väg. drawtonomy markerar det matchade
+   OSM-vägsegmentet under markören.
+4. Klicka. Segmentet hämtas och konverteras till en Lane-form.
+
+## Generera varje väg i en region
+
+Med Generator-läge på:
+
+1. Dra en rektangel över området du vill fånga.
+2. Släpp. Varje väg inuti rektangeln blir ett körfält i ett svep.
+
+Användbart för hela korsningar, kvarter eller testplatser.
+
+## Rekommenderade gränser
+
+OSM-hämtningen och konverteringen körs i webbläsaren. För responsiv
+redigering, håll den resulterande scenen under cirka **500
+körfält** — dela upp ett större område över flera filer om du
+behöver mer.
+
+## Efter generering
+
+Genererade körfält är vanliga Lane-former. Du kan:
+
+- Dra punkter för att förfina geometri.
+- Tillämpa [Smooth](/sv/guides/smooth-lanes/) för att ersätta täta
+  polylinjer med splines.
+- Ange [kopplingar](/sv/guides/lane-connections/) där generatorn inte
+  härledde dem automatiskt.
+- Släppa fordon, fotgängare eller banor ovanpå.
+
+## Se även
+
+- [Tutorial: Återskapa en riktig väg från en satellitkarta](/sv/tutorials/road-from-map/)
+- [Importera en Lanelet2 (.osm)-fil](/sv/guides/import-lanelet2/) —
+  när du redan har en kurerad kartfil snarare än rå OSM.

@@ -1,0 +1,55 @@
+---
+title: Editar segmentos y añadir puntos
+description: Refina una Linestring, Carril o Polígono editando el segmento entre dos puntos.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+La edición de segmentos te permite ajustar formas entre dos
+vértices adyacentes cualesquiera, añadir un nuevo vértice o
+eliminar uno — sin redibujar la forma desde cero.
+
+<Demo src="/videos/segment-demo.mp4" caption="Doble clic para entrar en modo de edición de segmentos, luego arrastra un punto o haz clic en un segmento para añadir uno." />
+
+## Entrar en el modo de edición de segmentos
+
+1. Pulsa <kbd>V</kbd> para la herramienta Seleccionar.
+2. Haz doble clic en una Linestring, Carril o Polígono.
+3. La forma cambia al modo de edición de puntos: cada vértice se
+   convierte en un controlador índigo arrastrable.
+
+## Mover un punto
+
+Haz clic y arrastra un vértice. Si el punto se comparte con otra
+forma (consulta [Compartir puntos](/es/guides/point-sharing/)), cada
+forma que lo contiene se mueve a la vez.
+
+Para los carriles, arrastrar un punto de borde actualiza ambos
+carriles que comparten el borde — consulta
+[Modelo de conexión de carriles](/es/explanation/lane-model/).
+
+## Añadir un punto
+
+Haz clic en cualquier lugar de un segmento (la línea entre dos
+puntos existentes). Se inserta un nuevo vértice en la posición
+del clic.
+
+Esta es la forma más rápida de introducir una curva en una
+sección anteriormente recta: añade un punto y luego arrástralo.
+
+## Eliminar un punto
+
+Selecciona el vértice (se vuelve índigo sólido) y pulsa
+<kbd>Delete</kbd> o <kbd>Backspace</kbd>.
+
+## Salir de la edición de segmentos
+
+Pulsa <kbd>Esc</kbd>, haz clic fuera de la forma o elige otra
+herramienta. La forma vuelve al modo de selección normal.
+
+## Véase también
+
+- [Bordes de carril suavizados](/es/guides/smooth-lanes/) — útil
+  después de añadir muchos puntos y querer limpiarlo todo.
+- [Snap a geometría existente](/es/guides/snap/) — arrastra puntos a
+  los objetivos de snap para mantenerlos alineados.

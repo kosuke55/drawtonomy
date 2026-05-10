@@ -1,0 +1,63 @@
+---
+title: Xuất sang OpenDRIVE / OpenSCENARIO / esmini
+description: Xuất cảnh drawtonomy của bạn dưới dạng ASAM OpenDRIVE 1.8 (.xodr), OpenSCENARIO 1.3 (.xosc), hoặc gói zip sẵn sàng cho esmini để phát lại trong trình mô phỏng.
+keywords:
+  - trình chỉnh sửa OpenSCENARIO miễn phí
+  - trình chỉnh sửa OpenDRIVE miễn phí trên trình duyệt
+  - tạo OpenSCENARIO trực tuyến
+  - tạo kịch bản esmini
+  - công cụ sơ đồ kịch bản ASAM
+  - chuyển bản vẽ sang OpenDRIVE
+---
+
+drawtonomy có thể xuất cảnh của bạn dưới dạng ASAM [OpenDRIVE](https://www.asam.net/standards/detail/opendrive/) (`.xodr`) và [OpenSCENARIO](https://www.asam.net/standards/detail/openscenario/) (`.xosc`), hoặc đóng gói cả hai dưới dạng zip sẵn sàng cho [esmini](https://github.com/esmini/esmini) phát lại.
+
+![Một cảnh drawtonomy được phát lại trong esmini sau khi xuất](/img/asam-esmini.png)
+
+## Xuất từ trình chỉnh sửa
+
+1. Vẽ cảnh của bạn (làn đường, phương tiện, đèn tín hiệu…).
+2. Mở **File → Export → Export for esmini**.
+3. Nhập tên cơ sở khi được nhắc.
+4. Một `<name>.zip` chứa `<name>.xodr` và `<name>.xosc` được tải xuống.
+
+## Phát lại
+
+```bash
+unzip my-scene.zip
+esmini --osc my-scene/my-scene.xosc --window 60 60 1024 768
+```
+
+## Các định dạng riêng lẻ
+
+Nếu bạn chỉ cần một trong hai:
+
+- **File → Export → OpenDRIVE (.xodr)**
+- **File → Export → OpenSCENARIO (.xosc)**
+
+## Xuất theo chương trình
+
+Trình xuất là một phần của `@drawtonomy/sdk` và chạy mà không cần trình chỉnh sửa. Sử dụng nó trong các pipeline CI, công cụ phía máy chủ, hoặc tiện ích mở rộng trình duyệt:
+
+```ts
+import { exporter, createSnapshot } from '@drawtonomy/sdk'
+
+const snapshot = createSnapshot(shapes)
+const { blob, baseName } = exporter.buildEsminiZip(snapshot, {
+  baseName: 'my-scene',
+})
+```
+
+Để biết API đầy đủ và các điểm mở rộng, xem [tham khảo Exporter SDK](/vi/extend/exporter-sdk/).
+
+## Phiên bản được phát ra
+
+| Định dạng | Phiên bản |
+|---|---|
+| OpenDRIVE | 1.8 |
+| OpenSCENARIO | 1.3 |
+
+## Xem thêm
+
+- [Kiến trúc trình xuất](/vi/explanation/exporter-architecture/) — pipeline làm gì giữa snapshot và tệp.
+- [Thêm một định dạng đích](/vi/extend/exporter-sdk/) — kết nối CARLA, SUMO, Unity, hoặc bất cứ thứ gì khác.

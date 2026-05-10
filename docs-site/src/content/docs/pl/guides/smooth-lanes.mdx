@@ -1,0 +1,46 @@
+---
+title: Gładkie granice pasów
+description: Przełącz Gładką Granicę w panelu Pas przed rysowaniem — granice są dopasowywane splajnem zamiast kanciaste.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+drawtonomy może generować granice pasów dopasowywane splajnem zamiast
+kanciastych łamanych. Przełącznik znajduje się w panelu tworzenia
+Pasa i stosuje się do pasów, które rysujesz następnie; nie wygładza
+retroaktywnie istniejącego pasa.
+
+<Demo src="/videos/smooth-lane.mp4" caption="Pas narysowany z wyłączoną Gładką Granicą (po lewej, kanciasty) i włączoną (po prawej, gładki)." />
+
+## Gdzie znajduje się przełącznik
+
+Naciśnij <kbd>N</kbd> dla narzędzia Pas. Prawy panel zawiera wiersz
+**GŁADKA GRANICA** z przyciskami **Włączona** i **Wyłączona**:
+
+![Panel tworzenia Pasa — przełącznik GŁADKA GRANICA podświetlony, obecnie Wyłączona](/img/frames/smooth-toggle-off.png)
+
+Domyślnie jest **Wyłączona**. Włącz go, zanim zaczniesz klikać oś.
+
+## Porównaj
+
+Dwa zrzuty ekranu poniżej zostały narysowane z tą samą osią. Jedyną
+zmienioną rzeczą jest przełącznik:
+
+| Gładka Granica = Wył. | Gładka Granica = Wł. |
+| --- | --- |
+| ![Kanciasta krzywa narysowana z wyłączonym wygładzaniem](/img/frames/smooth-off-result.png) | ![Gładka krzywa narysowana z włączonym wygładzaniem](/img/frames/smooth-on-result.png) |
+
+Z wyłączonym przełącznikiem każda para kliknięć osi staje się prostym
+segmentem granicy. Z włączonym ta sama oś jest dopasowana do krzywej.
+
+## Przełączanie w trakcie sesji
+
+Możesz przełączać, kiedy tylko chcesz. Nowe pasy przyjmują bieżącą
+wartość, gdy następnym razem klikniesz. Istniejące pasy zachowują
+styl granicy, z którym zostały narysowane.
+
+## Zobacz także
+
+- [Użyj narzędzia Pas](/pl/guides/lane-tool/) — reszta panelu.
+- [Model połączeń pasów](/pl/explanation/lane-model/) — dlaczego oś
+  nadal kieruje łącznością, nawet gdy granice się krzywią.

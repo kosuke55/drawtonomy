@@ -1,0 +1,43 @@
+---
+title: Accrochage à la géométrie existante
+description: drawtonomy accroche tous les outils de dessin aux points et bords proches — entre linestrings, voies, véhicules et formes de base.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+L'accrochage est activé par défaut et fonctionne avec tous les outils. Quand le curseur s'approche d'un point ou d'un bord existant, drawtonomy s'y verrouille et fait apparaître un indicateur indigo.
+
+<Demo src="/videos/snap-demo.mp4" caption="Un seul linestring sert de cible de départ ; un second linestring s'y accroche, puis un véhicule et un rectangle s'accrochent à des éléments à leur tour." />
+
+## Entre types de formes
+
+La démo utilise trois outils différents face à une cible commune.
+
+### Linestring s'accroche à un linestring
+
+À partir d'un seul linestring vertical, le second est dessiné de sorte que son coin tombe exactement sur le bord supérieur du premier. Le résultat est un angle droit qui partage un point — pas seulement des pixels qui se superposent visuellement.
+
+![Deux linestrings, le second accroché au premier pour former un coin](/img/frames/snap-linestring.png)
+
+### Véhicule s'accroche à une voie
+
+En basculant sur l'outil Véhicule et en déposant une voiture sur une voie, le véhicule s'accroche à la ligne médiane de la voie et s'oriente selon sa direction.
+
+![Un véhicule placé sur une voie horizontale, accroché à sa ligne médiane](/img/frames/snap-vehicle.png)
+
+### Rectangle s'accroche à un véhicule / point du canevas
+
+L'outil Rectangle bénéficie du même comportement d'accrochage. L'indicateur en pointillé montre où le coin est attiré.
+
+![Rectangle en cours de dessin près d'un véhicule ; une ligne en pointillé indique la cible d'accrochage](/img/frames/snap-rectangle.png)
+
+## Désactiver l'accrochage temporairement
+
+Maintenez <kbd>Maj</kbd> pendant un clic ou un glissement pour désactiver l'accrochage sur cette seule action. Relâchez <kbd>Maj</kbd> pour le réactiver.
+
+C'est ce qu'il faut faire quand vous voulez un point près, mais pas exactement sur, une cible existante.
+
+## Voir aussi
+
+- [Partager des points entre formes](/fr/guides/point-sharing/) — quand vous voulez que le nouveau point *soit le même* que la cible, pas seulement coïncident.
+- [Modèle d'accrochage et de partage de points](/fr/explanation/snap-and-sharing/)

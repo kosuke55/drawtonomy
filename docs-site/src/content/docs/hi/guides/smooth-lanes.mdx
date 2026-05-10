@@ -1,0 +1,48 @@
+---
+title: स्मूथ लेन बाउंड्री
+description: ड्रॉइंग करने से पहले Lane पैनल में Smooth Boundary toggle करें — बाउंड्री angular के बजाय spline-fitted होती हैं।
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+drawtonomy angular polylines के बजाय spline-fitted लेन
+बाउंड्री जनरेट कर सकता है। Toggle Lane निर्माण पैनल में है और
+उन लेन पर लागू होता है जिन्हें आप आगे बनाते हैं; यह किसी
+मौजूदा लेन को retroactively smooth नहीं करता।
+
+<Demo src="/videos/smooth-lane.mp4" caption="Smooth Boundary off (बाएं, angular) और on (दाएं, smooth) के साथ बनाई गई एक लेन।" />
+
+## Toggle कहां है
+
+Lane टूल के लिए <kbd>N</kbd> दबाएं। दायां पैनल **On** और
+**Off** बटन के साथ एक **SMOOTH BOUNDARY** पंक्ति शामिल करता है:
+
+![Lane निर्माण पैनल — SMOOTH BOUNDARY toggle हाइलाइट है, वर्तमान में Off](/img/frames/smooth-toggle-off.png)
+
+डिफ़ॉल्ट **Off** है। Centerline पर क्लिक करना शुरू करने से
+पहले इसे on करें।
+
+## तुलना करें
+
+नीचे दो स्क्रीनशॉट समान centerline के साथ बनाए गए थे। केवल
+toggle बदला है:
+
+| Smooth Boundary = Off | Smooth Boundary = On |
+| --- | --- |
+| ![smoothing off के साथ बनाया गया angular curve](/img/frames/smooth-off-result.png) | ![smoothing on के साथ बनाया गया smooth curve](/img/frames/smooth-on-result.png) |
+
+Toggle off के साथ, centerline clicks का प्रत्येक pair एक सीधा
+बाउंड्री segment बनता है। इसके on होने पर, वही centerline एक
+curve पर fitted होता है।
+
+## Mid-session स्विच करना
+
+आप जब चाहें toggle flip कर सकते हैं। नई लेन अगली बार जब आप
+क्लिक करते हैं तब वर्तमान मान pick up करती हैं। मौजूदा लेन वो
+बाउंड्री शैली रखती हैं जिसके साथ उन्हें बनाया गया था।
+
+## इसे भी देखें
+
+- [Lane टूल का उपयोग करें](/hi/guides/lane-tool/) — पैनल का बाकी।
+- [लेन कनेक्शन मॉडल](/hi/explanation/lane-model/) — centerline
+  connectivity को क्यों drive करती है भले ही बाउंड्री curve हों।

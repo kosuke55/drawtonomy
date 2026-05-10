@@ -1,0 +1,210 @@
+---
+title: drawtonomy — whiteboard voor rijscenario's
+description: Een gratis, browsergebaseerd whiteboard voor rijscenario's. Schets rijstroken, kruispunten, voertuigen en voetgangers voor papers, dia's, ontwerpdiscussies en scenariocreatie. Exporteert naar OpenDRIVE, OpenSCENARIO en Lanelet2.
+template: splash
+keywords:
+  - whiteboard voor rijscenario's
+  - rijscenario diagramtool
+  - whiteboard voor autonoom rijden
+  - rijstrook editor browser
+  - kruispunt diagramtool
+  - autonoom rijden figuur paper
+  - autonoom rijden figuur presentatie
+  - zelfrijdend voertuig figuur software
+  - illustratietool voor autonome voertuigen
+  - verkeerssituatie diagram
+  - rijscenario schetstool
+  - gratis OpenSCENARIO editor browser
+  - gratis OpenDRIVE editor
+  - Lanelet2 browser editor
+  - esmini scenariocreatie
+  - ROS occupancy grid annotatie
+  - ADAS scenario diagram
+  - simulatie autonoom voertuig
+  - wegennet schets online
+jsonLd:
+  '@context': 'https://schema.org'
+  '@type': SoftwareApplication
+  name: drawtonomy
+  alternateName: drawtonomy — whiteboard voor rijscenario's
+  url: 'https://drawtonomy.com'
+  sameAs:
+    - 'https://github.com/kosuke55/drawtonomy'
+  description: Een gratis, browsergebaseerd whiteboard voor rijscenario's. Rijstroken, kruispunten, voertuigen, voetgangers en wegmarkeringen als ingebouwde vormen — voor papers, dia's, ontwerpdiscussies en scenariocreatie. Exporteert naar OpenDRIVE, OpenSCENARIO en Lanelet2.
+  applicationCategory: DesignApplication
+  applicationSubCategory: Diagram editor
+  operatingSystem: Any (browser-based)
+  browserRequirements: Requires a modern web browser
+  offers:
+    '@type': Offer
+    price: '0'
+    priceCurrency: USD
+  featureList:
+    - Rijstroken met Volgende / Vorige / Links / Rechts verbindingen
+    - Sjablonen voor kruispunten, zebrapaden, verkeerslichten, verkeersborden en wegmarkeringen
+    - Voertuig- en voetgangersjablonen met paden en footprints
+    - Snap- en gedeelde puntbewerking
+    - Sleep-om-te-bewerken grenslijngeometrie die zich verspreidt over verbonden rijstroken
+    - Herbewerkbare drawtonomy.svg-opslag, klaar om in papers en dia's in te bedden
+    - Lanelet2 (.osm) round-trip
+    - OpenDRIVE 1.8 en OpenSCENARIO 1.3 export, esmini-klaar zip
+    - ROS OccupancyGrid (.pgm + .yaml) import
+    - AI Scene Generator extensie
+hero:
+  tagline: Een gratis, browsergebaseerd whiteboard voor rijscenario's. Schets rijstroken, kruispunten en verkeerssituaties voor papers, dia's, ontwerpdiscussies en scenariocreatie — zonder dat u de weg opnieuw hoeft te tekenen telkens als deze afbuigt.
+  image:
+    file: ../../../assets/logo.png
+  actions:
+    - text: Snelstart
+      link: /nl/start/quickstart/
+      icon: right-arrow
+    - text: Probeer de app
+      link: https://drawtonomy.com
+      icon: external
+      variant: secondary
+    - text: GitHub
+      link: https://github.com/kosuke55/drawtonomy
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## Vind wat u nodig hebt
+
+De documentatie is georganiseerd rond vier soorten behoeften. Kies degene
+die past bij wat u probeert te doen.
+
+<CardGrid>
+	<LinkCard
+		title="Tutorials"
+		href="/nl/tutorials/"
+		description="Leer door te doen. Stap-voor-stap lessen van een leeg canvas tot een afgeronde scène."
+	/>
+	<LinkCard
+		title="How-to-handleidingen"
+		href="/nl/guides/"
+		description="Klaar een specifieke taak. Recepten voor rijstroken, voertuigen, exports en imports."
+	/>
+	<LinkCard
+		title="Referentie"
+		href="/nl/reference/"
+		description="Zoek de feiten op. Sneltoetsen, bestandsformaten, vormcatalogus en SDK-API's."
+	/>
+	<LinkCard
+		title="Uitleg"
+		href="/nl/explanation/"
+		description="Begrijp het model. Waarom drawtonomy werkt zoals het werkt."
+	/>
+</CardGrid>
+
+## Wat is drawtonomy?
+
+drawtonomy is een **whiteboard voor rijscenario's** — de
+figuren die u in een paper plaatst, de dia die u schetst voor een
+ontwerpevaluatie, het diagram dat u tijdens een gesprek tekent
+wanneer u een randgeval aan de rest van het team probeert uit te
+leggen, de scène die u uitwerkt voordat u het OpenSCENARIO-bestand
+schrijft.
+
+Open de URL, teken rijstroken en kruispunten op een oneindig
+canvas, plaats voertuigen, voetgangers, verkeerslichten,
+zebrapaden en wegmarkeringen, en sla op of exporteer. Niets te
+installeren, geen account, niets geüpload.
+
+De reden waarom het bestaat: generieke tekenprogramma's en
+slidedecks weten niet wat een rijstrook is, dus de weggeometrie
+moet steeds opnieuw worden opgebouwd wanneer er iets verschuift.
+drawtonomy behandelt rijstroken, kruispunten en de rest van de
+rijscenario-vocabulaire als ingebouwde vormen, zodat de figuur
+correct blijft terwijl u itereert.
+
+## Waar mensen het voor gebruiken
+
+<CardGrid>
+	<Card title="Figuren voor papers en scripties" icon="document">
+		Scherpe, vectoriële figuren van autonome rijscenario's die
+		netjes zijn in te bedden in LaTeX, slidedecks en Markdown —
+		geëxporteerd als `drawtonomy.svg`, PDF of EPS.
+	</Card>
+	<Card title="Diagrammen voor ontwerpdiscussie" icon="comment-alt">
+		Schets in seconden een rijstrookwisseling, een onbeschermde
+		linksaf-manoeuvre of een afdekkingscasus. Deel het resultaat
+		en pak de discussie morgen op in hetzelfde canvas.
+	</Card>
+	<Card title="Scenarioschetsen voor de creatie" icon="seti:graphql">
+		Teken de scène voordat u de OpenSCENARIO XML schrijft — en
+		exporteer naar `.xosc` / `.xodr` zodra de schets klaar is.
+	</Card>
+	<Card title="Kaart- en ROS-annotatie" icon="seti:json">
+		Trek rijstroken over een satellietachtergrond, bewerk
+		Lanelet2 OSM-kaarten of annoteer een ROS occupancy grid met
+		paden en obstakels.
+	</Card>
+</CardGrid>
+
+## Waarom het sneller is dan een generieke tekentool
+
+<CardGrid>
+	<Card title="Vormen uit het rijdomein" icon="seti:default">
+		Rijstroken, kruispunten, zebrapaden, verkeerslichten,
+		wegmarkeringen, voertuigen en voetgangers zijn ingebouwd. U
+		kunt ook uw eigen SVG-sjablonen toevoegen en bijdragen via
+		een PR.
+	</Card>
+	<Card title="Topologiebewuste rijstroken" icon="seti:graphql">
+		Elke rijstrook bevat verbindingen voor Volgende / Vorige /
+		Links / Rechts. Twee rijstroken die een grenslijn delen,
+		delen dezelfde grenspunten — één keer slepen verplaatst
+		beide.
+	</Card>
+	<Card title="Oneindig canvas, satellietachtergronden" icon="seti:html">
+		Pan en zoom over willekeurig grote layouts. Plaats een
+		satelliet- of wegenkaartachtergrond en trek over een echte
+		locatie. Snap- en gedeelde punten houden de geometrie
+		uitgelijnd zonder handmatige opschoning.
+	</Card>
+	<Card title="Gratis en alleen in de browser" icon="rocket">
+		Geen installatie, geen account, geen upload. Heropen later
+		een opgeslagen drawtonomy.svg en de scène komt precies terug
+		zoals u die heeft achtergelaten, inclusief verbindingen en
+		overlapsrelaties.
+	</Card>
+</CardGrid>
+
+## Bruggen naar uw simulatie- en mappingstack
+
+Het whiteboard is het belangrijkste; deze zijn hoe het diagram
+naar de rest van de workflow stroomt.
+
+<CardGrid>
+	<Card title="Herbewerkbare SVG voor papers en dia's" icon="document">
+		`drawtonomy.svg` is een gewone SVG die in browsers, GitHub
+		en slidedecks wordt weergegeven, en in drawtonomy heropent
+		met elke verbinding intact. De standaard voor figuren in
+		documentatie en onderzoekspapers.
+	</Card>
+	<Card title="Lanelet2 round-trip" icon="seti:json">
+		Open Lanelet2 OSM-kaarten voor bewerking en exporteer terug
+		naar OSM — inclusief Autoware-voorbeeldkaarten. Handig om
+		wijzigingen te schetsen tegen een bestaande HD-kaart.
+	</Card>
+	<Card title="ASAM OpenDRIVE / OpenSCENARIO" icon="seti:db">
+		Exporteer OpenDRIVE 1.8 en OpenSCENARIO 1.3 — samen als een
+		[esmini](https://github.com/esmini/esmini)-klaar zip wanneer
+		u uw scène in een simulator wilt afspelen.
+	</Card>
+	<Card title="AI Scene Generator" icon="comment-alt">
+		Beschrijf een scenario in natuurlijke taal of plak
+		OpenSCENARIO XML, en krijg een bewerkbaar canvas terug. De
+		uitvoer is een gewone drawtonomy-scène; verfijn deze zoals
+		alles anders.
+	</Card>
+</CardGrid>
+
+## Voor extensieontwikkelaars
+
+Als u op drawtonomy wilt voortbouwen in plaats van het alleen te
+gebruiken, zie [drawtonomy uitbreiden](/nl/extend/). De
+SDK-broncode, voorbeelden en referentie staan naast deze site op
+[github.com/kosuke55/drawtonomy](https://github.com/kosuke55/drawtonomy).

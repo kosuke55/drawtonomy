@@ -1,0 +1,79 @@
+---
+title: Gestionar conexiones de carriles (Siguiente / Anterior / Izquierda / Derecha)
+description: Los carriles de drawtonomy llevan los espacios de conexión Siguiente, Anterior, Izquierda y Derecha para que la red vial sea interpretable, no solo visual. Arrastra un borde compartido y los carriles conectados se actualizan juntos.
+keywords:
+  - editor conexiones de carriles
+  - diagrama topología vial
+  - modelo carril siguiente anterior izquierda derecha
+  - boceto red vial interpretable
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Cuando dos carriles comparten un punto de borde, arrastrar ese
+punto mueve ambos carriles a la vez. El Panel de Atributos expone
+cuatro espacios de conexión explícitos para que también puedas
+conectar Siguiente / Anterior / Izquierda / Derecha a mano.
+
+<Demo src="/videos/lane-connection-demo.mp4" caption="Un carril dibujado primero, luego se añade un segundo extendiendo un punto existente — el borde se vuelve compartido." />
+
+## Dibujar carriles conectados
+
+El vídeo empieza con un lienzo vacío y la herramienta Carril
+abierta. El primer carril es un único carril curvado:
+
+![Un único carril curvado](/img/frames/lane-connection-curve.png)
+
+Luego se inicia un segundo carril de modo que su borde de inicio
+caiga sobre los puntos de borde existentes del primer carril.
+drawtonomy hace snap a esos puntos y registra el nuevo carril
+como una continuación:
+
+![Se añade un segundo carril; los dos comparten ahora un borde en la parte inferior](/img/frames/lane-connection-split.png)
+
+Los carriles ahora comparten un segmento de borde. Arrastra el
+borde compartido en cualquiera de los carriles y ambos se mueven
+a la vez. El extremo superior divergente es independiente en cada
+lado.
+
+## Los cuatro espacios de conexión
+
+Pulsa <kbd>V</kbd> para Seleccionar, haz clic en cualquier carril
+y mira el panel derecho. Los espacios son:
+
+| Espacio | Significa |
+| --- | --- |
+| **Carriles Siguientes** | Carriles a los que fluye el tráfico desde este carril. |
+| **Carriles Anteriores** | Carriles que fluyen hacia este carril. |
+| **Carril Izquierdo** | El carril inmediatamente a la izquierda, que comparte un borde. |
+| **Carril Derecho** | El carril inmediatamente a la derecha, que comparte un borde. |
+
+Cada espacio tiene dos botones:
+
+- **Crear** — crea un carril vecino completamente nuevo y apunta
+  el espacio hacia él.
+- **Establecer** — elige un carril existente en el lienzo para
+  rellenar el espacio.
+
+Las conexiones son bidireccionales. Establecer los *Carriles
+Siguientes* del Carril A hacia B también añade B a los *Carriles
+Anteriores* de A; drawtonomy mantiene el enlace inverso
+automáticamente.
+
+## Cuando las conexiones suceden automáticamente
+
+- Dibujar un nuevo carril que empieza en un punto de borde de un
+  carril existente — el caso de la demostración anterior. El
+  borde compartido es suficiente; no necesitas hacer clic en
+  Establecer.
+- Colocar una [plantilla de intersección](/es/reference/shapes/) —
+  cada carril de aproximación queda conectado.
+
+Para todo lo demás, haz clic en **Establecer** y elige el vecino.
+
+## Véase también
+
+- [Modelo de conexión de carriles](/es/explanation/lane-model/) — por
+  qué existe esta abstracción y qué hacen los exportadores con
+  ella.
+- [Usar la herramienta Carril](/es/guides/lane-tool/)

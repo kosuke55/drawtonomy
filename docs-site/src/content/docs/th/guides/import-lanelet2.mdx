@@ -1,0 +1,58 @@
+---
+title: นำเข้าไฟล์ Lanelet2 (.osm)
+description: เปิดแผนที่ Lanelet2 OSM ในไวท์บอร์ดเบราว์เซอร์ของ drawtonomy แก้ไขเลนและการเชื่อมต่อในรูปแบบภาพ และทำ round-trip กลับเป็น Lanelet2 — มีประโยชน์สำหรับแผนที่ตัวอย่างของ Autoware และไฟล์เครือข่ายถนนที่คล้ายกัน
+keywords:
+  - โปรแกรมแก้ไข Lanelet2 บนเบราว์เซอร์
+  - โปรแกรมดู Lanelet2 ออนไลน์
+  - แก้ไขไฟล์ lanelet2 osm
+  - โปรแกรมแก้ไขแผนที่ตัวอย่าง Autoware
+  - เครื่องมือแผนภาพ lanelet2
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+drawtonomy อ่านแผนที่รูปแบบ
+[Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2)
+OSM ได้ แผนที่ตัวอย่างมีให้ดาวน์โหลดจาก
+[เอกสาร Autoware](https://autowarefoundation.github.io/autoware-documentation/main/demos/planning-sim/#download-the-sample-map)
+
+<Demo src="/videos/lanelet-import-demo.mp4" caption="นำเข้าไฟล์ Lanelet2 ทั้งไฟล์" />
+
+## นำเข้าทั้งไฟล์
+
+1. เปิดเมนู **File** → **Import**
+2. เลือกไฟล์ `.osm`
+3. drawtonomy แยกวิเคราะห์ไฟล์และเติมรูปทรง Lane พร้อม
+   การเชื่อมต่อบนผืนผ้าใบ
+
+## นำเข้าเฉพาะเลนที่เลือก
+
+สำหรับแผนที่ขนาดใหญ่ การนำเข้าทุกเลนจะทำให้โปรแกรมแก้ไขช้าลง
+ใช้กล่องโต้ตอบเลือกเลนแทน:
+
+<Demo src="/videos/lanelet-select-import-demo.mp4" caption="ลากเลือกเฉพาะเลนที่ต้องการแล้วนำเข้า" />
+
+1. เปิดเมนู **File** → **Import → Select lanes**
+2. drawtonomy แสดงแผนที่ตัวอย่าง
+3. คลิกหรือลากเพื่อเลือกเลนที่ต้องการ
+4. คลิก **Import selection**
+
+## เคล็ดลับด้านประสิทธิภาพ
+
+เก็บฉากที่นำเข้าไม่เกินประมาณ **500 เลน** เพื่อให้โปรแกรม
+แก้ไขลื่นไหล สำหรับพื้นที่ขนาดใหญ่ ให้แบ่งงานออกเป็นไฟล์
+หลายไฟล์ หรือนำเข้าเฉพาะบริเวณที่ต้องการ
+
+## หลังการนำเข้า
+
+เลนที่นำเข้าเป็นรูปทรง Lane เต็มรูปแบบ การเชื่อมต่อจาก
+ไฟล์ Lanelet2 ถูกรักษาไว้ แก้ไข
+[ทำให้โค้งเรียบ](/th/guides/smooth-lanes/) หรือ
+[ส่งออกกลับ](/th/guides/export-asam/) โดยไม่สูญเสียโทโพโลยี
+
+## ดูเพิ่มเติม
+
+- [รูปแบบ drawtonomy.svg](/th/reference/drawtonomy-svg/) —
+  รูปแบบที่ไม่สูญเสียข้อมูลสำหรับแก้ไขซ้ำใน drawtonomy
+- [สร้างเลนจากแผนที่](/th/guides/lane-from-map/) — เมื่อไม่มี
+  ไฟล์แผนที่ที่ดูแลแล้ว

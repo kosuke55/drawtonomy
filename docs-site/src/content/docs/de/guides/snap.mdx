@@ -1,0 +1,65 @@
+---
+title: An vorhandener Geometrie einrasten
+description: drawtonomy snappt jedes Zeichenwerkzeug an nahegelegene Punkte und Kanten — über Linestrings, Fahrspuren, Fahrzeuge und Grundformen hinweg.
+keywords:
+  - drawtonomy Snap
+  - Einrasten Geometrie
+  - Spureditor Snap
+  - Whiteboard für autonomes Fahren
+  - Punkt einrasten
+  - Snap Modifikator
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Snapping ist standardmäßig aktiv und funktioniert in jedem
+Werkzeug. Wenn der Cursor in die Nähe eines vorhandenen Punkts oder
+einer Kante kommt, rastet drawtonomy darauf ein und zeigt einen
+indigofarbenen Hinweis.
+
+<Demo src="/videos/snap-demo.mp4" caption="Ein einzelner Linestring ist das Startziel; ein zweiter Linestring snappt darauf, danach snappen ein Fahrzeug und ein Rechteck nacheinander an Merkmale." />
+
+## Über Formtypen hinweg
+
+Die Demo führt drei verschiedene Werkzeuge gegen dieselbe Art von
+Ziel aus.
+
+### Linestring snappt auf Linestring
+
+Ausgehend von einem einzelnen vertikalen Linestring wird der zweite
+so gezeichnet, dass seine Ecke exakt auf der oberen Kante des
+ersten landet. Das Ergebnis ist ein rechter Winkel, der einen Punkt
+teilt — nicht nur visuell überlappende Pixel.
+
+![Zwei Linestrings, der zweite ist auf den ersten gesnappt und bildet eine Ecke](/img/frames/snap-linestring.png)
+
+### Fahrzeug snappt auf eine Fahrspur
+
+Wechseln Sie zum Vehicle-Werkzeug und setzen Sie ein Auto auf eine
+Fahrspur — das Fahrzeug snappt auf die Mittellinie der Spur und
+wird entlang der Spurrichtung ausgerichtet.
+
+![Ein auf einer horizontalen Fahrspur platziertes Fahrzeug, auf die Mittellinie gesnappt](/img/frames/snap-vehicle.png)
+
+### Rechteck snappt auf ein Fahrzeug / Canvas-Punkt
+
+Das Rechteck-Werkzeug erhält dasselbe Snap-Verhalten. Der gestrichelte
+Hinweis zeigt, wohin die Ecke gezogen wird.
+
+![Rechteck wird in der Nähe eines Fahrzeugs gezeichnet; eine gestrichelte Linie zeigt das Snap-Ziel](/img/frames/snap-rectangle.png)
+
+## Snap vorübergehend deaktivieren
+
+Halten Sie <kbd>Shift</kbd> beim Klicken oder Ziehen, um Snap für
+diese eine Aktion zu umgehen. Lassen Sie <kbd>Shift</kbd> los, um
+Snap fortzusetzen.
+
+Das ist der richtige Schritt, wenn Sie einen Punkt nahe, aber nicht
+exakt auf einem vorhandenen Ziel wollen.
+
+## Siehe auch
+
+- [Punkte zwischen Formen teilen](/de/guides/point-sharing/) — wenn
+  der neue Punkt *derselbe* wie das Ziel sein soll, nicht nur
+  zufällig deckungsgleich.
+- [Snap- und Punktteilungs-Modell](/de/explanation/snap-and-sharing/)

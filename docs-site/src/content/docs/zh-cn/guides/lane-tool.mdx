@@ -1,0 +1,86 @@
+---
+title: 使用车道工具 — 从中心线或边界绘制车道
+description: drawtonomy 的车道工具有两种创建模式。可以画中心线让 drawtonomy 自动生成边界,也可以选择两条已有边界折线,在它们之间嵌入一条车道。这是为自动驾驶配图与场景画车道最快的方式。
+keywords:
+  - 浏览器车道编辑器
+  - 在线绘制车道
+  - 自动驾驶车道示意图
+  - 自动驾驶车道配图
+  - 中心线生成车道几何
+  - 基于边界的车道绘制
+  - 自动驾驶场景白板
+  - 高精地图车道编辑
+  - ADAS 车道图
+  - 道路示意图工具
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+按 <kbd>N</kbd> 切换到 **车道(Lane)** 工具。右侧会展开一个面板,
+工具激活期间一直可见。面板顶部是 **CREATION MODE(创建模式)** 切换:
+
+![车道面板 — CREATION MODE 包含中心线和边界两个按钮;当前为中心线;Lane Width 50 px](/img/frames/lane-tool-panel.png)
+
+两种模式做的事情不同,根据你的实际情况选择。
+
+<Demo src="/videos/lane-tool-demo.mp4" caption="先用中心线模式画两条车道,再用边界模式插入第三条。" />
+
+## 中心线模式
+
+你画中心线;drawtonomy 根据 **Lane Width** 自动生成左右边界。
+适合从空白起步的情况。
+
+1. 点击画布,放下第一个中心线点。
+2. 再次点击放下下一个,以此类推。
+3. 按 <kbd>Enter</kbd>(或双击最后一个点)结束。
+
+车道工具仍处于激活状态,所以可以再点击别处开始新车道。两条用这种方式
+画好的车道:
+
+![两条用中心线画出的车道](/img/frames/lane-tool-two-lanes.png)
+
+可以在两条车道之间在面板中调整 Color、Opacity 或 Lane Width——
+新值只对接下来要画的车道生效,不影响当前选中车道。
+
+## 边界模式
+
+点击面板顶部的 **Boundary** 切换模式。在边界模式下,你不点击空白处,
+而是点击两条已有的边界折线,drawtonomy 会用它们作为新车道的左右边界。
+
+把鼠标移到一条折线附近——靠得足够近时,drawtonomy 会用靛蓝色高亮——
+然后点击:
+
+![边界模式 — 一条已有右边界被高亮,准备被选中](/img/frames/lane-tool-boundary-mode.png)
+
+再点击第二条折线,两条折线之间就出现了新车道。新车道与所有引用这两条
+边界的图形共享它们,因此移动边界上的任何一点,都会更新所有依赖它的
+车道。
+
+边界模式适合在已有几何(手工画的、从 Lanelet2 导入的、Lane Generator
+生成的)之间补一条车道。
+
+## 检查车道
+
+按 <kbd>V</kbd> 切到选择工具,然后点击某条车道。面板会切换到该车道的
+属性视图:
+
+![车道属性面板 — 车道 ID、共享边界 ID、方向、四个连接槽](/img/frames/lane-attributes.png)
+
+显示项包括:
+
+- **Lane ID** 与 **Left Boundary** / **Right Boundary** 折线的 ID
+  (例如 `way/1`、`way/2`)。共享同一条折线的两条车道会显示相同 ID。
+- **Lane Color**、**Lane Opacity**、**Direction (Reverse)** —
+  车道本身的视觉与拓扑设置。
+- **Next Lanes / Prev Lanes / Left Lane / Right Lane** —
+  四个连接槽,每个都有 **Create**(新建相邻车道)和
+  **Set**(指向已有车道)按钮。请见
+  [管理车道连接](/zh-cn/guides/lane-connections/)。
+
+## 另请参阅
+
+- [让车道边界变平滑](/zh-cn/guides/smooth-lanes/) — 同一面板里的
+  Smooth Boundary 开关把折线边界转成样条曲线。
+- [管理车道连接](/zh-cn/guides/lane-connections/)
+- [车道连接模型](/zh-cn/explanation/lane-model/) — 为什么共享边界
+  是 drawtonomy 道路模型的根基。

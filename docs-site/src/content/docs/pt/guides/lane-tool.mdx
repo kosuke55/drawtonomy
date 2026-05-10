@@ -1,0 +1,93 @@
+---
+title: Use a ferramenta Faixa — desenhe faixas a partir de uma linha central ou bordas
+description: A ferramenta Faixa do drawtonomy tem dois modos de criação. Desenhe uma linha central e deixe o drawtonomy gerar as bordas, ou escolha duas linestrings de borda existentes para encaixar uma faixa entre elas. A forma rápida de desenhar faixas para figuras e cenários de condução autônoma.
+keywords:
+  - editor de faixas no navegador
+  - desenhar faixas viárias online
+  - desenhar diagrama de faixas condução autônoma
+  - figura de faixa para condução autônoma
+  - linha central para geometria de faixa
+  - desenho de faixas baseado em borda
+  - editor de faixa grátis
+  - ferramenta de esboço de faixa AV
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Pressione <kbd>N</kbd> para a ferramenta **Faixa**. Um painel abre à
+direita e fica visível enquanto a ferramenta está ativa. O topo do
+painel é o seletor **MODO DE CRIAÇÃO**:
+
+![Painel de Faixa — MODO DE CRIAÇÃO tem botões Linha Central e Borda; Linha Central está selecionado; Largura da Faixa 50 px](/img/frames/lane-tool-panel.png)
+
+Os dois modos fazem coisas diferentes; escolha o que combina com sua
+situação.
+
+<Demo src="/videos/lane-tool-demo.mp4" caption="Duas faixas desenhadas em modo Linha Central, uma terceira inserida em modo Borda." />
+
+## Modo Linha Central
+
+Você desenha a linha central; o drawtonomy gera as bordas esquerda e
+direita a partir do valor de **Largura da Faixa**. Use isso quando
+estiver começando do zero.
+
+1. Clique na tela para soltar o primeiro ponto da linha central.
+2. Clique novamente para soltar o próximo, e assim por diante.
+3. Pressione <kbd>Enter</kbd> (ou clique duplo no último ponto) para
+   finalizar.
+
+A ferramenta Faixa permanece ativa, então clique novamente em outro
+lugar para começar uma nova faixa. Duas faixas desenhadas dessa forma:
+
+![Duas faixas desenhadas a partir de linhas centrais](/img/frames/lane-tool-two-lanes.png)
+
+Você pode mudar Cor, Opacidade ou Largura da Faixa no painel entre as
+faixas — o novo valor se aplica à próxima faixa que você desenhar,
+não à selecionada.
+
+## Modo Borda
+
+Clique em **Borda** no topo do painel para trocar de modo. No modo
+Borda você não clica em espaço vazio; você clica em duas linestrings
+de borda existentes, e o drawtonomy cria uma faixa que as usa como
+suas bordas esquerda e direita.
+
+Passe o mouse sobre uma linestring — o drawtonomy a destaca em índigo
+quando o cursor está perto o suficiente — e clique:
+
+![Modo Borda — uma borda direita existente está destacada, pronta para ser escolhida](/img/frames/lane-tool-boundary-mode.png)
+
+Clique numa segunda linestring e uma nova faixa aparece entre elas. A
+nova faixa compartilha ambas as bordas com qualquer coisa que as use,
+então mover um ponto de borda atualiza toda faixa que dependa dele.
+
+Use o modo Borda quando você já tem geometria (desenhada à mão,
+importada do Lanelet2 ou gerada pelo Gerador de Faixas) e quer faixas
+encaixadas entre ela.
+
+## Inspecionando uma faixa
+
+Pressione <kbd>V</kbd> para Selecionar, depois clique numa faixa. O
+painel muda para os atributos da faixa:
+
+![Painel de Atributos de Faixa — ID da Faixa, IDs de borda compartilhada, Direção, quatro slots de conexão](/img/frames/lane-attributes.png)
+
+O que é mostrado:
+
+- **ID da Faixa** e os IDs das linestrings de **Borda Esquerda** /
+  **Borda Direita** (ex.: `way/1`, `way/2`). Duas faixas que
+  compartilham uma linestring mostrarão o mesmo ID aqui.
+- **Cor da Faixa**, **Opacidade da Faixa**, **Direção (Inverter)** —
+  as configurações visuais e topológicas para a faixa em si.
+- **Próximas Faixas / Faixas Anteriores / Faixa Esquerda / Faixa Direita** —
+  os quatro slots de conexão, cada um com **Create** (criar uma nova
+  faixa vizinha) e **Set** (apontar para uma existente). Veja
+  [Gerenciar conexões de faixa](/pt/guides/lane-connections/).
+
+## Veja também
+
+- [Bordas de faixa suaves](/pt/guides/smooth-lanes/) — o toggle Borda
+  Suave no mesmo painel transforma bordas angulares em splines.
+- [Gerenciar conexões de faixa](/pt/guides/lane-connections/)
+- [Modelo de conexão de faixas](/pt/explanation/lane-model/) — por que
+  as bordas compartilhadas são a base do modelo viário do drawtonomy.

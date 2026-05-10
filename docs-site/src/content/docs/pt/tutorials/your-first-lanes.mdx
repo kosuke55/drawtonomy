@@ -1,0 +1,107 @@
+---
+title: Suas primeiras três faixas
+description: Acompanhe a demonstração da Ferramenta Faixa — desenhe duas faixas a partir das linhas centrais, depois construa uma terceira entre as bordas existentes.
+sidebar:
+  order: 1
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Esta lição segue a demonstração oficial da Ferramenta Faixa. Ao final
+você terá usado as duas formas de criar faixas no drawtonomy:
+
+- **Modo Linha Central** — desenhe a linha central; as bordas esquerda
+  e direita são geradas para você.
+- **Modo Borda** — escolha duas linestrings de borda existentes e
+  o drawtonomy ajusta uma faixa entre elas.
+
+A demo desenha duas faixas no modo Linha Central, depois muda para o
+modo Borda para uma terceira faixa que preenche o espaço.
+
+<Demo src="/videos/lane-tool-demo.mp4" caption="Duas faixas em modo Linha Central, depois uma terceira faixa construída a partir de bordas existentes em modo Borda." />
+
+## 1. Escolha a ferramenta Faixa
+
+Abra [drawtonomy.com](https://drawtonomy.com). Pressione <kbd>N</kbd>
+(ou clique no ícone de faixa na barra de ferramentas inferior).
+
+O lado direito da tela agora mostra o painel de criação de **Faixa**,
+com **Linha Central** selecionado por padrão:
+
+![Painel de Faixa — modo Linha Central ativo, Largura da Faixa 50 px](/img/frames/lane-tool-panel.png)
+
+Deixe os padrões por enquanto.
+
+## 2. Desenhe duas faixas no modo Linha Central
+
+No modo Linha Central, clique na tela para soltar o primeiro ponto da
+linha central, clique novamente mais adiante para soltar o próximo, e
+pressione <kbd>Enter</kbd> para finalizar. As bordas esquerda e direita
+aparecem automaticamente usando o valor de **Largura da Faixa** (50 px por padrão).
+
+A ferramenta Faixa permanece ativa após cada faixa, então clique
+novamente em outro lugar para começar a segunda. Solte alguns pontos à
+direita da primeira faixa e pressione <kbd>Enter</kbd>:
+
+![Duas faixas desenhadas lado a lado em modo Linha Central](/img/frames/lane-tool-two-lanes.png)
+
+Agora as duas faixas são independentes — não compartilham uma borda
+nem sabem uma da outra.
+
+## 3. Mude para o modo Borda
+
+Clique em **Borda** no mesmo painel, ao lado de **Linha Central**, para
+trocar de modo de criação. No modo Borda você não clica em espaço
+vazio; você clica em **linestrings de borda existentes**, e o
+drawtonomy ajusta uma faixa entre elas.
+
+Passe o mouse sobre a **borda direita da faixa esquerda** — o drawtonomy
+destaca a linestring em índigo quando o cursor está perto o suficiente
+— e clique:
+
+![Modo Borda — a borda direita da faixa esquerda está destacada, pronta para ser escolhida](/img/frames/lane-tool-boundary-mode.png)
+
+Depois clique na **borda esquerda da faixa direita**. Uma nova faixa
+preenche o espaço, usando ambas as linestrings clicadas como suas bordas
+esquerda e direita.
+
+## 4. Inspecione o resultado
+
+Pressione <kbd>V</kbd> para a ferramenta Selecionar e clique na nova
+faixa do meio. O painel direito muda para seus atributos:
+
+![Painel de Atributos — a nova faixa do meio compartilha as bordas way/1 e way/2 com seus vizinhos](/img/frames/lane-attributes.png)
+
+As bordas são reaproveitadas:
+
+- **ID da Faixa** — `lane/2`, uma faixa novinha.
+- **Borda Esquerda** — `way/1`, a mesma linestring que é a borda direita
+  da faixa esquerda.
+- **Borda Direita** — `way/2`, igualmente compartilhada com a faixa direita.
+
+Como as bordas são compartilhadas, arrastar um ponto em qualquer lado
+move ambas as faixas adjacentes juntas. É sobre isso que as
+[conexões de faixa](/pt/explanation/lane-model/) são construídas; leia
+essa página em seguida para o modelo subjacente.
+
+O painel também expõe **Direção**, **Cor da Faixa**, **Opacidade da
+Faixa**, e os quatro slots de conexão **Próximas Faixas / Faixas
+Anteriores / Faixa Esquerda / Faixa Direita**, que deixamos vazios por enquanto.
+
+## O que você aprendeu
+
+- Faixas podem ser desenhadas de duas formas: a partir de uma linha
+  central, ou escolhendo duas linestrings de borda existentes.
+- O modo Linha Central é a opção rápida para uma tela vazia; o modo
+  Borda encaixa uma faixa entre geometria existente sem redesenhar nada.
+- Uma faixa construída a partir de bordas existentes compartilha
+  essas bordas com seus vizinhos.
+
+## E agora?
+
+- [Gerenciar conexões de faixa](/pt/guides/lane-connections/) — os quatro
+  slots de conexão no Painel de Atributos.
+- [Bordas de faixa suaves](/pt/guides/smooth-lanes/) — o toggle Borda
+  Suave no mesmo painel transforma bordas angulares em curvas.
+- [Recriar uma estrada real a partir de um mapa de satélite](/pt/tutorials/road-from-map/) —
+  puxe faixas do OSM em vez de desenhá-las.

@@ -1,0 +1,64 @@
+---
+title: Exporter vers OpenDRIVE / OpenSCENARIO / esmini
+description: Exportez votre scène drawtonomy au format ASAM OpenDRIVE 1.8 (.xodr), OpenSCENARIO 1.3 (.xosc), ou sous forme d'archive zip prête pour esmini en vue d'une lecture en simulateur.
+keywords:
+  - éditeur OpenSCENARIO gratuit
+  - éditeur OpenDRIVE gratuit navigateur
+  - rédaction OpenSCENARIO en ligne
+  - création scénarios esmini
+  - outil diagramme scénario ASAM
+  - convertir dessin vers OpenDRIVE
+  - export scénario simulation conduite autonome
+---
+
+drawtonomy peut exporter votre scène en ASAM [OpenDRIVE](https://www.asam.net/standards/detail/opendrive/) (`.xodr`) et [OpenSCENARIO](https://www.asam.net/standards/detail/openscenario/) (`.xosc`), ou regrouper les deux dans une archive zip prête pour la lecture [esmini](https://github.com/esmini/esmini).
+
+![Une scène drawtonomy rejouée dans esmini après export](/img/asam-esmini.png)
+
+## Exporter depuis l'éditeur
+
+1. Dessinez votre scène (voies, véhicules, feux tricolores…).
+2. Ouvrez **Fichier → Exporter → Exporter pour esmini**.
+3. Saisissez un nom de base lorsque demandé.
+4. Une archive `<nom>.zip` contenant `<nom>.xodr` et `<nom>.xosc` se télécharge.
+
+## La rejouer
+
+```bash
+unzip ma-scene.zip
+esmini --osc ma-scene/ma-scene.xosc --window 60 60 1024 768
+```
+
+## Formats individuels
+
+Si vous n'avez besoin que de l'un des deux :
+
+- **Fichier → Exporter → OpenDRIVE (.xodr)**
+- **Fichier → Exporter → OpenSCENARIO (.xosc)**
+
+## Export programmatique
+
+L'exporteur fait partie de `@drawtonomy/sdk` et fonctionne sans l'éditeur. Utilisez-le dans des pipelines CI, des outils côté serveur ou des extensions de navigateur :
+
+```ts
+import { exporter, createSnapshot } from '@drawtonomy/sdk'
+
+const snapshot = createSnapshot(shapes)
+const { blob, baseName } = exporter.buildEsminiZip(snapshot, {
+  baseName: 'ma-scene',
+})
+```
+
+Pour l'API complète et les points d'extension, voir la [référence du SDK Exporteur](/fr/extend/exporter-sdk/).
+
+## Versions émises
+
+| Format | Version |
+|---|---|
+| OpenDRIVE | 1.8 |
+| OpenSCENARIO | 1.3 |
+
+## Voir aussi
+
+- [Architecture de l'exporteur](/fr/explanation/exporter-architecture/) — ce que fait le pipeline entre l'instantané et le fichier.
+- [Ajouter un format cible](/fr/extend/exporter-sdk/) — câbler CARLA, SUMO, Unity ou autre.

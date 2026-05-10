@@ -1,0 +1,47 @@
+---
+title: Tạo cảnh bằng AI, sau đó tinh chỉnh thủ công
+description: Mô tả kịch bản bằng ngôn ngữ tự nhiên với Trình tạo Cảnh AI và chỉnh sửa kết quả trên canvas.
+sidebar:
+  order: 4
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Tiện ích mở rộng [Trình tạo Cảnh AI](https://github.com/kosuke55/drawtonomy/tree/main/extensions/ai-scene-generator) nhận một lệnh bằng ngôn ngữ tự nhiên, XML OpenSCENARIO hoặc đầu vào DSL và xuất ra một canvas có thể chỉnh sửa.
+
+<Demo src="/videos/ai-scene-natural.mp4" caption="Kịch bản ngôn ngữ tự nhiên → cảnh có thể chỉnh sửa trên canvas." maxWidth="900px" />
+
+## 1. Mở Trình tạo Cảnh AI
+
+1. Nhấp **Extensions** ở góc dưới-phải của canvas.
+2. Chọn **AI Scene Generator**.
+3. Chọn nhà cung cấp AI của bạn (Anthropic Claude, OpenAI GPT, hoặc Google Gemini) và dán API key. Khóa được lưu trong trình duyệt của bạn.
+
+## 2. Mô tả cảnh
+
+Dán một lệnh như:
+
+> Một đường cao tốc 3 làn đi từ trái sang phải. Một sedan ego (xanh lam) ở làn giữa, một xe tải (xám) ở làn phải hơi vượt lên trước. Hiển thị một đường nét đứt cho phương tiện ego chuyển sang làn trái.
+
+Nhấp **Generate**. Tiện ích mở rộng bố trí làn đường, phương tiện và một hình mẫu Path lên canvas.
+
+## 3. Tinh chỉnh
+
+Mọi thứ được tạo ra đều là hình mẫu bình thường. Hãy thử:
+
+- Chọn xe tải và đổi mẫu của nó thành **Bus**.
+- Kéo đường đi của phương tiện ego sang một đường cong khác.
+- Thêm một người đi bộ trên lề đường.
+
+## 4. Hoặc bắt đầu từ OpenSCENARIO
+
+Trong cùng bảng, chuyển chế độ đầu vào sang **OpenSCENARIO XML** và dán một tệp `.xosc`. Tiện ích mở rộng bố trí các tác nhân và quỹ đạo lên canvas — cách nhanh nhất để hình dung một kịch bản hiện có.
+
+<Demo src="/videos/ai-scene-dsl.mp4" caption="Một ví dụ ASAM OpenSCENARIO DSL được đặt lên canvas." maxWidth="900px" />
+
+## Bạn đã học được gì
+
+- Tạo bằng AI là một điểm khởi đầu — mọi hình mẫu sau đó đều có thể chỉnh sửa như bất cứ thứ gì khác trên canvas.
+- Cùng một bảng chấp nhận các lệnh ngôn ngữ tự nhiên và đầu vào OpenSCENARIO, vì vậy bạn có thể di chuyển giữa ý tưởng sơ bộ và đặc tả chính thức mà không cần rời trình chỉnh sửa.
+
+Để biết các mẫu prompt hoạt động tốt, xem [README của Trình tạo Cảnh AI](https://github.com/kosuke55/drawtonomy/tree/main/extensions/ai-scene-generator).

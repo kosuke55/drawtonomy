@@ -1,0 +1,63 @@
+---
+title: Impor berkas Lanelet2 (.osm)
+description: Buka peta Lanelet2 OSM di papan tulis browser drawtonomy, edit jalur dan koneksi secara visual, dan round-trip kembali ke Lanelet2 — berguna untuk peta sampel Autoware dan berkas jaringan jalan serupa.
+keywords:
+  - editor Lanelet2 browser
+  - viewer Lanelet2 online
+  - edit berkas Lanelet2 osm
+  - editor peta sampel Autoware
+  - alat diagram lanelet2
+  - editor Lanelet2 gratis
+  - editor peta HD untuk AV
+  - papan tulis untuk berkendara otonom
+  - alat anotasi peta jalan
+  - sketsa jaringan jalan
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+drawtonomy dapat membaca peta format OSM
+[Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2).
+Peta sampel tersedia dari
+[dokumentasi Autoware](https://autowarefoundation.github.io/autoware-documentation/main/demos/planning-sim/#download-the-sample-map).
+
+<Demo src="/videos/lanelet-import-demo.mp4" caption="Mengimpor berkas Lanelet2 lengkap." />
+
+## Impor seluruh berkas
+
+1. Buka menu **File** → **Import**.
+2. Pilih berkas `.osm`.
+3. drawtonomy mem-parse berkas dan mengisi kanvas dengan bentuk Lane
+   beserta koneksinya.
+
+## Impor hanya jalur tertentu
+
+Untuk peta besar, mengimpor setiap jalur akan memperlambat editor.
+Gunakan dialog seleksi jalur sebagai gantinya:
+
+<Demo src="/videos/lanelet-select-import-demo.mp4" caption="Tarik-pilih hanya jalur yang Anda butuhkan, lalu impor." />
+
+1. Buka menu **File** → **Import → Select lanes**.
+2. drawtonomy menampilkan peta pratinjau.
+3. Klik atau tarik untuk memilih jalur yang Anda inginkan.
+4. Klik **Import selection**.
+
+## Tips performa
+
+Jaga adegan yang diimpor di bawah sekitar **500 jalur** untuk editor
+yang responsif. Untuk area yang lebih besar, bagi pekerjaan Anda ke
+beberapa berkas, atau impor hanya wilayah yang Anda butuhkan.
+
+## Setelah impor
+
+Jalur yang diimpor adalah bentuk Lane dengan fidelitas penuh; koneksi
+dari berkas Lanelet2 dipertahankan. Edit,
+[buat mulus](/id/guides/smooth-lanes/), atau
+[ekspor kembali](/id/guides/export-asam/) tanpa kehilangan topologi.
+
+## Lihat juga
+
+- [Format drawtonomy.svg](/id/reference/drawtonomy-svg/) — format
+  lossless untuk pengeditan ulang dalam drawtonomy.
+- [Hasilkan jalur dari peta](/id/guides/lane-from-map/) — ketika Anda
+  belum memiliki berkas peta yang dikurasi.

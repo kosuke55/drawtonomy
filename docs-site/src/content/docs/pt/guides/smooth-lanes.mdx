@@ -1,0 +1,47 @@
+---
+title: Bordas de faixa suaves
+description: Ative Borda Suave no painel de Faixa antes de desenhar — as bordas são ajustadas com splines em vez de angulares.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+O drawtonomy pode gerar bordas de faixa ajustadas com splines em vez
+de polilinhas angulares. O toggle fica no painel de criação de Faixa
+e se aplica às faixas que você desenhar a seguir; ele não suaviza
+retroativamente uma faixa existente.
+
+<Demo src="/videos/smooth-lane.mp4" caption="Uma faixa desenhada com Borda Suave desligada (esquerda, angular) e ligada (direita, suave)." />
+
+## Onde está o toggle
+
+Pressione <kbd>N</kbd> para a ferramenta Faixa. O painel à direita
+inclui uma linha **BORDA SUAVE** com botões **On** e **Off**:
+
+![Painel de criação de Faixa — toggle BORDA SUAVE destacado, atualmente Off](/img/frames/smooth-toggle-off.png)
+
+O padrão é **Off**. Ligue antes de começar a clicar a linha central.
+
+## Compare
+
+As duas capturas de tela abaixo foram desenhadas com a mesma linha
+central. A única coisa que mudou foi o toggle:
+
+| Borda Suave = Off | Borda Suave = On |
+| --- | --- |
+| ![Curva angular desenhada com suavização desligada](/img/frames/smooth-off-result.png) | ![Curva suave desenhada com suavização ligada](/img/frames/smooth-on-result.png) |
+
+Com o toggle desligado, cada par de cliques da linha central vira um
+segmento de borda reto. Com ele ligado, a mesma linha central é
+ajustada a uma curva.
+
+## Alternando no meio da sessão
+
+Você pode alternar o toggle quando quiser. Novas faixas pegam o valor
+atual na próxima vez que você clicar. Faixas existentes mantêm o
+estilo de borda com que foram desenhadas.
+
+## Veja também
+
+- [Use a ferramenta Faixa](/pt/guides/lane-tool/) — o resto do painel.
+- [Modelo de conexão de faixas](/pt/explanation/lane-model/) — por que a
+  linha central ainda dirige a conectividade mesmo quando as bordas curvam.

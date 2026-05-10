@@ -1,0 +1,81 @@
+---
+title: Pürüzsüz şerit sınırları
+description: Çizmeden önce Şerit panelindeki Pürüzsüz Sınır'ı açın — eğrilen bir şerit, çoklu çizgi yerine eğri olarak çıkar.
+sidebar:
+  order: 2
+keywords:
+  - pürüzsüz şerit sınırı
+  - eğri şerit çizimi
+  - drawtonomy spline şerit
+  - sürüş senaryosu eğrisi
+  - şerit düzenleyici eğri
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Bu, [İlk üç şeridiniz](/tr/tutorials/your-first-lanes/)'den sonraki
+ikinci kısa derstir. Küçük bir alışkanlık: eğrilen bir şerit
+çizmeden önce **Pürüzsüz Sınır**'ı açın.
+
+Geçiş Şerit oluşturma panelinde yer alır ve sonraki çizdiğiniz
+şeritlerin sınırlarının nasıl oluşturulacağını değiştirir. Mevcut
+şeritlere dokunulmaz.
+
+<Demo src="/videos/smooth-lane.mp4" caption="Aynı eğrilen merkez çizgi iki kez çizildi — bir kez Pürüzsüz Sınır kapalıyken, bir kez açıkken." />
+
+## 1. Şerit panelini açın
+
+Şerit aracı için <kbd>N</kbd> tuşuna basın. Sağ taraftaki panel
+açılır. **PÜRÜZSÜZ SINIR** satırını bulun — varsayılan **Kapalı**:
+
+![Şerit oluşturma paneli — PÜRÜZSÜZ SINIR satırı, şu anda Kapalı olarak ayarlı](/img/frames/smooth-toggle-off.png)
+
+## 2. Geçiş kapalıyken eğri bir şerit çizin
+
+Geçişi **Kapalı** bırakın. Bir eğri boyunca merkez çizgi noktalarını
+yerleştirmek için tuvale tıklayın ve bitirmek için <kbd>Enter</kbd>
+tuşuna basın.
+
+Sınırlar ardışık noktalar arasında düz parçalardır, bu nedenle
+şerit açısal çıkar:
+
+![Pürüzsüz Sınır kapalıyken çizilen eğri şerit — sınırlar açısal çoklu çizgilerdir](/img/frames/smooth-off-result.png)
+
+## 3. Geçişi açın, aynı şeridi tekrar çizin
+
+PÜRÜZSÜZ SINIR satırındaki **Açık**'a tıklayın. Tuvalin başka bir
+yerine benzer bir merkez çizgi tıklayın ve <kbd>Enter</kbd> tuşuna
+basın.
+
+Bu sefer sınırlar spline ile uydurulur, bu nedenle şerit pürüzsüz bir
+şekilde eğri olur:
+
+![Pürüzsüz Sınır açıkken çizilen eğri şerit — sınırlar pürüzsüz bir eğri takip eder](/img/frames/smooth-on-result.png)
+
+Yan yana, fark açıktır. Merkez çizgiler aynıdır; yalnızca sınır
+oluşturma kuralı değişti.
+
+## Ne zaman kapalı bırakmalı, ne zaman açmalı
+
+| | Pürüzsüz = Kapalı | Pürüzsüz = Açık |
+| --- | --- | --- |
+| Görünüm | Açısal, faslı | Eğri |
+| Şunun için en iyisi | Düz şeritler, kavşak kolları | Eğri yollar, rampa |
+| Performans | Biraz daha ucuz | Biraz daha fazla geometri |
+
+Geçişi istediğiniz kadar değiştirebilirsiniz. Her yeni şerit, çizimini
+bitirdiğinizde ne değer ayarlandıysa onu kullanır.
+
+## Öğrendikleriniz
+
+- Pürüzsüz Sınır geçişi Şerit oluşturma panelinde yer alır ve seçili
+  şeride değil, çizdiğiniz bir sonraki şeride uygulanır.
+- Merkez çizgi geometrisi her iki modda da aynıdır; yalnızca sınır
+  render farklıdır.
+
+## Sıradaki ne
+
+- [Şerit aracını kullanın](/tr/guides/lane-tool/) — panelin geri
+  kalanı (Merkez Çizgi vs Sınır modu, Şerit Genişliği, Şerit Rengi).
+- [Şerit bağlantılarını yönetin](/tr/guides/lane-connections/) —
+  Özellik Panelindeki dört bağlantı yuvası.

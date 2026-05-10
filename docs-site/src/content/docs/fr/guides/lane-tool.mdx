@@ -1,0 +1,66 @@
+---
+title: Utiliser l'outil Voie — dessiner des voies depuis une ligne médiane ou des bords
+description: L'outil Voie de drawtonomy a deux modes de création. Dessinez une ligne médiane et laissez drawtonomy générer les bords, ou choisissez deux linestrings de bord existants pour ajuster une voie entre eux. Le moyen rapide de dessiner des voies pour les figures et scénarios de conduite autonome.
+keywords:
+  - éditeur de voies navigateur
+  - dessiner voies routières en ligne
+  - dessiner diagramme voie conduite autonome
+  - figure voie conduite autonome
+  - ligne médiane vers géométrie de voie
+  - dessin de voie par bords
+  - outil voie OpenDRIVE
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Appuyez sur <kbd>N</kbd> pour l'outil **Voie**. Un panneau s'ouvre à droite et reste visible tant que l'outil est actif. Le haut du panneau contient le commutateur **MODE DE CRÉATION** :
+
+![Panneau Voie — MODE DE CRÉATION avec boutons Ligne médiane et Bord ; Ligne médiane sélectionné ; Largeur de voie 50 px](/img/frames/lane-tool-panel.png)
+
+Les deux modes font des choses différentes ; choisissez celui qui correspond à votre situation.
+
+<Demo src="/videos/lane-tool-demo.mp4" caption="Deux voies dessinées en mode Ligne médiane, une troisième insérée en mode Bord." />
+
+## Mode Ligne médiane
+
+Vous dessinez la ligne médiane ; drawtonomy génère les bords gauche et droit à partir de la valeur **Largeur de voie**. À utiliser quand vous partez de zéro.
+
+1. Cliquez sur le canevas pour déposer le premier point de la ligne médiane.
+2. Cliquez à nouveau pour déposer le suivant, et ainsi de suite.
+3. Appuyez sur <kbd>Entrée</kbd> (ou double-cliquez sur le dernier point) pour terminer.
+
+L'outil Voie reste actif ; cliquez à nouveau ailleurs pour commencer une nouvelle voie. Deux voies dessinées de cette façon :
+
+![Deux voies dessinées depuis leurs lignes médianes](/img/frames/lane-tool-two-lanes.png)
+
+Vous pouvez modifier Couleur, Opacité ou Largeur de voie dans le panneau entre deux voies — la nouvelle valeur s'applique à la voie suivante, pas à la voie sélectionnée.
+
+## Mode Bord
+
+Cliquez sur **Bord** en haut du panneau pour changer de mode. En mode Bord, vous ne cliquez pas dans le vide ; vous cliquez sur deux linestrings de bord existants, et drawtonomy crée une voie qui les utilise comme bords gauche et droit.
+
+Survolez un linestring — drawtonomy le met en surbrillance indigo lorsque le curseur est suffisamment proche — et cliquez :
+
+![Mode Bord — un bord droit existant est en surbrillance, prêt à être sélectionné](/img/frames/lane-tool-boundary-mode.png)
+
+Cliquez sur un second linestring et une nouvelle voie apparaît entre les deux. La nouvelle voie partage les deux bords avec ce qui les utilise déjà ; déplacer un point de bord met à jour toutes les voies qui en dépendent.
+
+Utilisez le mode Bord lorsque vous avez déjà une géométrie (dessinée à la main, importée depuis Lanelet2 ou produite par le Générateur de voies) et que vous voulez insérer des voies entre.
+
+## Inspecter une voie
+
+Appuyez sur <kbd>V</kbd> pour Sélection, puis cliquez sur une voie. Le panneau bascule sur les attributs de la voie :
+
+![Panneau d'attributs de voie — ID de voie, IDs de bords partagés, Direction, quatre emplacements de connexion](/img/frames/lane-attributes.png)
+
+Ce qui est affiché :
+
+- **ID de voie** et les IDs des linestrings **Bord gauche** / **Bord droit** (par exemple `way/1`, `way/2`). Deux voies qui partagent un linestring afficheront le même ID ici.
+- **Couleur de voie**, **Opacité de voie**, **Direction (inverser)** — les réglages visuels et topologiques de la voie elle-même.
+- **Voies suivantes / Voies précédentes / Voie gauche / Voie droite** — les quatre emplacements de connexion, chacun avec **Créer** (créer une voie voisine) et **Définir** (pointer vers une voie existante). Voir [Gérer les connexions de voies](/fr/guides/lane-connections/).
+
+## Voir aussi
+
+- [Bords de voies lissés](/fr/guides/smooth-lanes/) — l'interrupteur Bord lissé dans le même panneau transforme les bords anguleux en splines.
+- [Gérer les connexions de voies](/fr/guides/lane-connections/)
+- [Modèle de connexions de voies](/fr/explanation/lane-model/) — pourquoi les bords partagés sont le fondement du modèle routier de drawtonomy.

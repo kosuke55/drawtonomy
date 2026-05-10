@@ -1,0 +1,60 @@
+---
+title: Hasilkan adegan dengan AI, lalu sempurnakan secara manual
+description: Jelaskan skenario dalam bahasa alami dengan AI Scene Generator dan edit hasilnya di kanvas.
+sidebar:
+  order: 4
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Ekstensi [AI Scene Generator](https://github.com/kosuke55/drawtonomy/tree/main/extensions/ai-scene-generator)
+menerima prompt bahasa alami, XML OpenSCENARIO, atau input DSL dan
+menghasilkan kanvas yang dapat diedit.
+
+<Demo src="/videos/ai-scene-natural.mp4" caption="Skenario bahasa alami → adegan yang dapat diedit di kanvas." maxWidth="900px" />
+
+## 1. Buka AI Scene Generator
+
+1. Klik **Extensions** di kanan bawah kanvas.
+2. Pilih **AI Scene Generator**.
+3. Pilih penyedia AI Anda (Anthropic Claude, OpenAI GPT, atau Google
+   Gemini) dan tempel kunci API Anda. Kunci tetap di browser Anda.
+
+## 2. Jelaskan adegannya
+
+Tempel prompt seperti:
+
+> Jalan tol 3 jalur dari kiri ke kanan. Sedan ego (biru) di jalur
+> tengah, sebuah truk (abu-abu) di jalur kanan sedikit di depan.
+> Tampilkan path putus-putus untuk kendaraan ego berpindah ke jalur
+> kiri.
+
+Klik **Generate**. Ekstensi menata jalur, kendaraan, dan bentuk Path
+di kanvas.
+
+## 3. Sempurnakan
+
+Semua yang dihasilkan adalah bentuk normal. Coba:
+
+- Pilih truk dan ubah templatenya menjadi **Bus**.
+- Tarik path kendaraan ego ke kurva yang berbeda.
+- Tambahkan pejalan kaki di bahu jalan.
+
+## 4. Atau mulai dari OpenSCENARIO
+
+Di panel yang sama, ubah mode input ke **OpenSCENARIO XML** dan
+tempel berkas `.xosc`. Ekstensi menata aktor dan trajektori di kanvas
+— cara tercepat untuk memvisualisasikan skenario yang sudah ada.
+
+<Demo src="/videos/ai-scene-dsl.mp4" caption="Contoh ASAM OpenSCENARIO DSL ditempatkan di kanvas." maxWidth="900px" />
+
+## Apa yang Anda pelajari
+
+- Pembangkitan AI adalah titik awal — setiap bentuk setelahnya dapat
+  diedit seperti hal lain di kanvas.
+- Panel yang sama menerima prompt bahasa alami dan input
+  OpenSCENARIO, sehingga Anda dapat berpindah antara ide kasar dan
+  spesifikasi formal tanpa keluar dari editor.
+
+Untuk pola prompt yang berfungsi dengan baik, lihat
+[README AI Scene Generator](https://github.com/kosuke55/drawtonomy/tree/main/extensions/ai-scene-generator).

@@ -1,0 +1,136 @@
+---
+title: FAQ — drawtonomy, tableau blanc pour scénarios de conduite
+description: Questions fréquentes sur drawtonomy — le tableau blanc gratuit en ligne dans le navigateur pour les scénarios de conduite. Figures pour conduite autonome, rédaction OpenSCENARIO, export OpenDRIVE, édition Lanelet2, annotation de grille d'occupation ROS, Générateur de scènes par IA.
+sidebar:
+  label: FAQ
+  order: 99
+keywords:
+  - faq drawtonomy
+  - questions outil diagramme conduite autonome
+  - figure conduite autonome pour article
+  - dessiner scénario de conduite en ligne
+  - éditeur OpenSCENARIO gratuit
+  - éditeur Lanelet2 navigateur
+  - outil esquisse conduite autonome gratuit
+  - éditeur OpenDRIVE en ligne
+  - annotation grille d'occupation ROS
+  - création scénarios esmini
+jsonLd:
+  '@context': 'https://schema.org'
+  '@type': FAQPage
+  mainEntity:
+    - '@type': Question
+      name: "Puis-je utiliser drawtonomy pour dessiner des figures destinées à un article, une présentation ou un document de conduite autonome ?"
+      acceptedAnswer:
+        '@type': Answer
+        text: "Oui. C'est l'un des principaux cas d'usage. Les voies, intersections, véhicules et piétons sont des formes intégrées : une figure de scénario de conduite qui prendrait une demi-heure dans un outil de dessin générique se réalise en quelques minutes. Exportez en drawtonomy.svg, PDF ou EPS pour LaTeX, présentations et Markdown."
+    - '@type': Question
+      name: "drawtonomy est-il gratuit ?"
+      acceptedAnswer:
+        '@type': Answer
+        text: "Oui. drawtonomy.com fonctionne entièrement dans votre navigateur. Pas de compte, pas d'installation, rien n'est téléversé. Le SDK et les extensions sont open source sur GitHub."
+    - '@type': Question
+      name: "drawtonomy est-il un éditeur gratuit OpenSCENARIO et OpenDRIVE ?"
+      acceptedAnswer:
+        '@type': Answer
+        text: "drawtonomy est un tableau blanc qui exporte vers ASAM OpenDRIVE 1.8 et OpenSCENARIO 1.3, y compris une archive zip unique pour la lecture esmini. Vous esquissez la scène visuellement et drawtonomy génère les fichiers .xodr et .xosc."
+    - '@type': Question
+      name: "drawtonomy peut-il éditer des cartes Lanelet2 (.osm) dans le navigateur ?"
+      acceptedAnswer:
+        '@type': Answer
+        text: "Oui. drawtonomy peut importer des fichiers Lanelet2 OSM (y compris les cartes d'exemple Autoware), éditer la géométrie et les connexions des voies visuellement, puis exporter vers Lanelet2 OSM. Pour de meilleures performances, gardez les imports sous environ 500 voies par scène."
+    - '@type': Question
+      name: "Puis-je importer une carte de grille d'occupation ROS ?"
+      acceptedAnswer:
+        '@type': Answer
+        text: "Oui. drawtonomy lit le format ROS map_server (.pgm + .yaml) utilisé par nav2, Cartographer, Gmapping et autres outils SLAM similaires. La grille s'affiche en arrière-plan ; vous pouvez ainsi esquisser voies, trajectoires et obstacles directement par-dessus."
+    - '@type': Question
+      name: "En quoi drawtonomy diffère-t-il des outils de dessin génériques ?"
+      acceptedAnswer:
+        '@type': Answer
+        text: "Les outils de dessin génériques ne connaissent que des formes génériques : une voie n'y est qu'un rectangle qu'il faut redessiner à chaque virage. drawtonomy fournit voies, intersections, passages piétons, feux tricolores, marquages au sol, véhicules et piétons comme formes intégrées, et les voies portent des connexions Suivante / Précédente / Gauche / Droite. Glissez un bord et les voies connectées suivent."
+    - '@type': Question
+      name: "Faut-il installer quelque chose ?"
+      acceptedAnswer:
+        '@type': Answer
+        text: "Non. drawtonomy fonctionne dans tout navigateur web moderne. Ouvrez drawtonomy.com et commencez à dessiner immédiatement. Pour le développement d'extensions, il existe également un serveur de développement npm (@drawtonomy/dev-server) qui héberge l'éditeur en local."
+    - '@type': Question
+      name: "drawtonomy peut-il générer un scénario de conduite à partir du langage naturel ?"
+      acceptedAnswer:
+        '@type': Answer
+        text: "Oui. L'extension Générateur de scènes par IA lit une invite en langage naturel ou du XML OpenSCENARIO et produit un canevas modifiable — voies, véhicules, trajectoires et piétons sous forme de formes drawtonomy classiques. Elle prend en charge Anthropic Claude, OpenAI GPT et Google Gemini."
+    - '@type': Question
+      name: "Quel format conserve une scène drawtonomy ré-éditable ?"
+      acceptedAnswer:
+        '@type': Answer
+        text: "drawtonomy.svg. C'est un fichier SVG standard (qui s'affiche dans les navigateurs, GitHub, présentations et rendus Markdown) avec des métadonnées additionnelles que drawtonomy utilise pour reconstruire chaque forme, connexion, point partagé et relation de superposition à la réouverture du fichier."
+    - '@type': Question
+      name: "Puis-je ajouter mes propres modèles de véhicules ou de panneaux ?"
+      acceptedAnswer:
+        '@type': Answer
+        text: "Oui. Les modèles sont des SVG enregistrés dans templates/manifest.json. Déposez le vôtre dans le bon dossier (vehicle, pedestrian, road_marking, sign, other), ouvrez une PR, et il apparaîtra dans le menu de l'éditeur aux côtés des modèles intégrés."
+    - '@type': Question
+      name: "drawtonomy prend-il en charge les grands réseaux routiers ?"
+      acceptedAnswer:
+        '@type': Answer
+        text: "drawtonomy est calibré pour les diagrammes plutôt que pour les cartes à l'échelle d'une ville. Pour une édition réactive, gardez une scène unique sous environ 500 voies. Pour des zones plus vastes, répartissez le travail sur plusieurs fichiers ou n'importez que la région nécessaire."
+    - '@type': Question
+      name: "Puis-je utiliser les diagrammes drawtonomy dans des articles, présentations ou documentations ?"
+      acceptedAnswer:
+        '@type': Answer
+        text: "Oui. Le format drawtonomy.svg est un SVG valide ; il s'intègre donc dans les articles, présentations, Markdown et sites web sans conversion. PDF, PNG, JPG et EPS sont également disponibles pour les chaînes d'édition traditionnelles."
+---
+
+import { LinkCard } from '@astrojs/starlight/components';
+
+## Puis-je utiliser drawtonomy pour dessiner des figures destinées à un article, une présentation ou un document de conduite autonome ?
+
+Oui — c'est l'un des principaux cas d'usage. Les voies, intersections, véhicules et piétons sont des formes intégrées : une figure de scénario de conduite qui prendrait une demi-heure dans un outil de dessin générique se réalise en quelques minutes. Exportez en [`drawtonomy.svg`](/fr/guides/export/), PDF ou EPS pour LaTeX, présentations et Markdown.
+
+## drawtonomy est-il gratuit ?
+
+Oui. [drawtonomy.com](https://drawtonomy.com) fonctionne entièrement dans votre navigateur. Pas de compte, pas d'installation, rien n'est téléversé. Le SDK et les extensions sont open source sur [GitHub](https://github.com/kosuke55/drawtonomy).
+
+## drawtonomy est-il un éditeur gratuit OpenSCENARIO et OpenDRIVE ?
+
+drawtonomy est un tableau blanc qui **exporte vers** ASAM OpenDRIVE 1.8 et OpenSCENARIO 1.3, y compris une archive zip unique prête pour la lecture [esmini](https://github.com/esmini/esmini). Vous esquissez la scène visuellement — voies, intersections, véhicules, trajectoires — et drawtonomy génère les fichiers `.xodr` et `.xosc`. Voir [Exporter vers OpenDRIVE / OpenSCENARIO / esmini](/fr/guides/export-asam/).
+
+## drawtonomy peut-il éditer des cartes Lanelet2 (.osm) dans le navigateur ?
+
+Oui. drawtonomy peut importer des fichiers OSM [Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2) (y compris les [cartes d'exemple Autoware](https://autowarefoundation.github.io/autoware-documentation/main/demos/planning-sim/#download-the-sample-map)), éditer la géométrie et les connexions des voies visuellement, puis exporter vers Lanelet2 OSM. Pour de meilleures performances, gardez les imports sous environ 500 voies par scène. Voir [Importer un fichier Lanelet2 (.osm)](/fr/guides/import-lanelet2/).
+
+## Puis-je importer une carte de grille d'occupation ROS ?
+
+Oui. drawtonomy lit le format ROS `map_server` (`.pgm` + `.yaml`) utilisé par [nav2](https://navigation.ros.org/), Cartographer, Gmapping et d'autres outils SLAM similaires. La grille s'affiche en arrière-plan, ce qui vous permet d'esquisser voies, trajectoires et obstacles directement par-dessus. Voir [Importer une OccupancyGrid ROS](/fr/guides/import-ros-map/).
+
+## En quoi drawtonomy diffère-t-il des outils de dessin génériques ?
+
+Les outils de dessin génériques ne connaissent que des formes génériques : une voie n'y est qu'un rectangle qu'il faut redessiner à chaque virage. drawtonomy fournit **voies, intersections, passages piétons, feux tricolores, marquages au sol, véhicules et piétons comme formes intégrées**, et les voies portent des connexions **Suivante / Précédente / Gauche / Droite**. Glissez un bord et les voies connectées suivent. Voir [Pourquoi drawtonomy](/fr/explanation/why-drawtonomy/) et le [modèle de connexions de voies](/fr/explanation/lane-model/).
+
+## Faut-il installer quelque chose ?
+
+Non. drawtonomy fonctionne dans tout navigateur web moderne. Ouvrez [drawtonomy.com](https://drawtonomy.com) et commencez à dessiner. Les développeurs d'extensions peuvent aussi utiliser le serveur de développement local ([`@drawtonomy/dev-server`](https://www.npmjs.com/package/@drawtonomy/dev-server)), qui héberge l'éditeur sur localhost.
+
+## drawtonomy peut-il générer un scénario de conduite à partir du langage naturel ?
+
+Oui. L'extension [Générateur de scènes par IA](/fr/tutorials/ai-scene/) lit une invite en langage naturel ou du XML OpenSCENARIO et produit un canevas modifiable — voies, véhicules, trajectoires et piétons sous forme de formes drawtonomy classiques. Elle prend en charge Anthropic Claude, OpenAI GPT et Google Gemini.
+
+## Quel format conserve une scène drawtonomy ré-éditable ?
+
+`drawtonomy.svg`. C'est un fichier SVG standard — qui s'affiche dans les navigateurs, GitHub, présentations et rendus Markdown — avec des métadonnées que drawtonomy utilise pour reconstruire chaque forme, connexion, point partagé et relation de superposition à la réouverture du fichier. Voir [Exporter votre scène](/fr/guides/export/) et la [référence du format drawtonomy.svg](/fr/reference/drawtonomy-svg/).
+
+## Puis-je ajouter mes propres modèles de véhicules ou de panneaux ?
+
+Oui. Les modèles sont des SVG enregistrés dans `templates/manifest.json`. Déposez le vôtre dans le bon dossier (`vehicle`, `pedestrian`, `road_marking`, `sign`, `other`), ouvrez une PR, et il apparaîtra dans le menu de l'éditeur aux côtés des modèles intégrés. Voir [Contribuer des modèles](/fr/extend/templates/).
+
+## drawtonomy prend-il en charge les grands réseaux routiers ?
+
+drawtonomy est calibré pour les diagrammes plutôt que pour les cartes à l'échelle d'une ville. Pour une édition réactive, gardez une scène unique sous environ **500 voies**. Pour des zones plus vastes, répartissez le travail sur plusieurs fichiers ou n'importez que la région nécessaire.
+
+## Puis-je utiliser les diagrammes drawtonomy dans des articles, présentations ou documentations ?
+
+Oui. Le format [`drawtonomy.svg`](/fr/guides/export/) est un SVG valide ; il s'intègre donc dans les articles, présentations, Markdown et sites web sans conversion. PDF, PNG, JPG et EPS sont également disponibles pour les chaînes d'édition traditionnelles.
+
+## Où est le code source ?
+
+Le SDK, les extensions, les modèles et ce site de documentation sont sur [github.com/kosuke55/drawtonomy](https://github.com/kosuke55/drawtonomy). L'application elle-même est sur [drawtonomy.com](https://drawtonomy.com).

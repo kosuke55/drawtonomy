@@ -1,0 +1,49 @@
+---
+title: Batas jalur yang mulus
+description: Aktifkan Smooth Boundary di panel Lane sebelum menggambar — batas dipasang dengan spline alih-alih bersudut.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+drawtonomy dapat menghasilkan batas jalur yang dipasang dengan
+spline alih-alih polyline bersudut. Toggle ini ada di panel
+pembuatan Lane dan berlaku untuk jalur yang Anda gambar berikutnya;
+tidak akan menghaluskan jalur yang sudah ada secara retroaktif.
+
+<Demo src="/videos/smooth-lane.mp4" caption="Jalur digambar dengan Smooth Boundary off (kiri, bersudut) dan on (kanan, mulus)." />
+
+## Di mana toggle berada
+
+Tekan <kbd>N</kbd> untuk alat Lane. Panel kanan mencakup baris
+**SMOOTH BOUNDARY** dengan tombol **On** dan **Off**:
+
+![Panel pembuatan Lane — toggle SMOOTH BOUNDARY disorot, saat ini Off](/img/frames/smooth-toggle-off.png)
+
+Defaultnya adalah **Off**. Aktifkan sebelum Anda mulai mengklik
+centerline.
+
+## Bandingkan
+
+Dua tangkapan layar di bawah digambar dengan centerline yang sama.
+Satu-satunya hal yang berubah adalah toggle:
+
+| Smooth Boundary = Off | Smooth Boundary = On |
+| --- | --- |
+| ![Kurva bersudut digambar dengan smoothing off](/img/frames/smooth-off-result.png) | ![Kurva mulus digambar dengan smoothing on](/img/frames/smooth-on-result.png) |
+
+Dengan toggle off, setiap pasangan klik centerline menjadi segmen
+batas lurus. Dengan on, centerline yang sama dipasangkan ke kurva.
+
+## Beralih di tengah sesi
+
+Anda dapat mengubah toggle kapan saja. Jalur baru menerima nilai
+saat ini saat Anda mengklik berikutnya. Jalur yang sudah ada
+mempertahankan gaya batas yang digambar dengannya.
+
+## Lihat juga
+
+- [Gunakan alat Lane](/id/guides/lane-tool/) — bagian lain dari
+  panel.
+- [Model koneksi jalur](/id/explanation/lane-model/) — mengapa
+  centerline tetap mengendalikan konektivitas bahkan saat batas
+  melengkung.

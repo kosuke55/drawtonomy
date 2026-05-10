@@ -1,0 +1,80 @@
+---
+title: Spurverbindungen verwalten (Next / Prev / Left / Right)
+description: drawtonomy-Fahrspuren tragen Verbindungs-Slots Next, Previous, Left und Right, sodass das Straßennetz interpretierbar ist und nicht nur visuell. Ziehen Sie an einem geteilten Rand, und verbundene Fahrspuren bewegen sich gemeinsam.
+keywords:
+  - Spurverbindungs-Editor
+  - Straßentopologie-Diagramm
+  - Next Previous Left Right Spurmodell
+  - interpretierbares Straßennetz
+  - Whiteboard für autonomes Fahren
+  - drawtonomy Lane Connections
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Wenn zwei Fahrspuren einen Randpunkt teilen, bewegt das Ziehen
+dieses Punkts beide Fahrspuren auf einmal. Das Attribute Panel
+bietet zusätzlich vier explizite Verbindungs-Slots, mit denen Sie
+Next / Previous / Left / Right auch von Hand verbinden können.
+
+<Demo src="/videos/lane-connection-demo.mp4" caption="Eine Fahrspur wird zuerst gezeichnet, dann eine zweite hinzugefügt, indem ein vorhandener Punkt erweitert wird — der Rand wird dadurch geteilt." />
+
+## Verbundene Fahrspuren zeichnen
+
+Das Video startet auf einem leeren Canvas mit geöffnetem
+Lane-Werkzeug. Die erste Fahrspur ist eine einzelne kurvige Spur:
+
+![Eine einzelne kurvige Fahrspur](/img/frames/lane-connection-curve.png)
+
+Eine zweite Fahrspur wird so begonnen, dass ihr Anfangsrand auf den
+vorhandenen Randpunkten der ersten Fahrspur landet. drawtonomy
+snappt auf diese Punkte und registriert die neue Fahrspur als
+Fortsetzung:
+
+![Eine zweite Fahrspur hinzugefügt; die beiden teilen jetzt unten einen Rand](/img/frames/lane-connection-split.png)
+
+Die Fahrspuren teilen nun ein Randsegment. Ziehen Sie den
+geteilten Rand auf einer der beiden Fahrspuren, und beide bewegen
+sich gemeinsam. Das obere divergierende Ende ist auf jeder Seite
+unabhängig.
+
+## Die vier Verbindungs-Slots
+
+Drücken Sie <kbd>V</kbd> für Select, klicken Sie auf eine beliebige
+Fahrspur und sehen Sie sich das rechte Panel an. Die Slots sind:
+
+| Slot | Bedeutung |
+| --- | --- |
+| **Next Lanes** | Fahrspuren, in die der Verkehr dieser Fahrspur fließt. |
+| **Prev Lanes** | Fahrspuren, die in diese Fahrspur fließen. |
+| **Left Lane** | Die unmittelbar links benachbarte Fahrspur, die einen Rand teilt. |
+| **Right Lane** | Die unmittelbar rechts benachbarte Fahrspur, die einen Rand teilt. |
+
+Jeder Slot hat zwei Buttons:
+
+- **Create** — eine brandneue Nachbarspur erzeugen und den Slot
+  darauf verweisen lassen.
+- **Set** — eine vorhandene Fahrspur auf dem Canvas auswählen, um
+  den Slot zu füllen.
+
+Verbindungen sind bidirektional. Wenn man *Next Lanes* von Lane A
+auf B setzt, wird auch B zu *Prev Lanes* von A hinzugefügt;
+drawtonomy pflegt die Rückreferenz automatisch.
+
+## Wann Verbindungen automatisch entstehen
+
+- Beim Zeichnen einer neuen Fahrspur, die an einem Randpunkt einer
+  vorhandenen Fahrspur beginnt — wie im obigen Demo. Der geteilte
+  Rand reicht aus; Sie müssen nicht auf Set klicken.
+- Beim Platzieren einer
+  [Kreuzungsvorlage](/de/reference/shapes/) — jede Anfahrtspur wird
+  verkabelt.
+
+Für alles andere klicken Sie auf **Set** und wählen die
+Nachbarspur.
+
+## Siehe auch
+
+- [Spurverbindungsmodell](/de/explanation/lane-model/) — warum diese
+  Abstraktion existiert und was Exporter damit tun.
+- [Lane-Werkzeug verwenden](/de/guides/lane-tool/)

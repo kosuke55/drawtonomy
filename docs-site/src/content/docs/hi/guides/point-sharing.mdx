@@ -1,0 +1,40 @@
+---
+title: shapes के बीच पॉइंट साझा करें
+description: Linestrings, Polygons, और Paths को connect करें ताकि वे एक vertex साझा करें और एक साथ हिलें।
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+एक *साझा पॉइंट* एक single vertex है जिसे कई shapes reference
+करते हैं। इसे एक बार हिलाएं और हर shape जो इसे reference करता
+है follow करता है। आसन्न लेन बाउंड्री, polygon corners, और
+पाथ joints को locked रखने के लिए इसका उपयोग करें।
+
+<Demo src="/videos/share-demo.mp4" caption="एक मौजूदा पॉइंट को नए shape के साथ साझा करने के लिए Alt + क्लिक दबाए रखें।" />
+
+## ड्रॉइंग करते समय एक साझा पॉइंट बनाएं
+
+1. Linestring (<kbd>L</kbd>), Polygon (<kbd>G</kbd>), या Path
+   (<kbd>H</kbd>) टूल चुनें।
+2. <kbd>Alt</kbd> दबाए रखें (macOS पर Option)।
+3. किसी अन्य shape के मौजूदा vertex पर क्लिक करें।
+
+नए shape को एक vertex मिलता है जो मौजूदा के साथ *साझा* है —
+सिर्फ उसी coordinate पर snap नहीं हुआ।
+
+## एक मौजूदा vertex को साझा में बदलें
+
+1. [segment editing](/hi/guides/segment-editing/) में प्रवेश करने
+   के लिए एक shape पर डबल-क्लिक करें।
+2. <kbd>Alt</kbd> दबाए रखें और एक vertex को मौजूदा पर drag करें।
+
+## Visual cue
+
+साझा पॉइंट segment-editing मोड में doubled handle के रूप में
+render होते हैं। साधारण snapped पॉइंट single handle के रूप में
+render होते हैं।
+
+## इसे भी देखें
+
+- [Snap और पॉइंट साझाकरण मॉडल](/hi/explanation/snap-and-sharing/) —
+  साझा और snapped अलग चीज़ें क्यों हैं।

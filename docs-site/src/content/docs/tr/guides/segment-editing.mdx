@@ -1,0 +1,59 @@
+---
+title: Segmentleri düzenleyin ve nokta ekleyin
+description: İki nokta arasındaki segmenti düzenleyerek bir Linestring, Şerit veya Polygon'u iyileştirin.
+keywords:
+  - drawtonomy segment düzenleme
+  - şerit nokta ekleme
+  - şekil köşe düzenleme
+  - drawtonomy köşe taşıma
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Segment düzenleme, herhangi iki bitişik köşe arasındaki şekilleri
+ince ayarlamanıza, yeni bir köşe eklemenize veya bir köşeyi silmenize
+olanak tanır — şekli sıfırdan yeniden çizmeden.
+
+<Demo src="/videos/segment-demo.mp4" caption="Segment düzenleme moduna girmek için çift tıklayın, sonra bir noktayı sürükleyin veya bir nokta eklemek için bir segmente tıklayın." />
+
+## Segment düzenleme moduna girme
+
+1. Seçim aracı için <kbd>V</kbd> tuşuna basın.
+2. Bir Linestring, Şerit veya Polygon'a çift tıklayın.
+3. Şekil nokta düzenleme moduna geçer: her köşe sürüklenebilir bir
+   çividi tutamaca dönüşür.
+
+## Bir noktayı taşıma
+
+Bir köşeye tıklayıp sürükleyin. Nokta başka bir şekille
+paylaşılıyorsa ([Nokta Paylaşımı](/tr/guides/point-sharing/)
+sayfasına bakın), onu tutan her şekil birlikte hareket eder.
+
+Şeritler için, bir sınır noktasını sürüklemek sınırı paylaşan iki
+şeridi günceller —
+[Şerit bağlantı modeli](/tr/explanation/lane-model/) sayfasına bakın.
+
+## Bir nokta ekleme
+
+Bir segmentin (iki mevcut nokta arasındaki çizginin) herhangi bir
+yerine tıklayın. Tıklama konumuna yeni bir köşe eklenir.
+
+Bu, daha önce düz bir bölüme bir eğri eklemenin en hızlı yoludur:
+bir nokta ekleyin, sonra onu sürükleyin.
+
+## Bir noktayı kaldırma
+
+Köşeyi seçin (sabit çividi olur) ve <kbd>Delete</kbd> veya
+<kbd>Backspace</kbd> tuşuna basın.
+
+## Segment düzenlemeden çıkma
+
+<kbd>Esc</kbd> tuşuna basın, şeklin dışına tıklayın veya başka bir
+araç seçin. Şekil normal seçim moduna döner.
+
+## Ayrıca bakın
+
+- [Pürüzsüz şerit sınırları](/tr/guides/smooth-lanes/) — birçok nokta
+  ekledikten sonra ve işleri temizlemek istediğinizde kullanışlı.
+- [Mevcut geometriye snap yapın](/tr/guides/snap/) — onları hizalı
+  tutmak için noktaları snap hedeflerine sürükleyin.

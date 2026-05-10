@@ -1,0 +1,181 @@
+---
+title: 常见问题 — drawtonomy 自动驾驶场景白板
+description: 关于 drawtonomy 的常见问题——免费、基于浏览器的自动驾驶场景白板。涵盖论文配图、OpenSCENARIO 编写、OpenDRIVE 导出、Lanelet2 编辑、ROS 占据栅格标注与 AI 场景生成器。
+sidebar:
+  label: 常见问题
+  order: 99
+keywords:
+  - drawtonomy 常见问题
+  - 自动驾驶场景图工具 FAQ
+  - 自动驾驶论文配图
+  - 在线绘制行车场景
+  - 免费 OpenSCENARIO 编辑器
+  - 浏览器 Lanelet2 编辑器
+  - 免费自动驾驶绘图工具
+  - 高精地图编辑器
+  - ADAS 场景设计工具
+  - 自动驾驶仿真场景图
+  - 智能驾驶场景图
+jsonLd:
+  '@context': 'https://schema.org'
+  '@type': FAQPage
+  mainEntity:
+    - '@type': Question
+      name: 我可以用 drawtonomy 为自动驾驶论文、幻灯片或文档绘制配图吗?
+      acceptedAnswer:
+        '@type': Answer
+        text: 可以,这正是它的主要用途之一。车道、路口、车辆和行人都是内置图形,在通用绘图工具里要花半小时的自动驾驶场景图,在这里几分钟就能画完。可导出为 drawtonomy.svg、PDF 或 EPS,适用于 LaTeX、幻灯片和 Markdown。
+    - '@type': Question
+      name: drawtonomy 是免费使用的吗?
+      acceptedAnswer:
+        '@type': Answer
+        text: 是的。drawtonomy.com 完全在浏览器中运行,无需注册账号,无需安装,任何数据都不会上传。SDK 与扩展在 GitHub 上开源。
+    - '@type': Question
+      name: drawtonomy 是免费的 OpenSCENARIO 与 OpenDRIVE 编辑器吗?
+      acceptedAnswer:
+        '@type': Answer
+        text: drawtonomy 是一块白板,支持导出为 ASAM OpenDRIVE 1.8 和 OpenSCENARIO 1.3,并提供 esmini 可直接回放的 zip 包。你只需要在画布上勾画场景,drawtonomy 会自动生成 .xodr 与 .xosc 文件。
+    - '@type': Question
+      name: drawtonomy 能在浏览器中编辑 Lanelet2 (.osm) 地图吗?
+      acceptedAnswer:
+        '@type': Answer
+        text: 可以。drawtonomy 能导入 Lanelet2 OSM 文件(包括 Autoware 示例地图),在画布上可视化地编辑车道几何与连接关系,再导出回 Lanelet2 OSM。为了保证流畅,建议单个场景控制在大约 500 条车道以内。
+    - '@type': Question
+      name: 可以导入 ROS 占据栅格地图吗?
+      acceptedAnswer:
+        '@type': Answer
+        text: 可以。drawtonomy 支持 nav2、Cartographer、Gmapping 等 SLAM 工具使用的 ROS map_server 格式 (.pgm + .yaml)。栅格作为背景图层渲染,你可以直接在上面绘制车道、路径和障碍物。
+    - '@type': Question
+      name: drawtonomy 与通用绘图工具有何不同?
+      acceptedAnswer:
+        '@type': Answer
+        text: 通用绘图工具只认识通用图形,所以一条"车道"只是一个矩形,道路一拐弯就要重画。drawtonomy 把车道、路口、人行横道、信号灯、路面标线、车辆和行人都做成内置图形,而且车道带有 Next / Previous / Left / Right 连接关系。拖动一条边界,相连的车道会一同更新。
+    - '@type': Question
+      name: 需要安装什么软件吗?
+      acceptedAnswer:
+        '@type': Answer
+        text: 不需要。drawtonomy 在任何现代浏览器里都能运行。打开 drawtonomy.com 立即开始绘制。开发扩展时还可以使用 npm 上的本地开发服务器(@drawtonomy/dev-server),它会在本地托管编辑器。
+    - '@type': Question
+      name: drawtonomy 能根据自然语言生成场景吗?
+      acceptedAnswer:
+        '@type': Answer
+        text: 可以。AI 场景生成器扩展可以读取自然语言提示或 OpenSCENARIO XML,并生成可编辑的画布——车道、车辆、路径和行人都是普通的 drawtonomy 图形。它支持 Anthropic Claude、OpenAI GPT 和 Google Gemini。
+    - '@type': Question
+      name: 哪种文件格式能保留 drawtonomy 场景的可编辑状态?
+      acceptedAnswer:
+        '@type': Answer
+        text: drawtonomy.svg。它是一个普通的 SVG 文件(在浏览器、GitHub、幻灯片和 Markdown 渲染器中都能预览),并附带额外元数据。drawtonomy 在重新打开时,会用这些数据还原所有图形、连接、共享点和遮挡关系。
+    - '@type': Question
+      name: 可以添加自己的车辆或路标模板吗?
+      acceptedAnswer:
+        '@type': Answer
+        text: 可以。模板是注册在 templates/manifest.json 中的 SVG 文件。把你的 SVG 放进合适的文件夹(vehicle、pedestrian、road_marking、sign、other),提交 PR,它就会出现在编辑器菜单中,与内置模板并列。
+    - '@type': Question
+      name: drawtonomy 支持大型路网吗?
+      acceptedAnswer:
+        '@type': Answer
+        text: drawtonomy 主要面向示意图,而不是城市级地图。为了流畅编辑,建议单个场景控制在约 500 条车道以内。区域较大时可以拆分成多个文件,或者只导入需要的区域。
+    - '@type': Question
+      name: drawtonomy 的图能用在论文、幻灯片或文档里吗?
+      acceptedAnswer:
+        '@type': Answer
+        text: 可以。drawtonomy.svg 是有效的 SVG,无需转换就能嵌入论文、幻灯片、Markdown 和网页。同时也提供 PDF、PNG、JPG 与 EPS,方便配合传统出版流程。
+---
+
+import { LinkCard } from '@astrojs/starlight/components';
+
+## 我可以用 drawtonomy 为自动驾驶论文、幻灯片或文档绘制配图吗?
+
+可以——这正是它的主要用途之一。车道、路口、车辆和行人都是内置图形,
+在通用绘图工具里要花半小时的自动驾驶场景图,在这里几分钟就能画完。
+导出格式包括 [`drawtonomy.svg`](/zh-cn/guides/export/)、PDF 与 EPS,
+可直接用于 LaTeX、幻灯片和 Markdown。
+
+## drawtonomy 是免费使用的吗?
+
+是的。[drawtonomy.com](https://drawtonomy.com) 完全在浏览器中运行,
+无需注册账号,无需安装,数据不会上传。SDK 与扩展在
+[GitHub](https://github.com/kosuke55/drawtonomy) 上开源。
+
+## drawtonomy 是免费的 OpenSCENARIO 与 OpenDRIVE 编辑器吗?
+
+drawtonomy 是一块白板,**可导出为** ASAM OpenDRIVE 1.8 和
+OpenSCENARIO 1.3,并能打包成 [esmini](https://github.com/esmini/esmini)
+可直接回放的 zip。你只需在画布上画出场景——车道、路口、车辆、路径——
+drawtonomy 会自动生成 `.xodr` 与 `.xosc` 文件。详见
+[导出至 OpenDRIVE / OpenSCENARIO / esmini](/zh-cn/guides/export-asam/)。
+
+## drawtonomy 能在浏览器中编辑 Lanelet2 (.osm) 地图吗?
+
+可以。drawtonomy 支持导入
+[Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2)
+OSM 文件(包括
+[Autoware 示例地图](https://autowarefoundation.github.io/autoware-documentation/main/demos/planning-sim/#download-the-sample-map)),
+在画布上可视化地编辑车道几何与连接,再导出回 Lanelet2 OSM。
+为保证流畅,建议单个场景控制在大约 500 条车道以内。详见
+[导入 Lanelet2 (.osm) 文件](/zh-cn/guides/import-lanelet2/)。
+
+## 可以导入 ROS 占据栅格地图吗?
+
+可以。drawtonomy 支持
+[nav2](https://navigation.ros.org/)、Cartographer、Gmapping 等 SLAM 工具
+所使用的 ROS `map_server` 格式 (`.pgm` + `.yaml`)。栅格作为背景图层渲染,
+可在上面直接绘制车道、路径和障碍物。详见
+[导入 ROS OccupancyGrid](/zh-cn/guides/import-ros-map/)。
+
+## drawtonomy 与通用绘图工具有何不同?
+
+通用绘图工具只认识通用图形,所以一条车道就是一个矩形,道路一拐弯就要重画。
+drawtonomy 把**车道、路口、人行横道、信号灯、路面标线、车辆和行人**
+都做成内置图形,而且车道带有 **Next / Previous / Left / Right** 四组连接。
+拖动一条边界,相连的车道会一同跟着更新。请见
+[为什么是 drawtonomy](/zh-cn/explanation/why-drawtonomy/) 和
+[车道连接模型](/zh-cn/explanation/lane-model/)。
+
+## 需要安装什么吗?
+
+不需要。drawtonomy 在任何现代浏览器中都能运行。打开
+[drawtonomy.com](https://drawtonomy.com) 即可开始绘制。
+扩展开发者还可以使用本地开发服务器
+([`@drawtonomy/dev-server`](https://www.npmjs.com/package/@drawtonomy/dev-server)),
+它会在 localhost 上托管编辑器。
+
+## drawtonomy 能根据自然语言生成场景吗?
+
+可以。[AI 场景生成器](/zh-cn/tutorials/ai-scene/) 扩展可读取自然语言提示
+或 OpenSCENARIO XML,并输出一张可编辑的画布——车道、车辆、路径和行人
+都是普通的 drawtonomy 图形。它支持 Anthropic Claude、OpenAI GPT
+和 Google Gemini。
+
+## 哪种文件格式能保留 drawtonomy 场景的可编辑状态?
+
+`drawtonomy.svg`。它是一个普通的 SVG 文件——在浏览器、GitHub、
+幻灯片和 Markdown 渲染器中都能预览——并带有额外元数据。
+重新打开时,drawtonomy 会用这些数据还原所有图形、连接、共享点和遮挡关系。
+详见 [导出场景](/zh-cn/guides/export/) 与
+[drawtonomy.svg 格式参考](/zh-cn/reference/drawtonomy-svg/)。
+
+## 我可以添加自己的车辆或路标模板吗?
+
+可以。模板是注册在 `templates/manifest.json` 中的 SVG 文件。
+把你的 SVG 放进合适的文件夹(`vehicle`、`pedestrian`、
+`road_marking`、`sign`、`other`),提交 PR,它就会出现在编辑器菜单中,
+与内置模板并列。详见 [贡献模板](/zh-cn/extend/templates/)。
+
+## drawtonomy 支持大型路网吗?
+
+drawtonomy 主要面向示意图,而非城市级地图。为了流畅编辑,
+建议单个场景控制在约 **500 条车道**以内。范围更大时,
+请拆分到多个文件,或者只导入需要的区域。
+
+## drawtonomy 的图能用在论文、幻灯片或文档里吗?
+
+可以。[`drawtonomy.svg`](/zh-cn/guides/export/) 是合法 SVG,
+无需转换就能嵌入论文、幻灯片、Markdown 和网页。
+同时也提供 PDF、PNG、JPG 与 EPS,方便配合传统出版流程。
+
+## 源码在哪里?
+
+SDK、扩展、模板以及本文档站点的源代码都在
+[github.com/kosuke55/drawtonomy](https://github.com/kosuke55/drawtonomy)。
+应用本身位于 [drawtonomy.com](https://drawtonomy.com)。

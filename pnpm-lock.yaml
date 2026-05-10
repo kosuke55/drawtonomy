@@ -14,18 +14,21 @@ importers:
 
   docs-site:
     dependencies:
+      '@astrojs/sitemap':
+        specifier: 3.7.2
+        version: 3.7.2
       '@astrojs/starlight':
-        specifier: ^0.39.0
+        specifier: 0.39.2
         version: 0.39.2(astro@6.3.1(@types/node@24.12.3)(lightningcss@1.32.0)(rollup@4.60.3))(typescript@5.9.3)
       astro:
-        specifier: ^6.1.0
+        specifier: 6.3.1
         version: 6.3.1(@types/node@24.12.3)(lightningcss@1.32.0)(rollup@4.60.3)
       sharp:
-        specifier: ^0.34.5
+        specifier: 0.34.5
         version: 0.34.5
     devDependencies:
       playwright:
-        specifier: ^1.59.1
+        specifier: 1.59.1
         version: 1.59.1
 
   packages/drawtonomy-dev-server: {}

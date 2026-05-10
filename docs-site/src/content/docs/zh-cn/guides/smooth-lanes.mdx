@@ -1,0 +1,49 @@
+---
+title: 让车道边界变平滑
+description: 画曲线之前先在车道面板里打开 Smooth Boundary,边界会改用样条拟合,而不再是有棱角的折线。
+keywords:
+  - 平滑车道边界
+  - 样条曲线车道
+  - 曲线车道绘制
+  - 自动驾驶弯道图
+  - drawtonomy Smooth Boundary
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+drawtonomy 可以生成样条拟合的车道边界,而不只是有棱角的折线。
+开关位于车道创建面板,只对接下来要画的车道生效;
+不会回过头改动已有车道。
+
+<Demo src="/videos/smooth-lane.mp4" caption="同一条车道两次绘制——左侧 Smooth Boundary 关闭(折线),右侧打开(平滑)。" />
+
+## 开关位置
+
+按 <kbd>N</kbd> 切到车道工具。右侧面板里有一行
+**SMOOTH BOUNDARY**,带 **On** 与 **Off** 两个按钮:
+
+![车道创建面板 — SMOOTH BOUNDARY 开关被高亮,当前为 Off](/img/frames/smooth-toggle-off.png)
+
+默认是 **Off**。点击中心线之前先打开它即可。
+
+## 对比
+
+下面两张截图使用相同的中心线绘制,唯一的差别只是开关的状态:
+
+| Smooth Boundary = Off | Smooth Boundary = On |
+| --- | --- |
+| ![平滑关闭时的折线弯道](/img/frames/smooth-off-result.png) | ![平滑开启时的平滑弯道](/img/frames/smooth-on-result.png) |
+
+关闭时,中心线每两次点击之间是一段直线边界;
+开启时,同样的中心线被拟合为曲线。
+
+## 中途切换
+
+开关随时可以翻转。你下次开始点击时,新车道会采用当前的开关值。
+已有车道始终保持其绘制时所用的边界样式。
+
+## 另请参阅
+
+- [使用车道工具](/zh-cn/guides/lane-tool/) — 面板的其余部分。
+- [车道连接模型](/zh-cn/explanation/lane-model/) — 即使边界变成曲线,
+  中心线仍然是连接关系的依据。

@@ -1,0 +1,100 @@
+---
+title: Eksportuj scenę jako SVG, PNG, PDF lub drawtonomy.svg
+description: Zapisz scenę drawtonomy jako drawtonomy.svg do ponownej edycji i osadzania w dokumentach lub wybierz PNG, JPG, płaski SVG, PDF lub EPS dla rysunków jazdy autonomicznej w prezentacjach, publikacjach i dokumentach projektowych. Cele symulatora jazdy (OpenDRIVE / OpenSCENARIO / Lanelet2) mają własne strony.
+keywords:
+  - eksport diagramu jazdy svg
+  - edytowalny svg sceny jazdy
+  - rysunek jazdy autonomicznej do publikacji
+  - rysunek jazdy autonomicznej do prezentacji
+  - rysunek scenariusza jazdy latex
+  - diagram drogowy do dokumentacji
+  - format drawtonomy.svg
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+drawtonomy oferuje kilka formatów eksportu. Tym, po który większość
+czasu sięgasz, jest **drawtonomy.svg** — zwykły SVG z dodatkowymi
+metadanymi, dzięki czemu można ponownie otworzyć plik i kontynuować od
+miejsca, w którym skończyłeś. Jest to również prawidłowy SVG, więc
+wyświetla się poprawnie w przeglądarkach, prezentacjach i potokach
+dokumentacji bez konwersji.
+
+Pozostałe formaty — PNG, JPG, SVG (płaski), PDF, EPS — są dla
+przypadków, gdy chcesz obraz statyczny i nie musisz go ponownie
+edytować.
+
+Dla wyjścia symulatora jazdy (OpenDRIVE / OpenSCENARIO / Lanelet2),
+zobacz dedykowaną stronę [eksport ASAM](/pl/guides/export-asam/).
+
+## Od czego zacząć: drawtonomy.svg
+
+`drawtonomy.svg` zachowuje ID kształtów, połączenia pasów,
+współdzielone punkty, grupy śladów, styl i relacje *który-kształt-jest-
+na-wierzchu*. Ten sam plik jest:
+
+- **Edytowalny ponownie.** Przeciągnij go z powrotem do drawtonomy, a
+  scena wraca dokładnie taka, jaką zostawiłeś — każde połączenie,
+  współdzielony punkt i relacja nakładania nienaruszone.
+- **Możliwy do podglądu.** To prawidłowy SVG, więc GitHub,
+  przeglądarki, rendery Markdown i narzędzia do prezentacji wyświetlają
+  go poprawnie bez konwersji.
+- **Przyjazny dokumentacji.** Wektorowy, skaluje się czysto, mały
+  rozmiar pliku, brak artefaktów rastrowych. Pozostaje ostry przy
+  każdym powiększeniu w README lub rysunku publikacji.
+
+`drawtonomy.svg` jest rozsądnym domyślnym wyborem dla wszystkiego,
+co może być ponownie edytowane, udostępnione członkowi zespołu, który
+ma drawtonomy, lub osadzone w dokumentacji technicznej.
+
+<Demo src="/videos/export-demo.mp4" caption="Gotowa scena unikania wyeksportowana, a następnie ponownie otwarta w nowej karcie — każdy kształt i relacja nakładania przetrwa." />
+
+### Zapisz jako drawtonomy.svg
+
+1. Otwórz menu (lewy górny róg).
+2. Kliknij **Eksport**.
+3. Wybierz **drawtonomy.svg**.
+
+Plik pobiera się pod nazwą opartą na tytule sceny.
+
+### Otwórz ponownie
+
+Przeciągnij plik z powrotem do drawtonomy lub użyj **Importuj** w
+tym samym menu. Cała scena pojawia się w nowej karcie z każdym
+kształtem do wybrania. Panel Atrybutów pokazuje sekcję
+**OBIEKTY NAKŁADAJĄCE SIĘ**, gdy klikniesz w obszar, w którym kształty
+się nakładają — relacja między, powiedzmy, pojazdem a pasem, na
+którym siedzi, przetrwa round-trip.
+
+## Inne formaty obrazu
+
+Gdy potrzebujesz tylko płaskiego obrazu — bez edycji, bez metadanych
+— wybierz jeden z nich z tego samego menu Eksport.
+
+| Format | Użyj do | Uwagi |
+|---|---|---|
+| **PNG** | Prezentacje, dokumenty, strony internetowe | Bezstratny raster. |
+| **JPG** | Mniejsze pliki, gdy przezroczystość nie jest potrzebna | Stratny raster. |
+| **SVG** (płaski) | Postprocessing w Illustrator / Inkscape, osadzanie w sieci | Wizualnie identyczny z drawtonomy.svg, ale metadane są usunięte. |
+| **PDF** | Druk, archiwizacja, publikacje | Wektorowy, obsługuje przezroczystość. |
+| **EPS** | Starsze potoki publikacyjne | Wektorowy. **Nie obsługuje przezroczystości** — zobacz poniżej. |
+
+### EPS i przezroczystość
+
+EPS nie koduje przezroczystości. Kształt z kryciem 60% wyeksportuje
+się przy pełnym kryciu. Jeśli twoja scena polega na przezroczystości,
+wyeksportuj zamiast tego PDF lub SVG.
+
+## Eksport ASAM i Lanelet2
+
+Dla celów symulatora jazdy — OpenDRIVE, OpenSCENARIO, paczka esmini,
+Lanelet2 — zobacz
+[Eksport do OpenDRIVE / OpenSCENARIO / esmini](/pl/guides/export-asam/).
+
+## Zobacz także
+
+- [Obsługiwane formaty eksportu](/pl/reference/export-formats/) —
+  pełna macierz tego, co każdy format zachowuje, a co nie.
+- [Format drawtonomy.svg](/pl/reference/drawtonomy-svg/) — co
+  znajduje się w pliku na dysku, jeśli chcesz go odczytać lub
+  wygenerować samodzielnie.

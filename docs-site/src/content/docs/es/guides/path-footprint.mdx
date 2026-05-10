@@ -1,0 +1,74 @@
+---
+title: Trayectoria con huellas
+description: Dibuja una Trayectoria desde un vehículo y la plantilla del vehículo se replica a lo largo de la trayectoria.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Una *huella* es una copia de un vehículo (u otra plantilla)
+colocada automáticamente a lo largo de una Trayectoria. La
+demostración empieza con un vehículo ego, dibuja una Trayectoria
+desde él, y la trayectoria se llena inmediatamente con copias de
+ese vehículo — misma plantilla, orientadas a lo largo de la curva,
+igualmente espaciadas.
+
+<Demo src="/videos/footprints-demo.mp4" caption="Un vehículo ego, una Trayectoria dibujada desde él y el rastro de huellas resultante." />
+
+## Configuración
+
+Coloca un vehículo en cualquier lugar del lienzo con la herramienta
+Vehículo, luego pulsa <kbd>H</kbd> para la herramienta Trayectoria.
+El panel derecho muestra los ajustes de Trayectoria:
+
+![Panel de la herramienta Trayectoria — Color, Opacidad 90%, Estilo Sólido, Ancho 5px, Cabeza de Flecha 20px, Smooth marcado](/img/frames/footprints-path-panel.png)
+
+Los valores por defecto mostrados — verde sólido, 5 px de ancho,
+suave, con una cabeza de flecha de 20 px — son los que usa la
+demostración.
+
+## Dibujar la trayectoria
+
+Haz clic en el vehículo para empezar la trayectoria. El primer
+punto se engancha al ancla del vehículo. Haz clic en más puntos
+para extender la trayectoria; la cabeza de flecha aparece en el
+último punto que coloques. Pulsa <kbd>Enter</kbd> para terminar.
+
+Tan pronto como la trayectoria termina, drawtonomy replica una
+copia del vehículo de origen a lo largo de ella:
+
+![La Trayectoria está dibujada; las huellas del vehículo aparecen a lo largo con espaciado igual](/img/frames/footprints-along-path.png)
+
+Cada copia se rota para coincidir con la tangente de la
+trayectoria en su posición, así que el rastro sigue las curvas de
+forma natural.
+
+## Estilo y plantilla permanecen vinculados
+
+Las huellas comparten estilo con su vehículo de origen: cambia el
+color, opacidad o plantilla del origen, y cada huella se actualiza.
+No tienes que editar a mano cada copia para mantener un diagrama
+de maniobra visualmente consistente.
+
+El siguiente fotograma de la demostración oculta la trayectoria en
+sí para que solo queden las huellas — útil para capturas de
+exportación cuando no quieres que la trayectoria subyacente sature
+el diagrama:
+
+![Solo las huellas, sin la trayectoria dibujada](/img/frames/footprints-result.png)
+
+## Lo que puedes ajustar
+
+- **Espaciado** — distancia entre huellas.
+- **Desplazamiento del ancla** — desliza el punto de referencia a
+  lo largo de la dirección de marcha (por ejemplo, base link o
+  parachoques delantero en lugar del centro).
+- **Smooth** — la casilla del panel Trayectoria hace que la
+  trayectoria en sí se curve suavemente entre puntos; la
+  orientación de las huellas la sigue.
+- **Color / Opacidad / Tamaño** — aplicado a cada huella a la vez
+  mediante el vehículo de origen.
+
+## Véase también
+
+- [Añadir vehículos, peatones y semáforos](/es/guides/participants/)
+- [Personalizar color, opacidad, ancho y estilo](/es/guides/styling/)

@@ -1,0 +1,127 @@
+---
+title: Ihre ersten drei Fahrspuren
+description: Folgen Sie der Lane-Tool-Demo — zeichnen Sie zwei Fahrspuren aus Mittellinien und konstruieren Sie eine dritte zwischen den vorhandenen Rändern.
+sidebar:
+  order: 1
+keywords:
+  - drawtonomy Lane-Tool
+  - Fahrspur zeichnen
+  - Whiteboard für autonomes Fahren
+  - Spureditor im Browser
+  - Mittellinie Fahrspur
+  - Boundary Mode Fahrspur
+  - Fahrszenario-Diagramm
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Diese Lektion folgt der offiziellen Lane-Tool-Demo. Am Ende haben Sie
+beide Wege genutzt, mit denen drawtonomy Fahrspuren erzeugt:
+
+- **Center-Line-Modus** — Sie zeichnen die Mittellinie; der linke und
+  rechte Rand werden für Sie erzeugt.
+- **Boundary-Modus** — Sie wählen zwei vorhandene
+  Begrenzungs-Linestrings, und drawtonomy passt eine Fahrspur
+  dazwischen ein.
+
+Die Demo zeichnet zwei Fahrspuren im Center-Line-Modus und wechselt
+dann in den Boundary-Modus für eine dritte Fahrspur, die die Lücke
+füllt.
+
+<Demo src="/videos/lane-tool-demo.mp4" caption="Zwei Center-Line-Fahrspuren und dann eine dritte Fahrspur, die im Boundary-Modus aus den vorhandenen Rändern erzeugt wird." />
+
+## 1. Lane-Werkzeug wählen
+
+Öffnen Sie [drawtonomy.com](https://drawtonomy.com). Drücken Sie
+<kbd>N</kbd> (oder klicken Sie auf das Lane-Symbol in der unteren
+Werkzeugleiste).
+
+Auf der rechten Seite des Bildschirms erscheint nun das
+Erstellungs-Panel **Lane**, mit standardmäßig ausgewähltem
+**Center Line**:
+
+![Lane-Panel — Center-Line-Modus aktiv, Lane Width 50 px](/img/frames/lane-tool-panel.png)
+
+Belassen Sie die Standardwerte vorerst.
+
+## 2. Zwei Fahrspuren im Center-Line-Modus zeichnen
+
+Im Center-Line-Modus klicken Sie auf den Canvas, um den ersten
+Mittellinienpunkt zu setzen, klicken weiter den Pfad entlang und
+drücken <kbd>Enter</kbd> zum Abschluss. Der linke und rechte Rand
+erscheinen automatisch mit dem Wert **Lane Width** (standardmäßig
+50 px).
+
+Das Lane-Werkzeug bleibt nach jeder Spur aktiv — klicken Sie also
+einfach an einer anderen Stelle, um die zweite zu beginnen. Setzen
+Sie einige Punkte rechts neben der ersten Fahrspur und drücken Sie
+<kbd>Enter</kbd>:
+
+![Zwei nebeneinander gezeichnete Fahrspuren im Center-Line-Modus](/img/frames/lane-tool-two-lanes.png)
+
+Aktuell sind die beiden Fahrspuren unabhängig — sie teilen weder
+einen Rand noch wissen sie voneinander.
+
+## 3. In den Boundary-Modus wechseln
+
+Klicken Sie im selben Panel neben **Center Line** auf **Boundary**,
+um den Erstellungsmodus zu wechseln. Im Boundary-Modus klicken Sie
+nicht in leeren Raum, sondern auf **vorhandene
+Begrenzungs-Linestrings**, und drawtonomy passt eine Fahrspur
+dazwischen ein.
+
+Bewegen Sie den Mauszeiger über den **rechten Rand der linken
+Fahrspur** — drawtonomy hebt den Linestring indigo hervor, sobald der
+Cursor nahe genug ist — und klicken Sie:
+
+![Boundary-Modus — der rechte Rand der linken Fahrspur ist hervorgehoben und kann ausgewählt werden](/img/frames/lane-tool-boundary-mode.png)
+
+Klicken Sie anschließend auf den **linken Rand der rechten Fahrspur**.
+Eine neue Fahrspur füllt die Lücke und nutzt die beiden angeklickten
+Linestrings als linken und rechten Rand.
+
+## 4. Das Ergebnis prüfen
+
+Drücken Sie <kbd>V</kbd> für das Select-Werkzeug und klicken Sie auf
+die neue mittlere Fahrspur. Das rechte Panel zeigt nun ihre
+Attribute:
+
+![Attribute Panel — die neue mittlere Fahrspur teilt die Ränder way/1 und way/2 mit ihren Nachbarn](/img/frames/lane-attributes.png)
+
+Die Ränder werden wiederverwendet:
+
+- **Lane ID** — `lane/2`, eine brandneue Fahrspur.
+- **Left Boundary** — `way/1`, derselbe Linestring, der den rechten
+  Rand der linken Fahrspur bildet.
+- **Right Boundary** — `way/2`, ebenso geteilt mit der rechten
+  Fahrspur.
+
+Da die Ränder geteilt werden, bewegt das Ziehen eines Punkts auf
+einer der beiden Seiten beide angrenzenden Fahrspuren gemeinsam. Auf
+genau dieser Idee bauen die
+[Spurverbindungen](/de/explanation/lane-model/) auf; lesen Sie als
+Nächstes diese Seite für das zugrundeliegende Modell.
+
+Das Panel zeigt außerdem **Direction**, **Lane Color**, **Lane
+Opacity** sowie die vier Verbindungs-Slots **Next Lanes / Prev Lanes /
+Left Lane / Right Lane**, die wir vorerst leer lassen.
+
+## Was Sie gelernt haben
+
+- Fahrspuren lassen sich auf zwei Wegen zeichnen: aus einer
+  Mittellinie oder durch Auswahl zweier vorhandener
+  Begrenzungs-Linestrings.
+- Der Center-Line-Modus ist die schnelle Option auf einem leeren
+  Canvas; der Boundary-Modus fügt eine Fahrspur zwischen vorhandener
+  Geometrie ein, ohne etwas neu zu zeichnen.
+- Eine aus vorhandenen Rändern aufgebaute Fahrspur teilt diese
+  Ränder mit ihren Nachbarn.
+
+## Wie geht es weiter
+
+- [Spurverbindungen verwalten](/de/guides/lane-connections/) — die vier
+  Verbindungs-Slots im Attribute Panel.
+- [Glatte Fahrspurränder](/de/guides/smooth-lanes/) — der Toggle Smooth
+  Boundary im selben Panel verwandelt eckige Ränder in Kurven.
+- [Eine reale Straße aus einer Satellitenkarte nachbauen](/de/tutorials/road-from-map/)
+  — Fahrspuren aus OSM ziehen, statt sie zu zeichnen.

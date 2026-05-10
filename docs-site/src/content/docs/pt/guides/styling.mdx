@@ -1,0 +1,46 @@
+---
+title: Personalizar cor, opacidade, largura e estilo
+description: Defina o estilo por forma e mude os padrões que se aplicam a novas formas.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Cada forma carrega seu próprio estilo. Você também pode mudar os
+padrões em todo o editor para que novas formas comecem do jeito que
+você quer.
+
+<Demo src="/videos/style-demo.mp4" caption="Cor, opacidade, largura e variante de modelo por forma a partir do Painel de Atributos." />
+
+## Estilo por forma
+
+1. Pressione <kbd>V</kbd> para Selecionar, depois clique numa forma.
+2. O **Painel de Atributos** à direita expõe:
+   - **Cor** (paleta + personalizada)
+   - **Opacidade** (0–100%)
+   - **Largura** (para formas tipo linha)
+   - **Estilo** (sólido / tracejado / variante de modelo)
+
+Selecione múltiplas para aplicar a mesma mudança em várias formas
+de uma vez.
+
+## Padrões
+
+Para fazer toda nova faixa começar com, digamos, 60% de opacidade:
+
+1. Abra o menu **hambúrguer**.
+2. Escolha **Defaults**.
+3. Mude o valor sob **Lane**.
+
+Os padrões têm efeito para formas recém-criadas. Formas existentes
+não são alteradas.
+
+## Paleta de cores
+
+O drawtonomy usa uma paleta no estilo Tailwind (grey-100 a
+grey-900, mais cores). Para a lista completa, veja
+[Referência da paleta de cores](/pt/reference/color-palette/).
+
+## Veja também
+
+- [Formato drawtonomy.svg](/pt/reference/drawtonomy-svg/) — como o
+  estilo é persistido entre salvar/carregar.

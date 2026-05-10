@@ -1,0 +1,74 @@
+---
+title: स्मूथ लेन बाउंड्री
+description: ड्रॉइंग करने से पहले Lane पैनल में Smooth Boundary toggle करें — एक curving लेन polyline के बजाय एक curve के रूप में निकलती है।
+sidebar:
+  order: 2
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+यह [आपकी पहली तीन लेन](/hi/tutorials/your-first-lanes/) के बाद
+दूसरा छोटा पाठ है। एक छोटी आदत: एक curving लेन बनाने से पहले
+**Smooth Boundary** ऑन करें।
+
+Toggle Lane निर्माण पैनल में रहता है और अगली बार आप जो लेन
+बनाते हैं उनके लिए बाउंड्री कैसे जनरेट होती हैं यह बदलता है।
+मौजूदा लेन को नहीं छुआ जाता।
+
+<Demo src="/videos/smooth-lane.mp4" caption="वही curving centerline दो बार बनाया गया — एक बार Smooth Boundary off के साथ, एक बार on के साथ।" />
+
+## 1. Lane पैनल खोलें
+
+Lane टूल के लिए <kbd>N</kbd> दबाएं। दायां-तरफ पैनल खुलता है।
+**SMOOTH BOUNDARY** पंक्ति ढूंढें — डिफ़ॉल्ट **Off** है:
+
+![Lane निर्माण पैनल — SMOOTH BOUNDARY पंक्ति, वर्तमान में Off पर सेट](/img/frames/smooth-toggle-off.png)
+
+## 2. Toggle off के साथ एक curving लेन बनाएं
+
+Toggle को **Off** पर छोड़ दें। एक curve के साथ centerline
+पॉइंट डालने के लिए कैनवस पर क्लिक करें, और समाप्त करने के लिए
+<kbd>Enter</kbd> दबाएं।
+
+बाउंड्री लगातार पॉइंट के बीच सीधे segments होती हैं, इसलिए
+लेन angular निकलती है:
+
+![Smooth Boundary off के साथ बनाई गई curving लेन — बाउंड्री angular polyline हैं](/img/frames/smooth-off-result.png)
+
+## 3. Toggle ऑन करें, उसी लेन को फिर से बनाएं
+
+SMOOTH BOUNDARY पंक्ति में **On** पर क्लिक करें। कैनवस पर
+कहीं और एक समान centerline पर क्लिक करें और <kbd>Enter</kbd>
+दबाएं।
+
+इस बार बाउंड्री spline-fitted हैं, इसलिए लेन smoothly curve होती है:
+
+![Smooth Boundary on के साथ बनाई गई curving लेन — बाउंड्री एक smooth curve का अनुसरण करती हैं](/img/frames/smooth-on-result.png)
+
+साथ-साथ रखने पर, अंतर स्पष्ट है। Centerline समान हैं; केवल
+boundary generation rule बदला है।
+
+## इसे off कब छोड़ें, on कब करें
+
+| | Smooth = Off | Smooth = On |
+| --- | --- | --- |
+| दिखता है | Angular, faceted | Curved |
+| इसके लिए सर्वोत्तम | सीधी लेन, चौराहा legs | curved सड़कें, ramps |
+| प्रदर्शन | थोड़ा सस्ता | थोड़ी अधिक ज्योमेट्री |
+
+आप toggle को जितनी बार चाहें flip कर सकते हैं। प्रत्येक नई
+लेन वह मान उपयोग करती है जो आप ड्रॉइंग समाप्त करते समय सेट होता है।
+
+## आपने क्या सीखा
+
+- Smooth Boundary toggle Lane निर्माण पैनल में रहता है और अगली
+  लेन पर लागू होता है जिसे आप बनाते हैं, चयनित लेन पर नहीं।
+- Centerline ज्योमेट्री दोनों मोड में समान है; केवल बाउंड्री
+  rendering अलग है।
+
+## आगे क्या
+
+- [Lane टूल का उपयोग करें](/hi/guides/lane-tool/) — पैनल का बाकी
+  हिस्सा (Center Line बनाम Boundary मोड, Lane Width, Lane Color)।
+- [लेन कनेक्शन प्रबंधित करें](/hi/guides/lane-connections/) —
+  Attribute Panel में चार कनेक्शन slots।

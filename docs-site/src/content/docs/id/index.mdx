@@ -1,0 +1,207 @@
+---
+title: drawtonomy — papan tulis untuk skenario mengemudi
+description: Papan tulis berbasis browser yang gratis untuk skenario mengemudi. Sketsa jalur, persimpangan, kendaraan, dan pejalan kaki untuk paper, slide, diskusi desain, dan penulisan skenario. Ekspor ke OpenDRIVE, OpenSCENARIO, dan Lanelet2.
+template: splash
+keywords:
+  - papan tulis untuk berkendara otonom
+  - alat diagram skenario mengemudi
+  - alat diagram berkendara otonom
+  - gambar berkendara otonom untuk paper
+  - gambar berkendara otonom untuk slide
+  - gambar berkendara otonom untuk presentasi
+  - perangkat lunak ilustrasi mobil otonom
+  - alat ilustrasi kendaraan otonom
+  - perangkat lunak diagram skenario lalu lintas
+  - alat sketsa skenario mengemudi
+  - editor diagram jalur
+  - alat diagram persimpangan
+  - menggambar skenario mengemudi online
+  - papan tulis untuk tim AV
+  - diagram skenario ADAS
+  - editor OpenSCENARIO gratis di browser
+  - editor OpenDRIVE gratis
+  - editor Lanelet2 di browser
+  - editor skenario esmini
+  - alat anotasi grid hunian ROS
+jsonLd:
+  '@context': 'https://schema.org'
+  '@type': SoftwareApplication
+  name: drawtonomy
+  alternateName: drawtonomy — papan tulis untuk skenario mengemudi
+  url: 'https://drawtonomy.com'
+  sameAs:
+    - 'https://github.com/kosuke55/drawtonomy'
+  description: Papan tulis berbasis browser yang gratis untuk skenario mengemudi. Jalur, persimpangan, kendaraan, pejalan kaki, dan marka jalan sebagai bentuk bawaan — untuk paper, slide, diskusi desain, dan penulisan skenario. Ekspor ke OpenDRIVE, OpenSCENARIO, dan Lanelet2.
+  applicationCategory: DesignApplication
+  applicationSubCategory: Diagram editor
+  operatingSystem: Apa saja (berbasis browser)
+  browserRequirements: Membutuhkan peramban web modern
+  offers:
+    '@type': Offer
+    price: '0'
+    priceCurrency: USD
+  featureList:
+    - Jalur dengan koneksi Next / Previous / Left / Right
+    - Template untuk persimpangan, zebra cross, lampu lalu lintas, rambu jalan, dan marka jalan
+    - Template kendaraan dan pejalan kaki dengan path dan footprint
+    - Snap dan pengeditan titik bersama
+    - Edit-tarik geometri batas yang menyebar ke jalur yang terhubung
+    - Penyimpanan drawtonomy.svg yang dapat diedit ulang, siap disematkan ke paper dan slide
+    - Round-trip Lanelet2 (.osm)
+    - Ekspor OpenDRIVE 1.8 dan OpenSCENARIO 1.3, zip siap pakai untuk esmini
+    - Impor ROS OccupancyGrid (.pgm + .yaml)
+    - Ekstensi AI Scene Generator
+hero:
+  tagline: Papan tulis berbasis browser yang gratis untuk skenario mengemudi. Sketsa jalur, persimpangan, dan adegan lalu lintas untuk paper, slide, diskusi desain, dan penulisan skenario — tanpa perlu menggambar ulang jalan setiap kali ia berbelok.
+  image:
+    file: ../../../assets/logo.png
+  actions:
+    - text: Mulai Cepat
+      link: /id/start/quickstart/
+      icon: right-arrow
+    - text: Coba aplikasinya
+      link: https://drawtonomy.com
+      icon: external
+      variant: secondary
+    - text: GitHub
+      link: https://github.com/kosuke55/drawtonomy
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## Temukan yang Anda butuhkan
+
+Dokumentasi disusun berdasarkan empat jenis kebutuhan. Pilih salah
+satu yang sesuai dengan apa yang sedang Anda kerjakan.
+
+<CardGrid>
+	<LinkCard
+		title="Tutorial"
+		href="/id/tutorials/"
+		description="Belajar dengan praktik. Pelajaran langkah demi langkah dari kanvas kosong hingga adegan lengkap."
+	/>
+	<LinkCard
+		title="Panduan How-to"
+		href="/id/guides/"
+		description="Selesaikan tugas spesifik. Resep untuk jalur, kendaraan, ekspor, dan impor."
+	/>
+	<LinkCard
+		title="Referensi"
+		href="/id/reference/"
+		description="Cari fakta. Pintasan, format berkas, katalog bentuk, dan API SDK."
+	/>
+	<LinkCard
+		title="Penjelasan"
+		href="/id/explanation/"
+		description="Pahami modelnya. Mengapa drawtonomy bekerja seperti itu."
+	/>
+</CardGrid>
+
+## Apa itu drawtonomy?
+
+drawtonomy adalah **papan tulis untuk skenario mengemudi** — gambar
+yang Anda sertakan dalam paper, slide yang Anda sketsa sebelum tinjauan
+desain, diagram yang Anda gambar saat panggilan ketika sedang
+menjelaskan kasus tepi (corner case) kepada anggota tim, atau adegan
+yang Anda sketsa sebelum menulis berkas OpenSCENARIO.
+
+Buka URL-nya, gambar jalur dan persimpangan di kanvas tak terhingga,
+letakkan kendaraan, pejalan kaki, lampu lalu lintas, zebra cross, dan
+marka jalan, lalu simpan atau ekspor. Tidak perlu instalasi, tanpa
+akun, tanpa unggahan.
+
+Alasan keberadaannya: alat menggambar generik dan presentasi tidak
+mengetahui apa itu jalur, sehingga geometri jalan harus disusun ulang
+setiap kali ada yang bergeser. drawtonomy memperlakukan jalur,
+persimpangan, dan kosakata skenario mengemudi lainnya sebagai bentuk
+bawaan, sehingga gambar tetap akurat saat Anda iterasi.
+
+## Untuk apa orang menggunakannya
+
+<CardGrid>
+	<Card title="Gambar untuk paper dan tesis" icon="document">
+		Gambar skenario berkendara otonom yang tajam berbasis vektor
+		yang menyatu rapi di LaTeX, slide, dan Markdown — diekspor
+		sebagai `drawtonomy.svg`, PDF, atau EPS.
+	</Card>
+	<Card title="Diagram untuk diskusi desain" icon="comment-alt">
+		Sketsa manuver pindah jalur, belok kiri tanpa proteksi, atau
+		kasus oklusi dalam hitungan detik. Bagikan hasilnya dan
+		lanjutkan diskusi di kanvas yang sama esok hari.
+	</Card>
+	<Card title="Sketsa skenario sebelum penulisan" icon="seti:graphql">
+		Gambar adegannya sebelum menulis XML OpenSCENARIO — dan ekspor
+		ke `.xosc` / `.xodr` saat sketsa sudah siap.
+	</Card>
+	<Card title="Anotasi peta dan ROS" icon="seti:json">
+		Telusuri jalur di atas latar satelit, edit peta Lanelet2 OSM,
+		atau anotasi grid hunian ROS dengan path dan rintangan.
+	</Card>
+</CardGrid>
+
+## Mengapa lebih cepat dari alat menggambar generik
+
+<CardGrid>
+	<Card title="Bentuk dari domain mengemudi" icon="seti:default">
+		Jalur, persimpangan, zebra cross, lampu lalu lintas, marka
+		jalan, kendaraan, dan pejalan kaki sudah tersedia. Anda juga
+		bisa menambahkan template SVG sendiri dan berkontribusi melalui
+		PR.
+	</Card>
+	<Card title="Jalur sadar topologi" icon="seti:graphql">
+		Setiap jalur membawa koneksi Next / Previous / Left / Right.
+		Dua jalur yang berbagi batas akan berbagi titik batas yang
+		sama — tarik sekali, keduanya bergerak.
+	</Card>
+	<Card title="Kanvas tak terhingga, latar satelit" icon="seti:html">
+		Geser dan zoom pada layout sebesar apa pun. Tambahkan latar
+		satelit atau peta jalan dan telusuri dari lokasi nyata. Snap
+		dan titik bersama menjaga geometri tetap selaras tanpa perlu
+		dirapikan secara manual.
+	</Card>
+	<Card title="Gratis dan hanya di browser" icon="rocket">
+		Tanpa instalasi, tanpa akun, tanpa unggahan. Buka kembali
+		drawtonomy.svg yang tersimpan nanti dan adegan akan muncul
+		persis seperti saat Anda tinggalkan, lengkap dengan koneksi
+		dan relasi tumpang tindih.
+	</Card>
+</CardGrid>
+
+## Jembatan ke stack simulasi dan pemetaan Anda
+
+Papan tulis adalah hal utamanya; jalur-jalur ini membawa diagram ke
+seluruh alur kerja Anda.
+
+<CardGrid>
+	<Card title="SVG yang dapat diedit ulang untuk paper dan slide" icon="document">
+		`drawtonomy.svg` adalah berkas SVG biasa yang dapat dipratinjau
+		di peramban, GitHub, dan slide, dan dapat dibuka kembali di
+		drawtonomy dengan setiap koneksi tetap utuh. Pilihan default
+		untuk gambar di dokumentasi dan paper riset.
+	</Card>
+	<Card title="Round-trip Lanelet2" icon="seti:json">
+		Buka peta Lanelet2 OSM untuk pengeditan dan ekspor kembali ke
+		OSM — termasuk peta sampel Autoware. Berguna untuk membuat
+		sketsa perubahan terhadap peta HD yang sudah ada.
+	</Card>
+	<Card title="ASAM OpenDRIVE / OpenSCENARIO" icon="seti:db">
+		Ekspor OpenDRIVE 1.8 dan OpenSCENARIO 1.3 — bersamaan sebagai
+		zip siap [esmini](https://github.com/esmini/esmini) ketika Anda
+		ingin memutar adegan di simulator.
+	</Card>
+	<Card title="AI Scene Generator" icon="comment-alt">
+		Jelaskan skenario dalam bahasa alami, atau tempel XML
+		OpenSCENARIO, dan dapatkan kanvas yang dapat diedit kembali.
+		Outputnya adalah adegan drawtonomy biasa; sempurnakan seperti
+		yang lainnya.
+	</Card>
+</CardGrid>
+
+## Untuk pengembang ekstensi
+
+Jika Anda ingin membangun di atas drawtonomy alih-alih hanya
+menggunakannya, lihat [Memperluas drawtonomy](/id/extend/). Kode
+sumber SDK, contoh, dan referensi tersedia di samping situs ini di
+[github.com/kosuke55/drawtonomy](https://github.com/kosuke55/drawtonomy).

@@ -1,0 +1,62 @@
+---
+title: Een scène met AI genereren en daarna handmatig verfijnen
+description: Beschrijf een scenario in natuurlijke taal met de AI Scene Generator en bewerk het resultaat op het canvas.
+sidebar:
+  order: 4
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+De [AI Scene Generator](https://github.com/kosuke55/drawtonomy/tree/main/extensions/ai-scene-generator)-extensie
+neemt een prompt in natuurlijke taal, OpenSCENARIO XML of
+DSL-invoer en levert een bewerkbaar canvas.
+
+<Demo src="/videos/ai-scene-natural.mp4" caption="Scenario in natuurlijke taal → bewerkbare scène op het canvas." maxWidth="900px" />
+
+## 1. Open de AI Scene Generator
+
+1. Klik op **Extensions** rechtsonder op het canvas.
+2. Kies **AI Scene Generator**.
+3. Kies uw AI-provider (Anthropic Claude, OpenAI GPT of Google
+   Gemini) en plak uw API-sleutel. De sleutel blijft in uw
+   browser.
+
+## 2. Beschrijf de scène
+
+Plak een prompt zoals:
+
+> Een driebaanssnelweg van links naar rechts. Een ego-sedan (blauw)
+> in de middenrijstrook, een vrachtwagen (grijs) in de
+> rechterrijstrook iets vooruit. Toon een gestippeld pad voor het
+> ego-voertuig dat naar de linkerrijstrook wisselt.
+
+Klik op **Generate**. De extensie plaatst rijstroken, voertuigen
+en een Path-vorm op het canvas.
+
+## 3. Verfijnen
+
+Alles wat is gegenereerd is een gewone vorm. Probeer:
+
+- De vrachtwagen selecteren en zijn sjabloon wijzigen naar **Bus**.
+- Het pad van het ego-voertuig naar een andere curve slepen.
+- Een voetganger toevoegen op de berm.
+
+## 4. Of begin vanuit OpenSCENARIO
+
+Schakel in hetzelfde paneel de invoermodus naar **OpenSCENARIO XML**
+en plak een `.xosc`-bestand. De extensie plaatst actoren en
+trajecten op het canvas — de snelste manier om een bestaand
+scenario te visualiseren.
+
+<Demo src="/videos/ai-scene-dsl.mp4" caption="Een ASAM OpenSCENARIO DSL-voorbeeld geplaatst op het canvas." maxWidth="900px" />
+
+## Wat u heeft geleerd
+
+- AI-generatie is een startpunt — elke vorm daarna is bewerkbaar
+  zoals alles anders op het canvas.
+- Hetzelfde paneel accepteert prompts in natuurlijke taal en
+  OpenSCENARIO-invoer, zodat u tussen ruw idee en formele
+  specificatie kunt schakelen zonder de editor te verlaten.
+
+Voor promptpatronen die goed werken, zie de
+[AI Scene Generator README](https://github.com/kosuke55/drawtonomy/tree/main/extensions/ai-scene-generator).

@@ -1,0 +1,133 @@
+---
+title: Een echte weg uit een kaart reconstrueren
+description: Schakel een wegen- of satellietachtergrond in, lijn deze uit met de rotatieregeling en trek de weg met de Lane-tool over. Auto-generatie is ook beschikbaar als kortere weg.
+sidebar:
+  order: 3
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Deze les neemt een real-world locatie als startpunt. U schakelt
+de **Road**- of **Satellite**-achtergrond in, draait het canvas
+zodat de weg een prettige richting heeft, en trekt rijstroken
+handmatig over de foto eronder. Het bonusgedeelte aan het einde
+toont de one-click-generator die rijstroken rechtstreeks uit
+OSM-gegevens haalt.
+
+## 1. Schakel de kaartachtergrond in
+
+Open het menu (linksboven) en zoek de **Map**-rij:
+
+![Menu geopend met de Map-rij gemarkeerd; opties zijn Off / Road / Satellite](/img/mapBackground.png)
+
+Kies **Road** voor het schematische OpenStreetMap-aanzicht, of
+**Satellite** voor het fotografische aanzicht. De kaart wordt
+achter alles wat u tekent weergegeven en blijft verankerd —
+tekenen erbovenop verplaatst hem niet.
+
+Om hem weer uit te zetten, kiest u **Off** uit dezelfde rij.
+
+## 2. Lijn het canvas uit met de rotatieregeling
+
+De linkerbenedenhoek heeft twee compacte panelen:
+
+![Linkerbenedenhoek-bedieningselementen — Zoom links, Rotatie rechts](/img/bottomLeft.png)
+
+- **Zoom** — `−`- en `+`-knoppen met het huidige percentage
+  ertussen. U kunt ook met pinch- of scrollwheel-gebaren zoomen.
+- **Rotatie** — een kompaspictogram en de huidige hoek (`0°`
+  standaard). Gebruik dit om het canvas te draaien zodat de weg
+  makkelijker met de cursor te volgen is.
+
+Werken met rotatie:
+
+- **Klik** op het kompas om de rotatiemodus te openen. De cursor
+  verandert in een rotatiehandvat; sleep over het canvas om het
+  hele canvas te draaien (en de kaartachtergrond mee).
+- **Klik** opnieuw op het kompas om de rotatiemodus te verlaten.
+- **Dubbelklik** op het kompas om terug te gaan naar `0°`.
+
+Draai totdat het stuk weg dat u wilt ongeveer horizontaal of
+verticaal is — wat u prettiger vindt om over te trekken.
+
+## 3. Trek de weg over met de Lane-tool
+
+Druk op <kbd>N</kbd> voor de Lane-tool. Het Lane-creatiepaneel
+opent rechts. **Center Line**-modus is standaard geselecteerd.
+
+Als de weg op de kaart gebogen is, schakel dan **Smooth Boundary**
+in het paneel in voordat u klikt — de rijstrookgrenzen volgen dan
+een vloeiende curve in plaats van een polylijn. (Zie
+[Vloeiende rijstrookgrenzen](/nl/tutorials/smooth-lanes/) als u een
+opfrisser wilt.)
+
+Klik langs het midden van de weg op de kaart, en plaats een punt
+telkens als de weg merkbaar van richting verandert. Druk op
+<kbd>Enter</kbd> om de rijstrook te voltooien.
+
+Een paar tips tijdens het overtrekken:
+
+- Pas **Lane Width** in het paneel aan voordat u tekent als de
+  standaard niet bij de weg op de kaart past.
+- Houd <kbd>Shift</kbd> ingedrukt tijdens klikken om
+  [snap](/nl/guides/snap/) één klik over te slaan — handig wanneer u
+  een punt dicht bij, maar niet exact op een bestaande punt wilt.
+- Voor wegen met meerdere rijstroken tekent u elke rijstrook
+  apart. Zodra één grenslijn op zijn plaats staat, kunt u
+  [Boundary-modus](/nl/guides/lane-tool/#boundary-mode) gebruiken
+  voor de volgende rijstrook en deze automatisch die grens delen.
+
+## 4. Opslaan
+
+Zodra de overgetrokken weg er goed uitziet, exporteer als
+**drawtonomy.svg** zodat de kaartachtergrond, rijstrookgeometrie
+en verbindingen allemaal round-trippen wanneer u het bestand
+opnieuw opent. Zie [Uw scène exporteren](/nl/guides/export/).
+
+## Bonus: rijstrookgeneratie met één klik
+
+Als u de OSM-gegevens voor het gebied vertrouwt, kan drawtonomy
+wegen direct omzetten naar bewerkbare Lane-vormen — geen
+overtrekken nodig.
+
+<Demo src="/videos/map-to-lane-demo.mp4" caption="Klik op een weg voor één rijstrook; sleep een gebied voor elke weg daarbinnen." maxWidth="900px" />
+
+Met de Map-achtergrond aan:
+
+1. Druk op <kbd>N</kbd> voor de Lane-tool en schakel
+   **Generator**-modus in op de werkbalk.
+2. **Klik** op een wegsegment om alleen dat segment om te zetten
+   in een Lane.
+3. **Sleep** een rechthoek over een gebied om elke weg daarbinnen
+   in één keer om te zetten.
+
+Dit is een kortere weg, geen vervanging voor overtrekken. De
+uitvoer zijn gewone Lane-vormen — verfijn met
+[segmentbewerking](/nl/guides/segment-editing/),
+[maak ze vloeiend](/nl/guides/smooth-lanes/) of bedraad ontbrekende
+[verbindingen](/nl/guides/lane-connections/) achteraf.
+
+Voor complexe of onbekende gebieden levert handmatig overtrekken
+vaak een schoner resultaat dan de generator, omdat OSM-weggegevens
+ruis kunnen bevatten of een hartlijn gebruiken die niet helemaal
+overeenkomt met het satellietbeeld.
+
+## Wat u heeft geleerd
+
+- De kaartachtergrond staat in de **Map**-rij van het menu, met
+  de opties **Off**, **Road** en **Satellite**.
+- Het **Rotatie**-kompas linksonder draait het hele canvas zodat
+  de weg makkelijker over te trekken is; dubbelklik reset naar
+  `0°`.
+- Wegen overtrekken met de Lane-tool geeft volledige controle
+  over de geometrie; de Lane Generator is een one-click kortere
+  weg voor wanneer OSM-data goed genoeg is.
+
+## Wat is het volgende
+
+- [Rijstrookverbindingen beheren](/nl/guides/lane-connections/) —
+  bedraad Volgende/Vorige zodat het wegennet verbonden is, niet
+  alleen visueel aangrenzend.
+- [Een Lanelet2 (.osm)-bestand importeren](/nl/guides/import-lanelet2/) —
+  wanneer u al een verzorgd kaartbestand heeft in plaats van ruwe
+  OSM.

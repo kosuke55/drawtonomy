@@ -1,0 +1,70 @@
+---
+title: Exporter votre scène en SVG, PNG, PDF ou drawtonomy.svg
+description: Enregistrez une scène drawtonomy en drawtonomy.svg pour la rééditer et l'intégrer dans la documentation, ou choisissez PNG, JPG, SVG plat, PDF ou EPS pour les figures de conduite autonome dans présentations, articles et documents de conception. Les cibles de simulation (OpenDRIVE / OpenSCENARIO / Lanelet2) ont leurs propres pages.
+keywords:
+  - export diagramme conduite svg
+  - svg modifiable scène conduite
+  - figure conduite autonome pour article
+  - figure conduite autonome présentation
+  - figure scénario conduite latex
+  - diagramme routier pour documentation
+  - format drawtonomy.svg
+  - exporter SVG conduite autonome
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+drawtonomy propose plusieurs formats d'export. Celui qu'il faut privilégier la plupart du temps est **drawtonomy.svg** — un SVG standard avec des métadonnées additionnelles, qui vous permet de rouvrir le fichier et de reprendre où vous en étiez. C'est aussi un SVG valide ; il s'affiche donc correctement dans les navigateurs, présentations et chaînes de documentation, sans conversion.
+
+Les autres formats — PNG, JPG, SVG (plat), PDF, EPS — sont destinés aux cas où vous voulez une image statique sans avoir besoin de la rééditer.
+
+Pour la sortie vers les simulateurs de conduite (OpenDRIVE / OpenSCENARIO / Lanelet2), voir la page dédiée [Export ASAM](/fr/guides/export-asam/).
+
+## Par où commencer : drawtonomy.svg
+
+`drawtonomy.svg` préserve les IDs des formes, les connexions de voies, les points partagés, les groupes d'empreinte, le style et les relations *quelle-forme-est-au-dessus*. Le même fichier est :
+
+- **Ré-éditable.** Glissez-le à nouveau dans drawtonomy et la scène réapparaît exactement comme vous l'aviez laissée — chaque connexion, point partagé et relation de superposition intact.
+- **Prévisualisable.** C'est un SVG valide ; GitHub, navigateurs, rendus Markdown et outils de présentation l'affichent correctement sans conversion.
+- **Adapté à la documentation.** Vectoriel, échelle propre, faible taille de fichier, aucun artefact de pixellisation. Il reste net à n'importe quel zoom dans un README ou la figure d'un article.
+
+`drawtonomy.svg` est un choix par défaut raisonnable pour tout ce qui pourrait être réédité, partagé avec un collègue qui utilise drawtonomy, ou intégré dans la documentation technique.
+
+<Demo src="/videos/export-demo.mp4" caption="Une scène d'évitement finalisée exportée, puis rouverte dans un nouvel onglet — chaque forme et chaque relation de superposition est préservée." />
+
+### Enregistrer en drawtonomy.svg
+
+1. Ouvrez le menu (en haut à gauche).
+2. Cliquez sur **Exporter**.
+3. Choisissez **drawtonomy.svg**.
+
+Le fichier se télécharge avec un nom basé sur le titre de la scène.
+
+### Rouvrir
+
+Glissez le fichier à nouveau dans drawtonomy, ou utilisez **Importer** dans le même menu. La scène complète apparaît dans un nouvel onglet, chaque forme étant sélectionnable. Le panneau d'attributs affiche une section **OBJETS QUI SE CHEVAUCHENT** lorsque vous cliquez dans une zone où des formes se superposent — la relation entre, disons, un véhicule et la voie sur laquelle il repose survit à l'aller-retour.
+
+## Autres formats d'image
+
+Lorsque vous n'avez besoin que d'une image plate — ni édition, ni métadonnées — choisissez l'un de ceux-ci dans le même menu Exporter.
+
+| Format | À utiliser pour | Notes |
+|---|---|---|
+| **PNG** | Présentations, documents, pages web | Raster sans perte. |
+| **JPG** | Fichiers plus petits sans transparence | Raster avec perte. |
+| **SVG** (plat) | Post-traitement dans Illustrator / Inkscape, intégration web | Visuellement identique à drawtonomy.svg, mais les métadonnées sont supprimées. |
+| **PDF** | Impression, archivage, articles | Vectoriel, prend en charge la transparence. |
+| **EPS** | Chaînes d'édition héritées | Vectoriel. **Ne prend pas en charge la transparence** — voir ci-dessous. |
+
+### EPS et transparence
+
+EPS n'encode pas la transparence. Une forme avec une opacité de 60 % sera exportée à pleine opacité. Si votre scène repose sur la transparence, exportez plutôt en PDF ou SVG.
+
+## Export ASAM et Lanelet2
+
+Pour les cibles de simulation — OpenDRIVE, OpenSCENARIO, archive esmini, Lanelet2 — voir [Exporter vers OpenDRIVE / OpenSCENARIO / esmini](/fr/guides/export-asam/).
+
+## Voir aussi
+
+- [Formats d'export pris en charge](/fr/reference/export-formats/) — la matrice complète de ce que chaque format préserve ou non.
+- [Format drawtonomy.svg](/fr/reference/drawtonomy-svg/) — ce que contient le fichier sur disque si vous voulez le lire ou le générer vous-même.

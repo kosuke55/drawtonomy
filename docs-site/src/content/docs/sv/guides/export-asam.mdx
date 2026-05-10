@@ -1,0 +1,75 @@
+---
+title: Exportera till OpenDRIVE / OpenSCENARIO / esmini
+description: Exportera din drawtonomy-scen som ASAM OpenDRIVE 1.8 (.xodr), OpenSCENARIO 1.3 (.xosc) eller som ett esmini-färdigt zip-paket för uppspelning i simulator.
+keywords:
+  - gratis OpenSCENARIO redigerare
+  - gratis OpenDRIVE redigerare i webbläsaren
+  - OpenSCENARIO-skapande online
+  - esmini scenarioskapande
+  - ASAM scenariodiagramverktyg
+  - konvertera ritning till OpenDRIVE
+  - simulering autonomt fordon
+---
+
+drawtonomy kan exportera din scen som ASAM
+[OpenDRIVE](https://www.asam.net/standards/detail/opendrive/)
+(`.xodr`) och
+[OpenSCENARIO](https://www.asam.net/standards/detail/openscenario/)
+(`.xosc`), eller paketera båda som en zip klar för
+[esmini](https://github.com/esmini/esmini)-uppspelning.
+
+![En drawtonomy-scen uppspelad i esmini efter export](/img/asam-esmini.png)
+
+## Exportera från redigeraren
+
+1. Rita din scen (körfält, fordon, trafiksignaler…).
+2. Öppna **File → Export → Export for esmini**.
+3. Ange ett basnamn när du blir tillfrågad.
+4. En `<name>.zip` som innehåller `<name>.xodr` och `<name>.xosc`
+   laddas ner.
+
+## Spela upp den
+
+```bash
+unzip my-scene.zip
+esmini --osc my-scene/my-scene.xosc --window 60 60 1024 768
+```
+
+## Enskilda format
+
+Om du bara behöver ett av de två:
+
+- **File → Export → OpenDRIVE (.xodr)**
+- **File → Export → OpenSCENARIO (.xosc)**
+
+## Programmatisk export
+
+Exportören är en del av `@drawtonomy/sdk` och körs utan
+redigeraren. Använd den i CI-pipelines, serversidigt verktyg eller
+webbläsartillägg:
+
+```ts
+import { exporter, createSnapshot } from '@drawtonomy/sdk'
+
+const snapshot = createSnapshot(shapes)
+const { blob, baseName } = exporter.buildEsminiZip(snapshot, {
+  baseName: 'my-scene',
+})
+```
+
+För det fullständiga API:et och förlängningspunkterna, se
+[Exporter SDK-referens](/sv/extend/exporter-sdk/).
+
+## Versioner som emitteras
+
+| Format | Version |
+|---|---|
+| OpenDRIVE | 1.8 |
+| OpenSCENARIO | 1.3 |
+
+## Se även
+
+- [Exportörarkitektur](/sv/explanation/exporter-architecture/) — vad
+  pipelinen gör mellan ögonblicksbild och fil.
+- [Lägga till ett målformat](/sv/extend/exporter-sdk/) — koppla in
+  CARLA, SUMO, Unity eller vad som helst annat.
