@@ -12,26 +12,21 @@ const LOGO = join(HERE, '..', 'src', 'assets', 'logo.png');
 
 const logoB64 = (await readFile(LOGO)).toString('base64');
 
+// Light canvas-like background (#fafafa), the same neutral the app's
+// whiteboard sits on. Indigo accents only on the keyword lines.
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-	<defs>
-		<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-			<stop offset="0" stop-color="#eef2ff"/>
-			<stop offset="0.55" stop-color="#c4b5fd"/>
-			<stop offset="1" stop-color="#a5b4fc"/>
-		</linearGradient>
-	</defs>
-	<rect width="1200" height="630" fill="url(#bg)"/>
+	<rect width="1200" height="630" fill="#fafafa"/>
 	<g transform="translate(96 168)">
 		<image href="data:image/png;base64,${logoB64}" width="120" height="120"/>
 	</g>
-	<g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif" fill="#1f1f3d">
+	<g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif" fill="#1e1e1e">
 		<text x="240" y="226" font-size="72" font-weight="700">drawtonomy</text>
-		<text x="240" y="282" font-size="32" font-weight="500">A free, install-free whiteboard</text>
-		<text x="240" y="324" font-size="32" font-weight="500">for driving diagrams.</text>
-		<text x="240" y="424" font-size="26" fill="#3730a3" font-weight="500">Lanes · Intersections · Crosswalks · Vehicles · Pedestrians</text>
-		<text x="240" y="468" font-size="26" fill="#3730a3" font-weight="500">OpenDRIVE / OpenSCENARIO / Lanelet2 export</text>
+		<text x="240" y="282" font-size="32" font-weight="500" fill="#374151">A free, install-free whiteboard</text>
+		<text x="240" y="324" font-size="32" font-weight="500" fill="#374151">for driving scenarios.</text>
+		<text x="240" y="424" font-size="26" fill="#4f46e5" font-weight="500">Lanes · Intersections · Crosswalks · Vehicles · Pedestrians</text>
+		<text x="240" y="468" font-size="26" fill="#4f46e5" font-weight="500">OpenDRIVE / OpenSCENARIO / Lanelet2 export</text>
 	</g>
-	<text x="96" y="572" font-family="-apple-system, system-ui, sans-serif" font-size="22" fill="#312e81" font-weight="600">docs.drawtonomy.com</text>
+	<text x="96" y="572" font-family="-apple-system, system-ui, sans-serif" font-size="22" fill="#6b7280" font-weight="600">drawtonomy.com</text>
 </svg>`;
 
 const browser = await chromium.launch();
