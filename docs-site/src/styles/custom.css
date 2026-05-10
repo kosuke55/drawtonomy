@@ -52,7 +52,9 @@
 	);
 }
 
-/* Splash hero: soft indigo wash. */
+/* Splash hero: soft indigo wash. The inner padding keeps the headline,
+   tagline, CTA buttons, and the side media tucked inside the gradient
+   panel rather than running edge-to-edge. */
 .hero {
 	background:
 		radial-gradient(
@@ -65,6 +67,21 @@
 			rgba(196, 181, 253, 0.14),
 			transparent 60%
 		);
+	padding-inline: clamp(0.75rem, 2vw, 1.5rem);
+	border-radius: 16px;
+}
+
+/* Hero side video — replaces the static logo on the splash home. Sized
+   to match the slot Starlight reserves for hero images and rounded so
+   it sits cleanly inside the hero panel. */
+.hero .hero-html .hero-video {
+	width: 100%;
+	max-width: 36rem;
+	height: auto;
+	margin-inline: auto;
+	border-radius: 12px;
+	box-shadow: 0 6px 24px rgba(99, 102, 241, 0.18);
+	display: block;
 }
 
 /* Cards / link cards — match AttributePanel chrome:
