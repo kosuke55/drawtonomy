@@ -1,0 +1,115 @@
+---
+title: Le tue prime tre corsie
+description: Segui la demo dello strumento Lane — disegna due corsie dalle linee centrali, poi costruiscine una terza tra i bordi esistenti.
+sidebar:
+  order: 1
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Questa lezione segue la demo ufficiale dello strumento Lane. Alla
+fine avrai usato entrambi i modi in cui drawtonomy crea le corsie:
+
+- **Modalità Center Line** — disegna la linea centrale; i bordi
+  sinistro e destro vengono generati per te.
+- **Modalità Boundary** — scegli due linestring di bordo
+  esistenti e drawtonomy adatta una corsia tra loro.
+
+La demo disegna due corsie in modalità Center Line, poi passa
+alla modalità Boundary per una terza corsia che riempie lo
+spazio.
+
+<Demo src="/videos/lane-tool-demo.mp4" caption="Due corsie in modalità Center Line, poi una terza corsia costruita da bordi esistenti in modalità Boundary." />
+
+## 1. Scegliere lo strumento Lane
+
+Apri [drawtonomy.com](https://drawtonomy.com). Premi <kbd>N</kbd>
+(oppure clicca l'icona della corsia nella barra degli strumenti
+in basso).
+
+Il lato destro dello schermo ora mostra il pannello di creazione
+**Lane**, con **Center Line** selezionata di default:
+
+![Pannello Lane — modalità Center Line attiva, larghezza corsia 50 px](/img/frames/lane-tool-panel.png)
+
+Lascia i valori di default per ora.
+
+## 2. Disegnare due corsie in modalità Center Line
+
+In modalità Center Line, clicca sulla tela per posizionare il
+primo punto della linea centrale, clicca di nuovo più avanti per
+posizionare il successivo e premi <kbd>Enter</kbd> per concludere.
+I bordi sinistro e destro appaiono automaticamente usando il
+valore di **Lane Width** (50 px di default).
+
+Lo strumento Lane resta attivo dopo ogni corsia, quindi clicca di
+nuovo da qualche altra parte per iniziare la seconda. Posiziona
+un paio di punti a destra della prima corsia e premi
+<kbd>Enter</kbd>:
+
+![Due corsie disegnate fianco a fianco in modalità Center Line](/img/frames/lane-tool-two-lanes.png)
+
+Per ora le due corsie sono indipendenti — non condividono un
+bordo né si conoscono a vicenda.
+
+## 3. Passare alla modalità Boundary
+
+Clicca su **Boundary** nello stesso pannello, accanto a
+**Center Line**, per cambiare modalità di creazione. In modalità
+Boundary non clicchi nello spazio vuoto; clicchi su **linestring
+di bordo esistenti**, e drawtonomy adatta una corsia tra loro.
+
+Passa con il cursore sul **bordo destro della corsia di
+sinistra** — drawtonomy evidenzia la linestring in indaco quando
+il cursore è abbastanza vicino — e clicca:
+
+![Modalità Boundary — il bordo destro della corsia di sinistra è evidenziato, pronto per essere selezionato](/img/frames/lane-tool-boundary-mode.png)
+
+Poi clicca sul **bordo sinistro della corsia di destra**. Una
+nuova corsia riempie lo spazio, usando entrambe le linestring
+cliccate come bordi sinistro e destro.
+
+## 4. Ispezionare il risultato
+
+Premi <kbd>V</kbd> per lo strumento Select e clicca sulla nuova
+corsia centrale. Il pannello a destra passa ai suoi attributi:
+
+![Pannello Attributi — la nuova corsia centrale condivide i bordi way/1 e way/2 con le sue vicine](/img/frames/lane-attributes.png)
+
+I bordi sono riutilizzati:
+
+- **Lane ID** — `lane/2`, una corsia nuova di zecca.
+- **Left Boundary** — `way/1`, la stessa linestring che è il
+  bordo destro della corsia di sinistra.
+- **Right Boundary** — `way/2`, allo stesso modo condivisa con
+  la corsia di destra.
+
+Poiché i bordi sono condivisi, trascinando un punto su entrambi
+i lati si muovono entrambe le corsie adiacenti insieme. È su
+questo che si basano le
+[connessioni delle corsie](/it/explanation/lane-model/); leggi
+quella pagina dopo per il modello sottostante.
+
+Il pannello espone anche **Direction**, **Lane Color**, **Lane
+Opacity** e i quattro slot di connessione **Next Lanes / Prev
+Lanes / Left Lane / Right Lane**, che lasciamo vuoti per ora.
+
+## Cosa hai imparato
+
+- Le corsie possono essere disegnate in due modi: dalla linea
+  centrale, oppure scegliendo due linestring di bordo esistenti.
+- La modalità Center Line è l'opzione veloce per una tela vuota;
+  la modalità Boundary inserisce una corsia tra geometrie
+  esistenti senza ridisegnare nulla.
+- Una corsia costruita da bordi esistenti condivide quei bordi
+  con le sue vicine.
+
+## E adesso
+
+- [Gestire le connessioni delle corsie](/it/guides/lane-connections/) —
+  i quattro slot di connessione nel pannello degli attributi.
+- [Bordi di corsia smussati](/it/guides/smooth-lanes/) — il toggle
+  Smooth Boundary nello stesso pannello trasforma i bordi
+  angolari in curve.
+- [Ricreare una strada reale da una mappa satellitare](/it/tutorials/road-from-map/) —
+  estrai corsie da OSM invece di disegnarle.

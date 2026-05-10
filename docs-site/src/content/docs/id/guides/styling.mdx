@@ -1,0 +1,47 @@
+---
+title: Sesuaikan warna, opasitas, lebar, dan gaya
+description: Atur gaya per-bentuk dan ubah default yang berlaku untuk bentuk baru.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Setiap bentuk membawa gayanya sendiri. Anda juga dapat mengubah
+default seluruh editor sehingga bentuk baru dimulai sesuai keinginan
+Anda.
+
+<Demo src="/videos/style-demo.mp4" caption="Warna per-bentuk, opasitas, lebar, dan varian template dari Attribute Panel." />
+
+## Gaya per-bentuk
+
+1. Tekan <kbd>V</kbd> untuk Select, lalu klik bentuk.
+2. **Attribute Panel** di sebelah kanan menampilkan:
+   - **Color** (palette + kustom)
+   - **Opacity** (0–100%)
+   - **Width** (untuk bentuk seperti garis)
+   - **Style** (solid / putus-putus / varian template)
+
+Pilih banyak (multi-select) untuk menerapkan perubahan yang sama ke
+beberapa bentuk sekaligus.
+
+## Default
+
+Untuk membuat setiap jalur baru dimulai pada, katakanlah, opasitas
+60%:
+
+1. Buka menu **hamburger**.
+2. Pilih **Defaults**.
+3. Ubah nilai di bawah **Lane**.
+
+Default berlaku untuk bentuk yang baru dibuat. Bentuk yang sudah ada
+tidak terpengaruh.
+
+## Palette warna
+
+drawtonomy menggunakan palette gaya Tailwind (grey-100 hingga
+grey-900, ditambah warna). Untuk daftar lengkap, lihat
+[Referensi palette warna](/id/reference/color-palette/).
+
+## Lihat juga
+
+- [Format drawtonomy.svg](/id/reference/drawtonomy-svg/) — bagaimana
+  gaya dipertahankan saat simpan/muat.

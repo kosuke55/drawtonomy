@@ -1,0 +1,70 @@
+---
+title: יצירת סצנה עם AI ושכלול ידני
+description: תארו תרחיש בשפה טבעית עם מחולל סצנות ה-AI וערכו את התוצאה על הקנבס.
+sidebar:
+  order: 4
+keywords:
+  - מחולל סצנות AI
+  - יצירת תרחיש משפה טבעית
+  - drawtonomy עם Claude
+  - drawtonomy עם GPT
+  - drawtonomy עם Gemini
+  - יצירת OpenSCENARIO עם AI
+  - דיאגרמת תרחיש נהיגה
+  - לוח לבן AI לנהיגה אוטונומית
+  - ייבוא OpenSCENARIO XML
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+הרחבת [מחולל סצנות ה-AI](https://github.com/kosuke55/drawtonomy/tree/main/extensions/ai-scene-generator)
+מקבלת פרומפט בשפה טבעית, OpenSCENARIO XML או קלט DSL
+ומפיקה קנבס בר-עריכה.
+
+<Demo src="/videos/ai-scene-natural.mp4" caption="תרחיש בשפה טבעית ← סצנה בת-עריכה על הקנבס." maxWidth="900px" />
+
+## 1. פתיחת מחולל סצנות ה-AI
+
+1. לחצו על **Extensions** בפינה הימנית-תחתונה של הקנבס.
+2. בחרו **AI Scene Generator**.
+3. בחרו את ספק ה-AI שלכם (Anthropic Claude, OpenAI GPT או Google
+   Gemini) והדביקו את מפתח ה-API שלכם. המפתח נשאר בדפדפן שלכם.
+
+## 2. תיאור הסצנה
+
+הדביקו פרומפט כמו:
+
+> כביש מהיר תלת-נתיבי ההולך משמאל לימין. סדאן ego (כחול)
+> בנתיב המרכזי, משאית (אפורה) בנתיב הימני קצת קדימה.
+> הראו מסלול מקווקו לרכב ה-ego עובר לנתיב השמאלי.
+
+לחצו **Generate**. ההרחבה פורסת נתיבים, רכבים וצורת
+Path על הקנבס.
+
+## 3. שכלול
+
+כל מה שנוצר הוא צורה רגילה. נסו:
+
+- בחירת המשאית ושינוי התבנית שלה ל-**Bus**.
+- גרירת מסלול רכב ה-ego לעקומה אחרת.
+- הוספת הולך רגל בשול הדרך.
+
+## 4. או התחילו מ-OpenSCENARIO
+
+באותו פאנל, החליפו את מצב הקלט ל-**OpenSCENARIO XML**
+והדביקו קובץ `.xosc`. ההרחבה פורסת שחקנים
+ומסלולים על הקנבס — הדרך המהירה ביותר לדמיין
+תרחיש קיים.
+
+<Demo src="/videos/ai-scene-dsl.mp4" caption="דוגמת ASAM OpenSCENARIO DSL הממוקמת על הקנבס." maxWidth="900px" />
+
+## מה למדתם
+
+- יצירת AI היא נקודת התחלה — כל צורה אחר כך
+  ניתנת לעריכה כמו כל דבר אחר על הקנבס.
+- אותו פאנל מקבל פרומפטים בשפה טבעית וקלט
+  OpenSCENARIO, כך שאתם יכולים לעבור בין רעיון גס לבין
+  מפרט פורמלי בלי לעזוב את העורך.
+
+לדפוסי פרומפט שעובדים טוב, ראו את
+[README של מחולל סצנות ה-AI](https://github.com/kosuke55/drawtonomy/tree/main/extensions/ai-scene-generator).

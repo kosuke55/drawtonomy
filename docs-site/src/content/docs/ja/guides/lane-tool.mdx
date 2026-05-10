@@ -1,0 +1,66 @@
+---
+title: Lane ツールを使う — センターラインまたは境界からレーンを描く
+description: drawtonomy の Lane ツールには 2 つの作成モードがあります。センターラインを描いて drawtonomy に境界を生成させるか、既存の境界 linestring 2 本を選んでその間にレーンをはめ込むか。自動運転の図やシナリオでレーンを素早く描く方法。
+keywords:
+  - レーン エディタ ブラウザ
+  - 道路 レーン 描画 オンライン
+  - 自動運転 レーン 図 描画
+  - 自動運転 車線 図
+  - センターライン レーン ジオメトリ
+  - 境界ベース レーン 描画
+  - 自動運転 シナリオ 作図
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+<kbd>N</kbd> キーで **Lane** ツールを起動します。右側にパネルが開き、ツールが有効な間ずっと表示されます。パネルの上部は **CREATION MODE** スイッチです。
+
+![Lane パネル — CREATION MODE に Center Line と Boundary ボタン、Center Line が選択中、Lane Width 50 px](/img/frames/lane-tool-panel.png)
+
+2 つのモードはそれぞれ異なる動きをします。状況に合うほうを選んでください。
+
+<Demo src="/videos/lane-tool-demo.mp4" caption="Center Line モードで 2 本のレーンを描き、Boundary モードで 3 本目を間に挿入。" />
+
+## Center Line モード
+
+センターラインを描き、drawtonomy が **Lane Width** の値を使って左右の境界を生成します。何もない状態から始めるときに使います。
+
+1. キャンバスをクリックして最初のセンターライン点を配置。
+2. クリックして次の点を配置 — 続けて点を追加。
+3. <kbd>Enter</kbd>（または最後の点をダブルクリック）で確定。
+
+Lane ツールはアクティブなままなので、別の場所をクリックすれば次のレーンを開始できます。この方法で描いた 2 本のレーン:
+
+![センターラインから描いた 2 本のレーン](/img/frames/lane-tool-two-lanes.png)
+
+レーンを描き分けている途中でパネルの色、不透明度、Lane Width を変更できます — 新しい値は次に描くレーンに適用され、選択中のレーンは変わりません。
+
+## Boundary モード
+
+パネル上部の **Boundary** をクリックしてモードを切り替えます。Boundary モードでは何もない場所をクリックするのではなく、既存の境界 linestring を 2 本クリックすると、drawtonomy がそれらを左右の境界として使うレーンを作成します。
+
+linestring にカーソルを合わせると、十分近づいたタイミングで drawtonomy が藍色でハイライトします。クリックします。
+
+![Boundary モード — 既存の右側境界がハイライトされて選択可能な状態](/img/frames/lane-tool-boundary-mode.png)
+
+2 本目の linestring をクリックすると、その間に新しいレーンが現れます。新しいレーンは両方の境界を、その境界を使う他のすべてのレーンと共有します。境界点を動かすと、それに依存するすべてのレーンが更新されます。
+
+既にジオメトリ（手描き、Lanelet2 からのインポート、Lane Generator で生成、いずれも可）があり、その間にレーンをはめ込みたいときに Boundary モードを使います。
+
+## レーンの確認
+
+<kbd>V</kbd> で Select に切り替えてレーンをクリックします。パネルがそのレーンの属性表示に切り替わります。
+
+![レーン属性パネル — Lane ID、共有された境界 ID、Direction、4 つの接続スロット](/img/frames/lane-attributes.png)
+
+表示される情報:
+
+- **Lane ID** と、**Left Boundary** / **Right Boundary** の linestring の ID（例: `way/1`、`way/2`）。linestring を共有する 2 本のレーンには同じ ID が表示されます。
+- **Lane Color**、**Lane Opacity**、**Direction（Reverse）** — レーン自体の見た目とトポロジーの設定。
+- **Next Lanes / Prev Lanes / Left Lane / Right Lane** — 4 つの接続スロット。それぞれに **Create**（隣接する新しいレーンを作成）と **Set**（既存のレーンを指定）ボタンがあります。詳しくは [レーン接続を管理する](/ja/guides/lane-connections/) を参照。
+
+## 関連項目
+
+- [滑らかなレーン境界](/ja/guides/smooth-lanes/) — 同じパネルにある Smooth Boundary トグルで、角ばった境界をスプラインに変換。
+- [レーン接続を管理する](/ja/guides/lane-connections/)
+- [レーン接続モデル](/ja/explanation/lane-model/) — 共有境界が drawtonomy の道路モデルの基盤である理由。

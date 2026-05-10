@@ -1,0 +1,55 @@
+---
+title: Snap em geometria existente
+description: O drawtonomy faz snap de toda ferramenta de desenho em pontos e bordas próximos — entre linestrings, faixas, veículos e formas básicas.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+O snap está ligado por padrão e funciona em todas as ferramentas.
+Quando o cursor chega perto de um ponto ou borda existente, o
+drawtonomy se prende a ele e acende um indicador índigo.
+
+<Demo src="/videos/snap-demo.mp4" caption="Uma única linestring é o alvo inicial; uma segunda linestring faz snap nela, depois um veículo e um retângulo fazem snap em recursos por sua vez." />
+
+## Entre tipos de forma
+
+A demo executa três ferramentas diferentes contra o mesmo tipo de alvo.
+
+### Linestring faz snap em linestring
+
+A partir de uma única linestring vertical, a segunda é desenhada para
+que seu canto caia exatamente sobre a borda superior da primeira. O
+resultado é um ângulo reto que compartilha um ponto — não apenas
+pixels visualmente sobrepostos.
+
+![Duas linestrings, a segunda fez snap na primeira para formar um canto](/img/frames/snap-linestring.png)
+
+### Veículo faz snap em uma faixa
+
+Mudando para a ferramenta Veículo e soltando um carro em uma faixa,
+o veículo faz snap na linha central da faixa e se orienta ao longo
+da direção da faixa.
+
+![Um veículo posicionado em uma faixa horizontal, com snap na sua linha central](/img/frames/snap-vehicle.png)
+
+### Retângulo faz snap em um veículo / ponto da tela
+
+A ferramenta Retângulo tem o mesmo comportamento de snap. O
+indicador tracejado mostra para onde o canto está sendo puxado.
+
+![Retângulo sendo desenhado perto de um veículo; uma linha tracejada mostra o alvo de snap](/img/frames/snap-rectangle.png)
+
+## Desabilitar snap temporariamente
+
+Segure <kbd>Shift</kbd> enquanto clica ou arrasta para ignorar o snap
+para aquela ação única. Solte <kbd>Shift</kbd> para retomar o snap.
+
+Esta é a jogada certa quando você quer um ponto perto, mas não
+exatamente sobre, um alvo existente.
+
+## Veja também
+
+- [Compartilhar pontos entre formas](/pt/guides/point-sharing/) — quando
+  você quer que o novo ponto *seja o mesmo* que o alvo, não apenas
+  coincidente.
+- [Modelo de snap & compartilhamento de pontos](/pt/explanation/snap-and-sharing/)

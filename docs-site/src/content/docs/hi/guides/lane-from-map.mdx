@@ -1,0 +1,62 @@
+---
+title: एक मैप से लेन जनरेट करें
+description: एक सैटेलाइट या रोडमैप बैकग्राउंड के तहत OSM सड़क डेटा को editable लेन में बदलें।
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Lane Generator OpenStreetMap से वास्तविक सड़क ज्योमेट्री pull
+करता है और इसे मैप बैकग्राउंड के साथ aligned editable Lane
+shapes में बदलता है।
+
+<Demo src="/videos/map-to-lane-demo.mp4" caption="एक लेन के लिए एक सड़क पर क्लिक करें, कई के लिए एक region drag करें।" maxWidth="900px" />
+
+## एक मैप बैकग्राउंड ऑन करें
+
+1. कैनवस के top-left में **Background** मेनू खोलें।
+2. **Satellite** (photographic) या **Roadmap** (schematic) चुनें।
+3. आप जिस क्षेत्र को चाहते हैं उस पर pan और zoom करें।
+
+मैप कैनवस के पीछे render होता है और जैसे आप ड्रॉ करते हैं
+anchored रहता है।
+
+## एक single लेन जनरेट करें
+
+1. Lane टूल के लिए <kbd>N</kbd> दबाएं।
+2. टूलबार में **Generator** मोड सक्षम करें।
+3. एक सड़क पर hover करें। drawtonomy cursor के तहत matched
+   OSM सड़क segment को हाइलाइट करता है।
+4. क्लिक करें। Segment fetch होता है और एक Lane shape में बदला जाता है।
+
+## एक region में हर सड़क जनरेट करें
+
+Generator मोड ऑन के साथ:
+
+1. आप जिस क्षेत्र को capture करना चाहते हैं उस पर एक आयत
+   drag करें।
+2. Release करें। आयत के अंदर हर सड़क एक batch में Lane बन जाती है।
+
+पूरे चौराहों, neighbourhoods, या test sites के लिए उपयोगी।
+
+## अनुशंसित limits
+
+OSM fetch और conversion ब्राउज़र में चलता है। Responsive
+editing के लिए, परिणामी दृश्य को लगभग **500 लेन** से कम रखें —
+यदि आपको और चाहिए तो एक बड़े क्षेत्र को कई फ़ाइलों में बांटें।
+
+## जनरेशन के बाद
+
+जनरेट की गई लेन सामान्य Lane shapes हैं। आप कर सकते हैं:
+
+- ज्योमेट्री refine करने के लिए पॉइंट drag करना।
+- dense polylines को splines से बदलने के लिए
+  [Smooth](/hi/guides/smooth-lanes/) लागू करना।
+- [कनेक्शन](/hi/guides/lane-connections/) सेट करना जहां जनरेटर ने
+  उन्हें स्वचालित रूप से infer नहीं किया।
+- ऊपर वाहन, पैदल यात्री, या पाथ drop करना।
+
+## इसे भी देखें
+
+- [ट्यूटोरियल: सैटेलाइट मैप से वास्तविक सड़क पुन: निर्मित करें](/hi/tutorials/road-from-map/)
+- [Lanelet2 (.osm) फ़ाइल इम्पोर्ट करें](/hi/guides/import-lanelet2/) —
+  जब आपके पास raw OSM के बजाय एक curated मैप फ़ाइल हो।

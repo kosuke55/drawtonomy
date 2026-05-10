@@ -1,0 +1,57 @@
+---
+title: Przyciągaj do istniejącej geometrii
+description: drawtonomy przyciąga każde narzędzie do rysowania do pobliskich punktów i krawędzi — między łamanymi, pasami, pojazdami i podstawowymi kształtami.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Przyciąganie jest domyślnie włączone i działa we wszystkich
+narzędziach. Gdy kursor zbliża się do istniejącego punktu lub
+krawędzi, drawtonomy zatrzaskuje się na nim i podświetla wskaźnik
+indygo.
+
+<Demo src="/videos/snap-demo.mp4" caption="Pojedyncza łamana jest celem początkowym; druga łamana przyciąga się do niej, następnie pojazd i prostokąt przyciągają się do funkcji po kolei." />
+
+## Między typami kształtów
+
+Demo uruchamia trzy różne narzędzia względem tego samego rodzaju
+celu.
+
+### Łamana przyciąga się do łamanej
+
+Zaczynając od pojedynczej pionowej łamanej, druga jest narysowana tak,
+aby jej narożnik trafił dokładnie na górną krawędź pierwszej. Wynikiem
+jest kąt prosty, który dzieli punkt — nie tylko wizualnie nakładające
+się piksele.
+
+![Dwie łamane, druga przyciągnięta do pierwszej, tworząc narożnik](/img/frames/snap-linestring.png)
+
+### Pojazd przyciąga się do pasa
+
+Przełączenie na narzędzie Pojazd i upuszczenie samochodu na pas
+przyciąga pojazd na oś pasa i orientuje go wzdłuż kierunku pasa.
+
+![Pojazd umieszczony na poziomym pasie, przyciągnięty do jego osi](/img/frames/snap-vehicle.png)
+
+### Prostokąt przyciąga się do pojazdu / punktu na płótnie
+
+Narzędzie Prostokąt otrzymuje to samo zachowanie przyciągania.
+Wskaźnik przerywany pokazuje, gdzie narożnik jest przyciągany.
+
+![Prostokąt rysowany w pobliżu pojazdu; linia przerywana pokazuje cel przyciągania](/img/frames/snap-rectangle.png)
+
+## Tymczasowo wyłącz przyciąganie
+
+Przytrzymaj <kbd>Shift</kbd> podczas klikania lub przeciągania, aby
+pominąć przyciąganie dla tej pojedynczej akcji. Zwolnij
+<kbd>Shift</kbd>, aby wznowić przyciąganie.
+
+To właściwy ruch, gdy chcesz punkt blisko, ale nie dokładnie na
+istniejącym celu.
+
+## Zobacz także
+
+- [Współdziel punkty między kształtami](/pl/guides/point-sharing/) —
+  gdy chcesz, aby nowy punkt *był tym samym*, co cel, a nie tylko
+  zbieżny.
+- [Model przyciągania i współdzielenia punktów](/pl/explanation/snap-and-sharing/)

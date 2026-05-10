@@ -1,0 +1,65 @@
+---
+title: Sử dụng công cụ Lane — vẽ làn đường từ đường tâm hoặc các biên
+description: Công cụ Lane của drawtonomy có hai chế độ tạo. Vẽ một đường tâm và để drawtonomy tạo các biên, hoặc chọn hai linestring biên hiện có để khớp một làn đường giữa chúng. Cách nhanh để vẽ làn đường cho hình minh họa và kịch bản xe tự lái.
+keywords:
+  - trình chỉnh sửa làn đường trên trình duyệt
+  - vẽ làn đường trực tuyến
+  - vẽ sơ đồ làn đường xe tự lái
+  - hình minh họa làn đường xe tự lái
+  - hình học làn đường từ đường tâm
+  - vẽ làn đường từ biên
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Nhấn <kbd>N</kbd> để dùng công cụ **Lane**. Một bảng mở ra ở bên phải và hiển thị khi công cụ đang hoạt động. Phía trên bảng là công tắc **CREATION MODE**:
+
+![Bảng Lane — CREATION MODE có các nút Center Line và Boundary; Center Line được chọn; Lane Width 50 px](/img/frames/lane-tool-panel.png)
+
+Hai chế độ làm những việc khác nhau; hãy chọn chế độ phù hợp với tình huống của bạn.
+
+<Demo src="/videos/lane-tool-demo.mp4" caption="Hai làn đường được vẽ ở chế độ Center Line, một làn thứ ba được chèn vào ở chế độ Boundary." />
+
+## Chế độ Center Line
+
+Bạn vẽ đường tâm; drawtonomy tạo các biên trái và biên phải từ giá trị **Lane Width**. Sử dụng cách này khi bạn bắt đầu từ đầu.
+
+1. Nhấp lên canvas để đặt điểm đường tâm đầu tiên.
+2. Nhấp lần nữa để đặt điểm tiếp theo, và cứ thế.
+3. Nhấn <kbd>Enter</kbd> (hoặc nhấp đúp điểm cuối cùng) để hoàn thành.
+
+Công cụ Lane vẫn hoạt động, vì vậy hãy nhấp lần nữa ở nơi khác để bắt đầu một làn đường mới. Hai làn đường được vẽ theo cách này:
+
+![Hai làn đường được vẽ từ đường tâm](/img/frames/lane-tool-two-lanes.png)
+
+Bạn có thể thay đổi Color, Opacity, hoặc Lane Width trong bảng giữa các làn đường — giá trị mới áp dụng cho làn đường tiếp theo bạn vẽ, không phải làn đường được chọn.
+
+## Chế độ Boundary
+
+Nhấp **Boundary** ở phía trên bảng để chuyển chế độ. Ở chế độ Boundary, bạn không nhấp vào không gian trống; bạn nhấp vào hai linestring biên hiện có, và drawtonomy tạo một làn đường sử dụng chúng làm biên trái và biên phải.
+
+Di chuột qua một linestring — drawtonomy làm nổi bật nó bằng màu chàm khi con trỏ đủ gần — và nhấp:
+
+![Chế độ Boundary — một biên phải hiện có được làm nổi bật, sẵn sàng để chọn](/img/frames/lane-tool-boundary-mode.png)
+
+Nhấp một linestring thứ hai và một làn đường mới xuất hiện giữa chúng. Làn đường mới chia sẻ cả hai biên với bất kỳ thứ gì khác sử dụng chúng, vì vậy di chuyển một điểm biên sẽ cập nhật mọi làn đường phụ thuộc vào nó.
+
+Sử dụng chế độ Boundary khi bạn đã có hình học (vẽ tay, nhập từ Lanelet2, hoặc được tạo bởi Lane Generator) và muốn các làn đường khớp giữa nó.
+
+## Kiểm tra một làn đường
+
+Nhấn <kbd>V</kbd> để dùng Select, sau đó nhấp một làn đường. Bảng chuyển sang các thuộc tính của làn đường:
+
+![Bảng Thuộc tính Làn đường — Lane ID, các ID biên dùng chung, Direction, bốn khe kết nối](/img/frames/lane-attributes.png)
+
+Những gì được hiển thị:
+
+- **Lane ID** và các ID của linestring **Left Boundary** / **Right Boundary** (ví dụ: `way/1`, `way/2`). Hai làn đường chia sẻ một linestring sẽ hiển thị cùng ID ở đây.
+- **Lane Color**, **Lane Opacity**, **Direction (Reverse)** — các cài đặt trực quan và topo cho bản thân làn đường.
+- **Next Lanes / Prev Lanes / Left Lane / Right Lane** — bốn khe kết nối, mỗi khe có **Create** (tạo một làn đường lân cận mới) và **Set** (trỏ đến một làn hiện có). Xem [Quản lý kết nối làn đường](/vi/guides/lane-connections/).
+
+## Xem thêm
+
+- [Biên làn đường mượt mà](/vi/guides/smooth-lanes/) — công tắc Smooth Boundary trong cùng bảng biến các biên góc cạnh thành spline.
+- [Quản lý kết nối làn đường](/vi/guides/lane-connections/)
+- [Mô hình kết nối làn đường](/vi/explanation/lane-model/) — vì sao biên dùng chung là nền tảng của mô hình đường drawtonomy.

@@ -1,0 +1,51 @@
+---
+title: Bordes de carril suavizados
+description: Activa Smooth Boundary en el panel Carril antes de dibujar — los bordes se ajustan con splines en lugar de ser angulares.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+drawtonomy puede generar bordes de carril ajustados con splines en
+lugar de polilíneas angulares. El conmutador está en el panel de
+creación de Carril y se aplica a los carriles que dibujes a
+continuación; no suaviza retroactivamente un carril existente.
+
+<Demo src="/videos/smooth-lane.mp4" caption="Un carril dibujado con Smooth Boundary desactivado (izquierda, angular) y activado (derecha, suave)." />
+
+## Dónde está el conmutador
+
+Pulsa <kbd>N</kbd> para la herramienta Carril. El panel derecho
+incluye una fila **SMOOTH BOUNDARY** con botones **On** y **Off**:
+
+![Panel de creación de Carril — conmutador SMOOTH BOUNDARY resaltado, actualmente Off](/img/frames/smooth-toggle-off.png)
+
+El valor por defecto es **Off**. Actívalo antes de empezar a hacer
+clic en la línea central.
+
+## Comparar
+
+Las dos capturas siguientes se dibujaron con la misma línea
+central. Lo único que cambió es el conmutador:
+
+| Smooth Boundary = Off | Smooth Boundary = On |
+| --- | --- |
+| ![Curva angular dibujada con suavizado desactivado](/img/frames/smooth-off-result.png) | ![Curva suave dibujada con suavizado activado](/img/frames/smooth-on-result.png) |
+
+Con el conmutador desactivado, cada par de clics de línea central
+se convierte en un segmento de borde recto. Con él activado, la
+misma línea central se ajusta a una curva.
+
+## Cambiar a mitad de sesión
+
+Puedes alternar el conmutador cuando quieras. Los nuevos carriles
+toman el valor actual la próxima vez que hagas clic. Los carriles
+existentes mantienen el estilo de borde con el que fueron
+dibujados.
+
+## Véase también
+
+- [Usar la herramienta Carril](/es/guides/lane-tool/) — el resto del
+  panel.
+- [Modelo de conexión de carriles](/es/explanation/lane-model/) — por
+  qué la línea central sigue dirigiendo la conectividad incluso
+  cuando los bordes se curvan.

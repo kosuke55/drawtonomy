@@ -1,0 +1,62 @@
+---
+title: AI के साथ एक दृश्य जनरेट करें, फिर हाथ से रिफाइन करें
+description: AI सीन जनरेटर के साथ प्राकृतिक भाषा में सिनारियो का वर्णन करें और कैनवस पर परिणाम संपादित करें।
+sidebar:
+  order: 4
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+[AI सीन जनरेटर](https://github.com/kosuke55/drawtonomy/tree/main/extensions/ai-scene-generator)
+एक्सटेंशन एक प्राकृतिक-भाषा prompt, OpenSCENARIO XML, या DSL
+input लेता है और एक संपादन योग्य कैनवस देता है।
+
+<Demo src="/videos/ai-scene-natural.mp4" caption="प्राकृतिक-भाषा सिनारियो → कैनवस पर editable दृश्य।" maxWidth="900px" />
+
+## 1. AI सीन जनरेटर खोलें
+
+1. कैनवस के bottom-right में **Extensions** पर क्लिक करें।
+2. **AI Scene Generator** चुनें।
+3. अपना AI provider चुनें (Anthropic Claude, OpenAI GPT, या
+   Google Gemini) और अपनी API key paste करें। Key आपके
+   ब्राउज़र में रहती है।
+
+## 2. दृश्य का वर्णन करें
+
+ऐसा एक prompt paste करें:
+
+> A 3-lane highway going left-to-right. An ego sedan (blue) in the
+> centre lane, a truck (grey) in the right lane slightly ahead.
+> Show a dashed path for the ego vehicle changing to the left lane.
+
+**Generate** पर क्लिक करें। एक्सटेंशन कैनवस पर लेन, वाहन, और
+एक Path shape बिछाता है।
+
+## 3. रिफाइन करें
+
+जो कुछ भी जनरेट किया गया है वह एक सामान्य shape है। आज़माएं:
+
+- ट्रक का चयन करना और उसके टेम्पलेट को **Bus** में बदलना।
+- ego vehicle के पाथ को एक अलग curve पर खींचना।
+- shoulder पर एक पैदल यात्री जोड़ना।
+
+## 4. या OpenSCENARIO से शुरू करें
+
+उसी पैनल में, input mode को **OpenSCENARIO XML** में स्विच
+करें और एक `.xosc` फ़ाइल paste करें। एक्सटेंशन कैनवस पर actors
+और trajectories बिछाता है — मौजूदा सिनारियो को visualize करने
+का सबसे तेज़ तरीका।
+
+<Demo src="/videos/ai-scene-dsl.mp4" caption="कैनवस पर रखा गया एक ASAM OpenSCENARIO DSL उदाहरण।" maxWidth="900px" />
+
+## आपने क्या सीखा
+
+- AI जनरेशन एक starting point है — बाद में हर shape किसी और
+  चीज़ की तरह कैनवस पर editable है।
+- एक ही पैनल प्राकृतिक-भाषा prompts और OpenSCENARIO input दोनों
+  को स्वीकार करता है, इसलिए आप एडिटर छोड़े बिना rough idea और
+  formal spec के बीच move कर सकते हैं।
+
+जो prompt patterns अच्छी तरह काम करते हैं उनके लिए,
+[AI Scene Generator README](https://github.com/kosuke55/drawtonomy/tree/main/extensions/ai-scene-generator)
+देखें।

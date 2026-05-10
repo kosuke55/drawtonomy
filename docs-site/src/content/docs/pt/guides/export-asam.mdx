@@ -1,0 +1,74 @@
+---
+title: Exportar para OpenDRIVE / OpenSCENARIO / esmini
+description: Exporte sua cena drawtonomy como ASAM OpenDRIVE 1.8 (.xodr), OpenSCENARIO 1.3 (.xosc), ou como um pacote zip pronto para esmini para reprodução em simulador.
+keywords:
+  - editor OpenSCENARIO grátis
+  - editor OpenDRIVE grátis no navegador
+  - criação OpenSCENARIO online
+  - criação de cenário esmini
+  - ferramenta de diagrama de cenário ASAM
+  - converter desenho para OpenDRIVE
+  - exportar xosc xodr drawtonomy
+---
+
+O drawtonomy pode exportar sua cena como ASAM
+[OpenDRIVE](https://www.asam.net/standards/detail/opendrive/)
+(`.xodr`) e
+[OpenSCENARIO](https://www.asam.net/standards/detail/openscenario/)
+(`.xosc`), ou empacotar ambos como um zip pronto para reprodução no
+[esmini](https://github.com/esmini/esmini).
+
+![Uma cena drawtonomy reproduzida no esmini após a exportação](/img/asam-esmini.png)
+
+## Exportar pelo editor
+
+1. Desenhe sua cena (faixas, veículos, semáforos…).
+2. Abra **Arquivo → Exportar → Exportar para esmini**.
+3. Digite um nome base quando solicitado.
+4. Um `<nome>.zip` contendo `<nome>.xodr` e `<nome>.xosc` é baixado.
+
+## Reproduza
+
+```bash
+unzip my-scene.zip
+esmini --osc my-scene/my-scene.xosc --window 60 60 1024 768
+```
+
+## Formatos individuais
+
+Se você só precisa de um dos dois:
+
+- **Arquivo → Exportar → OpenDRIVE (.xodr)**
+- **Arquivo → Exportar → OpenSCENARIO (.xosc)**
+
+## Exportação programática
+
+O exportador faz parte do `@drawtonomy/sdk` e roda sem o editor.
+Use-o em pipelines de CI, ferramentas no servidor ou extensões de
+navegador:
+
+```ts
+import { exporter, createSnapshot } from '@drawtonomy/sdk'
+
+const snapshot = createSnapshot(shapes)
+const { blob, baseName } = exporter.buildEsminiZip(snapshot, {
+  baseName: 'my-scene',
+})
+```
+
+Para a API completa e pontos de extensão, veja a
+[Referência do SDK do Exportador](/pt/extend/exporter-sdk/).
+
+## Versões emitidas
+
+| Formato | Versão |
+|---|---|
+| OpenDRIVE | 1.8 |
+| OpenSCENARIO | 1.3 |
+
+## Veja também
+
+- [Arquitetura do exportador](/pt/explanation/exporter-architecture/) —
+  o que o pipeline faz entre o snapshot e o arquivo.
+- [Adicionando um formato alvo](/pt/extend/exporter-sdk/) — conecte
+  CARLA, SUMO, Unity ou qualquer outra coisa.

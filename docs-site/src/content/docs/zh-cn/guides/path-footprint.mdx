@@ -1,0 +1,67 @@
+---
+title: 带足迹的路径
+description: 从一辆车出发画一条 Path,车辆模板会自动沿路径平铺出一连串足迹。
+keywords:
+  - 自动驾驶轨迹图
+  - 车辆足迹图
+  - 跟车场景图
+  - 车头时距图
+  - drawtonomy Path Footprint
+  - 自动驾驶动作示意图
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+*足迹(Footprint)* 是沿一条 Path 自动放置的车辆(或其他模板)
+的副本。本演示先在画布上放一辆 ego 车,从这辆车开始画一条 Path,
+路径就会立刻被同模板的车辆副本填满——同一种模板、沿曲线方向旋转、
+等距分布。
+
+<Demo src="/videos/footprints-demo.mp4" caption="一辆 ego 车,从它画出一条 Path,以及由此产生的足迹序列。" />
+
+## 准备
+
+用车辆工具在画布任意位置放一辆车,然后按 <kbd>H</kbd> 切换到
+Path 工具。右侧面板会显示路径设置:
+
+![Path 工具面板 — Color、Opacity 90%、Style Solid、Width 5px、Arrow Head 20px、Smooth 已勾选](/img/frames/footprints-path-panel.png)
+
+图中的默认值——绿色实线、5 px 宽、平滑、20 px 箭头——
+就是演示所使用的设置。
+
+## 画出路径
+
+点击车辆开始画路径。第一个点会自动锚定到车辆的锚点。继续点击
+扩展路径;箭头出现在最后落点处。按 <kbd>Enter</kbd> 完成。
+
+路径一旦画完,drawtonomy 会沿它平铺出原车辆的副本:
+
+![路径画好后,沿路径等距出现车辆足迹](/img/frames/footprints-along-path.png)
+
+每个副本都会按所在位置的路径切线方向旋转,因此足迹会自然贴合曲线。
+
+## 样式与模板始终联动
+
+足迹与源车辆共享样式:改变源车辆的颜色、不透明度或模板,
+所有足迹都会跟着改变。你不必逐个手工修改副本,
+就能让一张机动动作图保持视觉一致。
+
+下一帧演示中我们隐藏了路径本身,只保留足迹——
+当导出图希望路径不要喧宾夺主时,这种做法很有用:
+
+![只剩足迹,不绘制路径](/img/frames/footprints-result.png)
+
+## 可调参数
+
+- **Spacing(间距)** — 足迹之间的距离。
+- **Anchor offset(锚点偏移)** — 沿前进方向滑动参考点
+  (例如 base link 或前保险杠,而不是中心)。
+- **Smooth** — Path 面板里的复选框让路径在点之间平滑过渡;
+  足迹方向会跟着平滑变化。
+- **Color / Opacity / Size** — 通过源车辆一次性改变所有足迹的
+  颜色、不透明度和大小。
+
+## 另请参阅
+
+- [添加车辆、行人和信号灯](/zh-cn/guides/participants/)
+- [自定义颜色、不透明度、宽度和样式](/zh-cn/guides/styling/)

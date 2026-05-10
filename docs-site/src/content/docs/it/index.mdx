@@ -1,0 +1,214 @@
+---
+title: drawtonomy — lavagna per scenari di guida
+description: Una lavagna gratuita basata su browser per scenari di guida. Disegna corsie, incroci, veicoli e pedoni per articoli, slide, discussioni di progettazione e authoring di scenari. Esporta verso OpenDRIVE, OpenSCENARIO e Lanelet2.
+template: splash
+keywords:
+  - lavagna per scenari di guida
+  - strumento diagramma scenario di guida
+  - strumento diagramma guida autonoma
+  - figura guida autonoma articolo
+  - figura guida autonoma slide
+  - figura guida autonoma presentazione
+  - software figura veicolo a guida autonoma
+  - strumento illustrazione veicolo autonomo
+  - software diagramma scenario traffico
+  - strumento schizzo scenari di guida
+  - strumento disegno diagramma corsie
+  - software diagramma incrocio
+  - disegnare scenario di guida online
+  - software illustrazione scena stradale
+  - lavagna team guida autonoma
+  - diagramma scenario ADAS
+  - editor OpenSCENARIO gratuito browser
+  - editor OpenDRIVE gratuito
+  - editor Lanelet2 nel browser
+  - editor scenari esmini
+  - strumento annotazione griglia di occupazione ROS
+jsonLd:
+  '@context': 'https://schema.org'
+  '@type': SoftwareApplication
+  name: drawtonomy
+  alternateName: drawtonomy — lavagna per scenari di guida
+  url: 'https://drawtonomy.com'
+  sameAs:
+    - 'https://github.com/kosuke55/drawtonomy'
+  description: Una lavagna gratuita basata su browser per scenari di guida. Corsie, incroci, veicoli, pedoni e segnaletica orizzontale come forme integrate — per articoli, slide, discussioni di progettazione e authoring di scenari. Esporta verso OpenDRIVE, OpenSCENARIO e Lanelet2.
+  applicationCategory: DesignApplication
+  applicationSubCategory: Diagram editor
+  operatingSystem: Qualsiasi (basato su browser)
+  browserRequirements: Richiede un browser web moderno
+  offers:
+    '@type': Offer
+    price: '0'
+    priceCurrency: USD
+  featureList:
+    - Corsie con connessioni Successiva / Precedente / Sinistra / Destra
+    - Template per incroci, attraversamenti pedonali, semafori, segnaletica e segnaletica orizzontale
+    - Template per veicoli e pedoni con traiettorie e footprint
+    - Snap e modifica con punti condivisi
+    - Geometria dei bordi modificabile con drag, propagata sulle corsie collegate
+    - Salvataggi drawtonomy.svg modificabili, pronti per essere incorporati in articoli e slide
+    - Round-trip con Lanelet2 (.osm)
+    - Esportazione OpenDRIVE 1.8 e OpenSCENARIO 1.3, zip pronto per esmini
+    - Importazione ROS OccupancyGrid (.pgm + .yaml)
+    - Estensione AI Scene Generator
+hero:
+  tagline: Una lavagna gratuita basata su browser per scenari di guida. Disegna corsie, incroci e scene di traffico per articoli, slide, discussioni di progettazione e authoring di scenari — senza ridisegnare la strada ogni volta che curva.
+  image:
+    file: ../../../assets/logo.png
+  actions:
+    - text: Avvio rapido
+      link: /it/start/quickstart/
+      icon: right-arrow
+    - text: Prova l'app
+      link: https://drawtonomy.com
+      icon: external
+      variant: secondary
+    - text: GitHub
+      link: https://github.com/kosuke55/drawtonomy
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## Trova ciò di cui hai bisogno
+
+La documentazione è organizzata attorno a quattro tipi di esigenza.
+Scegli quella che corrisponde a ciò che stai cercando di fare.
+
+<CardGrid>
+	<LinkCard
+		title="Tutorial"
+		href="/it/tutorials/"
+		description="Imparare facendo. Lezioni passo-passo dalla tela vuota a una scena finita."
+	/>
+	<LinkCard
+		title="Guide pratiche"
+		href="/it/guides/"
+		description="Portare a termine un compito specifico. Ricette per corsie, veicoli, esportazioni e importazioni."
+	/>
+	<LinkCard
+		title="Riferimento"
+		href="/it/reference/"
+		description="Cerca i fatti. Scorciatoie, formati di file, catalogo delle forme e API SDK."
+	/>
+	<LinkCard
+		title="Spiegazione"
+		href="/it/explanation/"
+		description="Capire il modello. Perché drawtonomy funziona nel modo in cui funziona."
+	/>
+</CardGrid>
+
+## Cos'è drawtonomy?
+
+drawtonomy è una **lavagna per scenari di guida** — le figure che
+inserisci in un articolo, la slide che disegni prima di una
+revisione di progetto, il diagramma che traccia durante una
+chiamata mentre cerchi di spiegare un caso limite al resto del
+team, la scena che abbozzi prima di scrivere il file
+OpenSCENARIO.
+
+Apri l'URL, disegna corsie e incroci su una tela infinita,
+posiziona veicoli, pedoni, semafori, attraversamenti pedonali e
+segnaletica orizzontale, poi salva o esporta. Niente da
+installare, nessun account, niente caricato online.
+
+Il motivo per cui esiste: gli strumenti di disegno generici e le
+presentazioni non sanno cosa sia una corsia, quindi la geometria
+stradale deve essere ricostruita ogni volta che qualcosa si
+sposta. drawtonomy tratta corsie, incroci e il resto del
+vocabolario degli scenari di guida come forme integrate, così la
+figura rimane corretta mentre iteri.
+
+## A cosa lo si usa
+
+<CardGrid>
+	<Card title="Figure per articoli e tesi" icon="document">
+		Figure di scenari di guida autonoma vettoriali e nitide, che
+		si integrano in modo pulito in LaTeX, presentazioni e
+		Markdown — esportate come `drawtonomy.svg`, PDF o EPS.
+	</Card>
+	<Card title="Diagrammi per discussioni di progettazione" icon="comment-alt">
+		Disegna una manovra di cambio corsia, una svolta a sinistra
+		non protetta o un caso di occlusione in pochi secondi.
+		Condividi il risultato e riprendi la discussione sulla stessa
+		tela il giorno dopo.
+	</Card>
+	<Card title="Schizzi di scenari prima dell'authoring" icon="seti:graphql">
+		Disegna la scena prima di scrivere l'XML OpenSCENARIO — ed
+		esporta in `.xosc` / `.xodr` quando lo schizzo è pronto.
+	</Card>
+	<Card title="Annotazione di mappe e ROS" icon="seti:json">
+		Ricalca corsie su uno sfondo satellitare, modifica mappe
+		Lanelet2 OSM o annota una griglia di occupazione ROS con
+		traiettorie e ostacoli.
+	</Card>
+</CardGrid>
+
+## Perché è più veloce di uno strumento di disegno generico
+
+<CardGrid>
+	<Card title="Forme del dominio della guida" icon="seti:default">
+		Corsie, incroci, attraversamenti pedonali, semafori,
+		segnaletica orizzontale, veicoli e pedoni sono già
+		integrati. Puoi anche aggiungere i tuoi template SVG e
+		contribuire tramite PR.
+	</Card>
+	<Card title="Corsie consapevoli della topologia" icon="seti:graphql">
+		Ogni corsia trasporta connessioni Successiva / Precedente /
+		Sinistra / Destra. Due corsie che condividono un bordo
+		condividono gli stessi punti del bordo, quindi un singolo
+		trascinamento muove entrambe.
+	</Card>
+	<Card title="Tela infinita, sfondi satellitari" icon="seti:html">
+		Sposta lo sguardo e zooma su layout arbitrariamente grandi.
+		Aggiungi uno sfondo satellitare o stradale e ricalca da una
+		posizione reale. Lo snap e i punti condivisi mantengono la
+		geometria allineata senza pulizia manuale.
+	</Card>
+	<Card title="Gratuito e solo browser" icon="rocket">
+		Nessuna installazione, nessun account, nessun upload.
+		Riapri un drawtonomy.svg salvato in seguito e la scena
+		ritorna esattamente come l'avevi lasciata, con connessioni e
+		relazioni di sovrapposizione incluse.
+	</Card>
+</CardGrid>
+
+## Ponti verso il tuo stack di simulazione e mapping
+
+La lavagna è la cosa principale; questi sono i modi in cui il
+diagramma fluisce verso il resto del flusso di lavoro.
+
+<CardGrid>
+	<Card title="SVG modificabile per articoli e slide" icon="document">
+		`drawtonomy.svg` è un normale SVG visualizzabile nei
+		browser, su GitHub e nelle presentazioni, e si riapre in
+		drawtonomy con ogni connessione intatta. L'impostazione
+		predefinita per le figure nella documentazione e negli
+		articoli di ricerca.
+	</Card>
+	<Card title="Round-trip Lanelet2" icon="seti:json">
+		Apri mappe Lanelet2 OSM per la modifica e riesporta in OSM
+		— incluse le mappe campione di Autoware. Utile per
+		abbozzare modifiche a una mappa HD esistente.
+	</Card>
+	<Card title="ASAM OpenDRIVE / OpenSCENARIO" icon="seti:db">
+		Esporta OpenDRIVE 1.8 e OpenSCENARIO 1.3 — insieme come zip
+		pronto per [esmini](https://github.com/esmini/esmini)
+		quando vuoi riprodurre la tua scena in un simulatore.
+	</Card>
+	<Card title="AI Scene Generator" icon="comment-alt">
+		Descrivi uno scenario in linguaggio naturale, oppure
+		incolla XML OpenSCENARIO, e ottieni un canvas modificabile.
+		L'output è una normale scena drawtonomy; la perfezioni come
+		qualsiasi altra cosa.
+	</Card>
+</CardGrid>
+
+## Per gli sviluppatori di estensioni
+
+Se vuoi costruire sopra drawtonomy invece di limitarti a usarlo,
+vedi [Estendere drawtonomy](/it/extend/). Il sorgente dell'SDK, gli
+esempi e il riferimento si trovano accanto a questo sito su
+[github.com/kosuke55/drawtonomy](https://github.com/kosuke55/drawtonomy).

@@ -1,0 +1,58 @@
+---
+title: Importar un archivo Lanelet2 (.osm)
+description: Abre mapas OSM Lanelet2 en la pizarra del navegador de drawtonomy, edita carriles y conexiones visualmente, y haz round-trip de vuelta a Lanelet2 — útil para mapas de muestra de Autoware y archivos similares de redes viales.
+keywords:
+  - editor Lanelet2 navegador
+  - visor Lanelet2 online
+  - editar archivo lanelet2 osm
+  - editor mapas de muestra Autoware
+  - herramienta diagrama lanelet2
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+drawtonomy puede leer mapas en formato OSM de
+[Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2).
+Hay mapas de muestra disponibles en la
+[documentación de Autoware](https://autowarefoundation.github.io/autoware-documentation/main/demos/planning-sim/#download-the-sample-map).
+
+<Demo src="/videos/lanelet-import-demo.mp4" caption="Importando un archivo Lanelet2 completo." />
+
+## Importar el archivo completo
+
+1. Abre el menú **Archivo** → **Importar**.
+2. Elige el archivo `.osm`.
+3. drawtonomy parsea el archivo y rellena el lienzo con formas de
+   Carril junto con sus conexiones.
+
+## Importar solo carriles específicos
+
+Para mapas grandes, importar cada carril ralentizará el editor.
+Usa en su lugar el diálogo de selección de carriles:
+
+<Demo src="/videos/lanelet-select-import-demo.mp4" caption="Selecciona arrastrando solo los carriles que te interesan, luego importa." />
+
+1. Abre el menú **Archivo** → **Importar → Seleccionar carriles**.
+2. drawtonomy muestra un mapa de vista previa.
+3. Haz clic o arrastra para seleccionar los carriles que quieres.
+4. Haz clic en **Importar selección**.
+
+## Consejos de rendimiento
+
+Mantén la escena importada por debajo de unos **500 carriles**
+para un editor fluido. Para áreas más grandes, divide tu trabajo
+entre varios archivos, o importa solo la región que necesites.
+
+## Después de la importación
+
+Los carriles importados son formas de Carril de fidelidad
+completa; las conexiones del archivo Lanelet2 se conservan. Edita,
+[suaviza](/es/guides/smooth-lanes/) o
+[exporta de vuelta](/es/guides/export-asam/) sin perder la topología.
+
+## Véase también
+
+- [Formato drawtonomy.svg](/es/reference/drawtonomy-svg/) — el formato
+  sin pérdidas para reeditar dentro de drawtonomy.
+- [Generar carriles desde un mapa](/es/guides/lane-from-map/) —
+  cuando no tienes un archivo de mapa curado.

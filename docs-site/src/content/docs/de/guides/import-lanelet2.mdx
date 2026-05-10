@@ -1,0 +1,62 @@
+---
+title: Eine Lanelet2-Datei (.osm) importieren
+description: Öffnen Sie Lanelet2-OSM-Karten im Browser-Whiteboard von drawtonomy, bearbeiten Sie Spuren und Verbindungen visuell und exportieren Sie zurück nach Lanelet2 — nützlich für Autoware-Beispielkarten und ähnliche Straßennetz-Dateien.
+keywords:
+  - Lanelet2 Browser-Editor
+  - Lanelet2 Viewer online
+  - Lanelet2 osm bearbeiten
+  - Autoware Beispielkarte Editor
+  - Lanelet2 Diagramm-Tool
+  - HD-Karte Whiteboard
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+drawtonomy kann
+[Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2)-Karten
+im OSM-Format lesen. Beispielkarten finden Sie in der
+[Autoware-Dokumentation](https://autowarefoundation.github.io/autoware-documentation/main/demos/planning-sim/#download-the-sample-map).
+
+<Demo src="/videos/lanelet-import-demo.mp4" caption="Eine vollständige Lanelet2-Datei wird importiert." />
+
+## Die ganze Datei importieren
+
+1. Öffnen Sie das Menü **File** → **Import**.
+2. Wählen Sie die `.osm`-Datei.
+3. drawtonomy parst die Datei und füllt den Canvas mit Lane-Formen
+   samt ihrer Verbindungen.
+
+## Nur bestimmte Fahrspuren importieren
+
+Bei großen Karten verlangsamt der Import jeder Spur den Editor.
+Verwenden Sie stattdessen den Auswahldialog:
+
+<Demo src="/videos/lanelet-select-import-demo.mp4" caption="Per Drag-Auswahl nur die gewünschten Fahrspuren wählen, dann importieren." />
+
+1. Öffnen Sie das Menü **File** → **Import → Select lanes**.
+2. drawtonomy zeigt eine Vorschaukarte.
+3. Klicken oder ziehen Sie, um die gewünschten Fahrspuren
+   auszuwählen.
+4. Klicken Sie auf **Import selection**.
+
+## Performance-Tipps
+
+Halten Sie die importierte Szene unter etwa **500 Fahrspuren** für
+einen reaktionsfähigen Editor. Bei größeren Bereichen teilen Sie
+Ihre Arbeit auf mehrere Dateien auf oder importieren nur die
+benötigte Region.
+
+## Nach dem Import
+
+Importierte Fahrspuren sind vollwertige Lane-Formen; die
+Verbindungen aus der Lanelet2-Datei bleiben erhalten. Bearbeiten,
+[glätten](/de/guides/smooth-lanes/) oder
+[zurück exportieren](/de/guides/export-asam/) — ohne Topologieverlust.
+
+## Siehe auch
+
+- [drawtonomy.svg-Format](/de/reference/drawtonomy-svg/) — das
+  verlustfreie Format zum Weiterbearbeiten innerhalb von
+  drawtonomy.
+- [Fahrspuren aus einer Karte erzeugen](/de/guides/lane-from-map/) —
+  wenn Sie keine kuratierte Kartendatei haben.

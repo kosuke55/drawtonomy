@@ -1,0 +1,93 @@
+---
+title: Lane टूल का उपयोग करें — एक centerline या बाउंड्री से लेन बनाएं
+description: drawtonomy के Lane टूल में दो निर्माण मोड हैं। एक centerline बनाएं और drawtonomy को बाउंड्री जनरेट करने दें, या उनके बीच एक लेन फिट करने के लिए दो मौजूदा बाउंड्री linestrings चुनें। स्वायत्त-ड्राइविंग चित्र और सिनारियो के लिए लेन बनाने का तेज़ तरीका।
+keywords:
+  - लेन ब्राउज़र संपादक
+  - ऑनलाइन सड़क लेन बनाएं
+  - स्वायत्त ड्राइविंग लेन आरेख बनाएं
+  - स्वायत्त ड्राइविंग लेन चित्र
+  - centerline से लेन ज्योमेट्री
+  - बाउंड्री-आधारित लेन ड्रॉइंग
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+**Lane** टूल के लिए <kbd>N</kbd> दबाएं। दाईं ओर एक पैनल खुलता
+है और टूल सक्रिय रहने तक दिखाई देता है। पैनल का शीर्ष
+**CREATION MODE** स्विच है:
+
+![Lane पैनल — CREATION MODE में Center Line और Boundary बटन हैं; Center Line चयनित है; Lane Width 50 px](/img/frames/lane-tool-panel.png)
+
+दोनों मोड अलग चीज़ें करते हैं; वह चुनें जो आपकी situation से
+मेल खाता हो।
+
+<Demo src="/videos/lane-tool-demo.mp4" caption="Center Line मोड में बनाई गई दो लेन, Boundary मोड में डाली गई एक तीसरी।" />
+
+## Center Line मोड
+
+आप centerline बनाते हैं; drawtonomy **Lane Width** मान से बाएं
+और दाएं बाउंड्री जनरेट करता है। इसका उपयोग तब करें जब आप कुछ
+नहीं से शुरू कर रहे हों।
+
+1. पहला centerline पॉइंट डालने के लिए कैनवस पर क्लिक करें।
+2. अगला डालने के लिए फिर से क्लिक करें, और इसी तरह।
+3. समाप्त करने के लिए <kbd>Enter</kbd> दबाएं (या आखिरी पॉइंट
+   पर डबल-क्लिक करें)।
+
+Lane टूल सक्रिय रहता है, इसलिए नई लेन शुरू करने के लिए कहीं
+और क्लिक करें। इस तरह बनाई गई दो लेन:
+
+![Centerlines से बनाई गई दो लेन](/img/frames/lane-tool-two-lanes.png)
+
+आप लेन के बीच पैनल में Color, Opacity, या Lane Width बदल सकते
+हैं — नया मान अगली लेन पर लागू होता है जिसे आप बनाते हैं,
+चयनित पर नहीं।
+
+## Boundary मोड
+
+मोड स्विच करने के लिए पैनल के शीर्ष पर **Boundary** क्लिक करें।
+Boundary मोड में आप खाली स्थान पर क्लिक नहीं करते; आप दो मौजूदा
+बाउंड्री linestrings पर क्लिक करते हैं, और drawtonomy एक लेन
+बनाता है जो उन्हें अपनी बाईं और दाईं बाउंड्री के रूप में उपयोग
+करता है।
+
+एक linestring पर hover करें — drawtonomy इसे indigo में
+हाइलाइट करता है जब cursor काफी पास हो — और क्लिक करें:
+
+![Boundary मोड — एक मौजूदा दाईं बाउंड्री हाइलाइट है, चयन के लिए तैयार](/img/frames/lane-tool-boundary-mode.png)
+
+दूसरी linestring पर क्लिक करें और उनके बीच एक नई लेन दिखाई
+देती है। नई लेन दोनों बाउंड्री को जो भी अन्य उनका उपयोग करता
+है उसके साथ साझा करती है, इसलिए एक बाउंड्री पॉइंट को हिलाने से
+हर लेन update होती है जो उस पर निर्भर है।
+
+Boundary मोड का उपयोग तब करें जब आपके पास पहले से ज्योमेट्री
+हो (हाथ से बनाई, Lanelet2 से इम्पोर्ट की गई, या Lane Generator
+द्वारा जनरेट की गई) और चाहते हैं कि लेन उसके बीच fit हों।
+
+## लेन का निरीक्षण करना
+
+Select के लिए <kbd>V</kbd> दबाएं, फिर एक लेन पर क्लिक करें।
+पैनल लेन के attributes में स्विच होता है:
+
+![Lane Attribute Panel — Lane ID, साझा बाउंड्री ID, Direction, चार कनेक्शन slots](/img/frames/lane-attributes.png)
+
+जो दिखाया गया है:
+
+- **Lane ID** और **Left Boundary** / **Right Boundary**
+  linestrings की ID (जैसे `way/1`, `way/2`)। एक linestring
+  साझा करने वाली दो लेन यहां समान ID दिखाएंगी।
+- **Lane Color**, **Lane Opacity**, **Direction (Reverse)** —
+  लेन के लिए visual और topological settings।
+- **Next Lanes / Prev Lanes / Left Lane / Right Lane** — चार
+  कनेक्शन slots, प्रत्येक **Create** (एक नई पड़ोसी लेन बनाएं)
+  और **Set** (एक मौजूदा पर पॉइंट करें) के साथ।
+  [लेन कनेक्शन प्रबंधित करें](/hi/guides/lane-connections/) देखें।
+
+## इसे भी देखें
+
+- [स्मूथ लेन बाउंड्री](/hi/guides/smooth-lanes/) — उसी पैनल में
+  Smooth Boundary toggle angular बाउंड्री को splines में बदलता है।
+- [लेन कनेक्शन प्रबंधित करें](/hi/guides/lane-connections/)
+- [लेन कनेक्शन मॉडल](/hi/explanation/lane-model/) — साझा बाउंड्री
+  drawtonomy के सड़क मॉडल की नींव क्यों हैं।

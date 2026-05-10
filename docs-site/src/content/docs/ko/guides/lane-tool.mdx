@@ -1,0 +1,66 @@
+---
+title: Lane 도구 사용 — 중앙선 또는 경계로 차선 그리기
+description: drawtonomy의 Lane 도구는 두 가지 생성 모드를 가집니다. 중앙선을 그리고 drawtonomy가 경계를 만들게 하거나, 기존 경계 라인스트링 두 개를 선택해 그 사이에 차선을 맞춰 끼울 수 있습니다. 자율주행 그림과 시나리오를 위한 빠른 차선 그리기 방법입니다.
+keywords:
+  - 차선 에디터
+  - 온라인 도로 차선 그리기
+  - 자율주행 차선 다이어그램
+  - 자율주행 차선 그림
+  - 중앙선 기반 차선 형상
+  - 경계 기반 차선 그리기
+  - Lane 도구 사용법
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+<kbd>N</kbd>을 눌러 **Lane** 도구를 활성화합니다. 도구가 활성 상태인 동안 오른쪽에 패널이 열려 유지됩니다. 패널 상단에 **CREATION MODE** 전환 영역이 있습니다.
+
+![Lane 패널 — CREATION MODE에 Center Line과 Boundary 버튼; Center Line이 선택; Lane Width 50 px](/img/frames/lane-tool-panel.png)
+
+두 모드는 서로 다른 동작을 하므로 상황에 맞는 모드를 선택하세요.
+
+<Demo src="/videos/lane-tool-demo.mp4" caption="Center Line 모드로 두 차선을 그린 뒤 Boundary 모드로 세 번째 차선을 추가." />
+
+## Center Line 모드
+
+중앙선을 그리면 drawtonomy가 **Lane Width** 값을 사용해 좌우 경계를 생성합니다. 처음부터 그리기 시작할 때 사용하세요.
+
+1. 캔버스를 클릭해 첫 중앙선 점을 찍습니다.
+2. 다시 클릭해 다음 점을 찍습니다.
+3. <kbd>Enter</kbd>를 누르거나(또는 마지막 점을 더블클릭하여) 마칩니다.
+
+Lane 도구는 활성 상태로 유지되므로, 다른 위치를 클릭해 새 차선을 시작할 수 있습니다. 이렇게 그린 두 차선의 모습:
+
+![중앙선으로 그린 두 개의 차선](/img/frames/lane-tool-two-lanes.png)
+
+차선 사이마다 패널의 Color, Opacity, Lane Width를 변경할 수 있으며, 새 값은 다음에 그릴 차선에만 적용됩니다(선택된 차선이 아님).
+
+## Boundary 모드
+
+패널 상단의 **Boundary**를 클릭해 모드를 전환합니다. Boundary 모드에서는 빈 공간을 클릭하지 않고, 기존 경계 라인스트링 두 개를 클릭하면 drawtonomy가 그 두 개를 새 차선의 좌우 경계로 사용합니다.
+
+라인스트링 위로 마우스를 올리세요 — 커서가 충분히 가까워지면 drawtonomy가 인디고 색으로 강조합니다 — 그리고 클릭합니다.
+
+![Boundary 모드 — 기존 오른쪽 경계가 강조되어 선택을 기다리는 모습](/img/frames/lane-tool-boundary-mode.png)
+
+두 번째 라인스트링을 클릭하면 그 사이에 새 차선이 만들어집니다. 새 차선은 그 두 경계를 다른 도형들과 공유하므로, 경계 점을 움직이면 그 경계에 의존하는 모든 차선이 함께 갱신됩니다.
+
+직접 그렸거나 Lanelet2에서 가져왔거나 Lane Generator로 생성한 형상이 이미 있고, 그 사이에 차선을 끼우고 싶을 때 Boundary 모드를 사용하세요.
+
+## 차선 살펴보기
+
+<kbd>V</kbd>를 눌러 Select로 전환한 뒤 차선을 클릭하세요. 패널이 차선 속성으로 바뀝니다.
+
+![Lane Attribute Panel — Lane ID, 공유 경계 ID, Direction, 4개의 연결 슬롯](/img/frames/lane-attributes.png)
+
+표시되는 항목:
+
+- **Lane ID**와 **Left Boundary** / **Right Boundary** 라인스트링의 ID(예: `way/1`, `way/2`). 라인스트링을 공유하는 두 차선은 여기에 같은 ID가 표시됩니다.
+- **Lane Color**, **Lane Opacity**, **Direction (Reverse)** — 차선 자체의 시각적·토폴로지적 설정.
+- **Next Lanes / Prev Lanes / Left Lane / Right Lane** — 4개의 연결 슬롯이며, 각 슬롯에는 **Create**(새 인접 차선 생성)와 **Set**(기존 차선을 가리키기) 버튼이 있습니다. [차선 연결 관리](/ko/guides/lane-connections/)를 참고하세요.
+
+## 함께 보기
+
+- [부드러운 차선 경계](/ko/guides/smooth-lanes/) — 같은 패널의 Smooth Boundary 토글로 각진 경계를 스플라인으로 변환.
+- [차선 연결 관리](/ko/guides/lane-connections/)
+- [차선 연결 모델](/ko/explanation/lane-model/) — 공유 경계가 drawtonomy 도로 모델의 기반이 되는 이유.

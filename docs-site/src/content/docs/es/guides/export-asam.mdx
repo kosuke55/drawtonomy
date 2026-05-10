@@ -1,0 +1,74 @@
+---
+title: Exportar a OpenDRIVE / OpenSCENARIO / esmini
+description: Exporta tu escena drawtonomy como ASAM OpenDRIVE 1.8 (.xodr), OpenSCENARIO 1.3 (.xosc), o como un paquete zip listo para esmini para reproducción en simulador.
+keywords:
+  - editor OpenSCENARIO gratis
+  - editor OpenDRIVE gratis navegador
+  - creación OpenSCENARIO online
+  - creación de escenarios esmini
+  - herramienta diagrama escenario ASAM
+  - convertir dibujo a OpenDRIVE
+---
+
+drawtonomy puede exportar tu escena como ASAM
+[OpenDRIVE](https://www.asam.net/standards/detail/opendrive/)
+(`.xodr`) y
+[OpenSCENARIO](https://www.asam.net/standards/detail/openscenario/)
+(`.xosc`), o empaquetar ambos como un zip listo para reproducción
+en [esmini](https://github.com/esmini/esmini).
+
+![Una escena drawtonomy reproducida en esmini después de la exportación](/img/asam-esmini.png)
+
+## Exportar desde el editor
+
+1. Dibuja tu escena (carriles, vehículos, semáforos…).
+2. Abre **Archivo → Exportar → Exportar para esmini**.
+3. Introduce un nombre base cuando se te pida.
+4. Se descarga un `<nombre>.zip` que contiene `<nombre>.xodr` y
+   `<nombre>.xosc`.
+
+## Reproducirlo
+
+```bash
+unzip my-scene.zip
+esmini --osc my-scene/my-scene.xosc --window 60 60 1024 768
+```
+
+## Formatos individuales
+
+Si solo necesitas uno de los dos:
+
+- **Archivo → Exportar → OpenDRIVE (.xodr)**
+- **Archivo → Exportar → OpenSCENARIO (.xosc)**
+
+## Exportación programática
+
+El exportador es parte de `@drawtonomy/sdk` y se ejecuta sin el
+editor. Úsalo en pipelines de CI, herramientas del lado del
+servidor o extensiones del navegador:
+
+```ts
+import { exporter, createSnapshot } from '@drawtonomy/sdk'
+
+const snapshot = createSnapshot(shapes)
+const { blob, baseName } = exporter.buildEsminiZip(snapshot, {
+  baseName: 'my-scene',
+})
+```
+
+Para la API completa y los puntos de extensión, consulta la
+[referencia del SDK Exporter](/es/extend/exporter-sdk/).
+
+## Versiones emitidas
+
+| Formato | Versión |
+|---|---|
+| OpenDRIVE | 1.8 |
+| OpenSCENARIO | 1.3 |
+
+## Véase también
+
+- [Arquitectura del exportador](/es/explanation/exporter-architecture/) —
+  qué hace el pipeline entre el snapshot y el archivo.
+- [Añadir un formato de destino](/es/extend/exporter-sdk/) — conecta
+  CARLA, SUMO, Unity o cualquier otra cosa.

@@ -1,0 +1,137 @@
+---
+title: Recrear una carretera real desde un mapa
+description: Activa un fondo de carretera o satelital, alinéalo con el control de rotación y traza la carretera con la herramienta Carril. La autogeneración también está disponible como atajo.
+sidebar:
+  order: 3
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Esta lección toma una ubicación del mundo real como punto de
+partida. Activas el fondo **Carretera** o **Satélite**, rotas el
+lienzo para que la carretera quede en una dirección cómoda y
+trazas carriles a mano sobre la foto subyacente. La sección bonus
+al final muestra el generador de un solo clic que extrae carriles
+directamente de los datos de OSM.
+
+## 1. Activa el fondo de mapa
+
+Abre el menú (arriba a la izquierda) y encuentra la fila **Mapa**:
+
+![Menú abierto con la fila Mapa resaltada; las opciones son Off / Carretera / Satélite](/img/mapBackground.png)
+
+Elige **Carretera** para la vista esquemática de OpenStreetMap, o
+**Satélite** para la fotográfica. El mapa se renderiza detrás de
+todo lo que dibujas y se mantiene anclado — dibujar encima no lo
+mueve.
+
+Para apagarlo, elige **Off** en la misma fila.
+
+## 2. Alinea el lienzo con el control de rotación
+
+La esquina inferior izquierda tiene dos paneles compactos:
+
+![Controles inferior izquierdo — Zoom a la izquierda, Rotación a la derecha](/img/bottomLeft.png)
+
+- **Zoom** — botones `−` y `+` con el porcentaje actual entre
+  ellos. También puedes hacer pellizco o usar la rueda del ratón
+  para hacer zoom.
+- **Rotación** — un icono de brújula y el ángulo actual (`0°` por
+  defecto). Úsalo para girar el lienzo y que la carretera sea más
+  fácil de seguir con el cursor.
+
+Trabajar con la rotación:
+
+- **Haz clic** en la brújula para entrar en modo rotación. El
+  cursor se convierte en un controlador de rotación; arrastra en
+  el lienzo para rotar todo el lienzo (y el fondo de mapa con él).
+- **Haz clic** en la brújula de nuevo para salir del modo rotación.
+- **Doble clic** en la brújula para volver a `0°`.
+
+Rota hasta que el tramo de carretera que quieres quede
+aproximadamente horizontal o vertical — lo que te resulte más
+cómodo para trazar.
+
+## 3. Traza la carretera con la herramienta Carril
+
+Pulsa <kbd>N</kbd> para la herramienta Carril. El panel de creación
+de Carril se abre a la derecha. El modo **Línea Central** está
+seleccionado por defecto.
+
+Si la carretera en el mapa está curvada, activa **Smooth Boundary**
+en el panel antes de hacer clic — los bordes del carril seguirán
+una curva suave en lugar de una polilínea. (Consulta
+[Bordes de carril suavizados](/es/tutorials/smooth-lanes/) si quieres
+un repaso.)
+
+Haz clic a lo largo del centro de la carretera en el mapa,
+colocando un punto cada vez que la carretera cambie de dirección
+notablemente. Pulsa <kbd>Enter</kbd> para terminar el carril.
+
+Algunos consejos al trazar:
+
+- Ajusta **Ancho de Carril** en el panel antes de dibujar si el
+  valor por defecto no coincide con la carretera en el mapa.
+- Mantén pulsado <kbd>Shift</kbd> al hacer clic para omitir el
+  [snap](/es/guides/snap/) en un clic — útil cuando quieres un punto
+  cerca, pero no exactamente sobre, uno existente.
+- Para carreteras de varios carriles, dibuja cada carril por
+  separado. Una vez que un borde esté en su sitio, puedes usar el
+  [modo Borde](/es/guides/lane-tool/#boundary-mode) para el siguiente
+  carril y hacer que comparta ese borde automáticamente.
+
+## 4. Guarda
+
+Una vez que la carretera trazada se vea bien, exporta como
+**drawtonomy.svg** para que el fondo de mapa, la geometría de los
+carriles y las conexiones hagan round-trip al reabrir el archivo.
+Consulta [Exportar tu escena](/es/guides/export/).
+
+## Bonus: generación de carriles con un solo clic
+
+Si confías en los datos de OSM para la zona, drawtonomy puede
+convertir carreteras directamente en formas de Carril editables —
+sin necesidad de trazar.
+
+<Demo src="/videos/map-to-lane-demo.mp4" caption="Haz clic en una carretera para un carril; arrastra una región para todas las carreteras en su interior." maxWidth="900px" />
+
+Con el fondo de Mapa activado:
+
+1. Pulsa <kbd>N</kbd> para la herramienta Carril, luego activa el
+   modo **Generador** en la barra de herramientas.
+2. **Haz clic** en un segmento de carretera para convertir solo
+   ese segmento en un Carril.
+3. **Arrastra** un rectángulo sobre un área para convertir todas
+   las carreteras dentro de él en un solo lote.
+
+Esto es un atajo, no un sustituto del trazado. La salida son
+formas de Carril normales — refínalas con
+[edición de segmentos](/es/guides/segment-editing/),
+[suavízalas](/es/guides/smooth-lanes/) o conecta las
+[conexiones](/es/guides/lane-connections/) que falten después.
+
+Para áreas complejas o desconocidas, trazar a mano a menudo produce
+un resultado más limpio que el generador, ya que los datos de
+carreteras de OSM pueden ser ruidosos o usar una línea central que
+no coincide del todo con la imagen satelital.
+
+## Lo que aprendiste
+
+- El fondo de mapa vive en la fila **Mapa** del menú, con las
+  opciones **Off**, **Carretera** y **Satélite**.
+- La brújula de **Rotación** abajo a la izquierda gira todo el
+  lienzo para que la carretera sea más fácil de trazar; doble clic
+  resetea a `0°`.
+- Trazar carreteras con la herramienta Carril te da control total
+  sobre la geometría; el Generador de Carriles es un atajo de un
+  solo clic para cuando los datos de OSM son suficientemente
+  buenos.
+
+## Qué sigue
+
+- [Gestionar conexiones de carriles](/es/guides/lane-connections/) —
+  conecta Siguiente/Anterior para que la red vial esté conectada,
+  no solo visualmente adyacente.
+- [Importar un archivo Lanelet2 (.osm)](/es/guides/import-lanelet2/) —
+  cuando ya tienes un archivo de mapa curado en lugar de OSM en
+  bruto.

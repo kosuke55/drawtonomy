@@ -1,0 +1,113 @@
+---
+title: Uw eerste drie rijstroken
+description: Loop door de Lane Tool-demo — teken twee rijstroken vanuit hartlijnen, en bouw daarna een derde tussen de bestaande grenzen.
+sidebar:
+  order: 1
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Deze les volgt de officiële Lane Tool-demo. Aan het einde heeft u
+beide manieren gebruikt waarop drawtonomy rijstroken creëert:
+
+- **Center Line-modus** — teken de hartlijn; linker- en
+  rechtergrenzen worden voor u gegenereerd.
+- **Boundary-modus** — kies twee bestaande grenslijnen en
+  drawtonomy past een rijstrook tussenin.
+
+De demo tekent twee rijstroken in Center Line-modus en schakelt
+daarna naar Boundary-modus voor een derde rijstrook die de leemte
+opvult.
+
+<Demo src="/videos/lane-tool-demo.mp4" caption="Twee rijstroken in Center Line-modus, gevolgd door een derde rijstrook die in Boundary-modus is gebouwd op basis van bestaande grenzen." />
+
+## 1. Kies de Lane-tool
+
+Open [drawtonomy.com](https://drawtonomy.com). Druk op <kbd>N</kbd>
+(of klik op het rijstrookpictogram in de onderste werkbalk).
+
+De rechterkant van het scherm toont nu het **Lane**-creatiepaneel,
+met **Center Line** standaard geselecteerd:
+
+![Lane-paneel — Center Line-modus actief, Lane Width 50 px](/img/frames/lane-tool-panel.png)
+
+Laat de standaardwaarden voorlopig staan.
+
+## 2. Teken twee rijstroken in Center Line-modus
+
+In Center Line-modus klikt u op het canvas om het eerste
+hartlijnpunt te plaatsen, klikt u verderop voor het volgende, en
+drukt u op <kbd>Enter</kbd> om te voltooien. De linker- en
+rechtergrenzen verschijnen automatisch op basis van de
+**Lane Width**-waarde (standaard 50 px).
+
+De Lane-tool blijft actief na elke rijstrook, dus klik opnieuw
+ergens anders om de tweede te starten. Plaats een paar punten
+rechts van de eerste rijstrook en druk op <kbd>Enter</kbd>:
+
+![Twee rijstroken naast elkaar getekend in Center Line-modus](/img/frames/lane-tool-two-lanes.png)
+
+Op dit moment zijn de twee rijstroken onafhankelijk — ze delen
+geen grens en weten niets van elkaar.
+
+## 3. Schakel over naar Boundary-modus
+
+Klik op **Boundary** in hetzelfde paneel, naast **Center Line**, om
+de creatiemodus te wisselen. In Boundary-modus klikt u niet op
+lege ruimte; u klikt op **bestaande grenslijnen**, en drawtonomy
+past een rijstrook tussenin.
+
+Beweeg de cursor over de **rechtergrens van de linkerrijstrook** —
+drawtonomy markeert de lijn in indigo wanneer de cursor dichtbij
+genoeg is — en klik:
+
+![Boundary-modus — de rechtergrens van de linkerrijstrook is gemarkeerd, klaar om te worden gekozen](/img/frames/lane-tool-boundary-mode.png)
+
+Klik vervolgens op de **linkergrens van de rechterrijstrook**. Een
+nieuwe rijstrook vult de leemte, met beide aangeklikte lijnen als
+linker- en rechtergrens.
+
+## 4. Inspecteer het resultaat
+
+Druk op <kbd>V</kbd> voor de Select-tool en klik op de nieuwe
+middelste rijstrook. Het rechterpaneel toont de attributen:
+
+![Attribuutpaneel — de nieuwe middelste rijstrook deelt grenzen way/1 en way/2 met haar buren](/img/frames/lane-attributes.png)
+
+De grenzen worden hergebruikt:
+
+- **Lane ID** — `lane/2`, een gloednieuwe rijstrook.
+- **Left Boundary** — `way/1`, dezelfde lijn die de rechtergrens
+  is van de linkerrijstrook.
+- **Right Boundary** — `way/2`, eveneens gedeeld met de
+  rechterrijstrook.
+
+Omdat de grenzen worden gedeeld, beweegt het slepen van een punt
+aan een van beide kanten beide aangrenzende rijstroken samen.
+Daarop zijn [rijstrookverbindingen](/nl/explanation/lane-model/)
+gebouwd; lees die pagina hierna voor het onderliggende model.
+
+Het paneel toont ook **Direction**, **Lane Color**,
+**Lane Opacity** en de vier verbindingsvelden **Next Lanes /
+Prev Lanes / Left Lane / Right Lane**, die we voorlopig leeg
+laten.
+
+## Wat u heeft geleerd
+
+- Rijstroken kunnen op twee manieren worden getekend: vanuit een
+  hartlijn, of door twee bestaande grenslijnen te kiezen.
+- Center Line-modus is de snelle optie voor een leeg canvas;
+  Boundary-modus past een rijstrook tussen bestaande geometrie
+  zonder iets opnieuw te tekenen.
+- Een rijstrook gebouwd uit bestaande grenzen deelt die grenzen
+  met haar buren.
+
+## Wat is het volgende
+
+- [Rijstrookverbindingen beheren](/nl/guides/lane-connections/) — de
+  vier verbindingsvelden in het Attribuutpaneel.
+- [Vloeiende rijstrookgrenzen](/nl/guides/smooth-lanes/) — de Smooth
+  Boundary-toggle in hetzelfde paneel maakt van hoekige grenzen
+  curven.
+- [Een echte weg uit een satellietkaart reconstrueren](/nl/tutorials/road-from-map/) —
+  haal rijstroken uit OSM in plaats van ze te tekenen.

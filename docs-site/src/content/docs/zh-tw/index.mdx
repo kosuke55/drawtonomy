@@ -1,0 +1,164 @@
+---
+title: drawtonomy — 自動駕駛場景白板
+description: 一款免費、純瀏覽器運作的自動駕駛場景白板。為論文、簡報、設計討論與場景撰寫，輕鬆繪製車道、路口、車輛與行人。可匯出 OpenDRIVE、OpenSCENARIO 與 Lanelet2。
+template: splash
+keywords:
+  - 自動駕駛場景白板
+  - 自駕場景圖工具
+  - 自動駕駛示意圖工具
+  - 論文用自動駕駛配圖
+  - 簡報用自動駕駛配圖
+  - 自駕場景繪圖軟體
+  - 車道編輯器
+  - 路口示意圖軟體
+  - 線上自駕場景繪製
+  - 車道圖繪製工具
+  - 交通場景示意圖
+  - ADAS 場景圖
+  - 免費 OpenSCENARIO 編輯器
+  - 免費 OpenDRIVE 編輯器
+  - Lanelet2 瀏覽器編輯器
+  - esmini 場景編輯器
+  - ROS 佔據網格標註工具
+  - 自駕論文配圖工具
+  - 自動駕駛模擬場景
+  - 道路網路繪圖
+jsonLd:
+  '@context': 'https://schema.org'
+  '@type': SoftwareApplication
+  name: drawtonomy
+  alternateName: drawtonomy — 自動駕駛場景白板
+  url: 'https://drawtonomy.com'
+  sameAs:
+    - 'https://github.com/kosuke55/drawtonomy'
+  description: 一款免費、純瀏覽器運作的自動駕駛場景白板。內建車道、路口、車輛、行人與道路標誌等形狀,適用於論文、簡報、設計討論與場景撰寫。可匯出至 OpenDRIVE、OpenSCENARIO 與 Lanelet2。
+  applicationCategory: DesignApplication
+  applicationSubCategory: Diagram editor
+  operatingSystem: Any (browser-based)
+  browserRequirements: Requires a modern web browser
+  offers:
+    '@type': Offer
+    price: '0'
+    priceCurrency: USD
+  featureList:
+    - 具備 Next / Previous / Left / Right 連接的車道
+    - 路口、行人穿越道、紅綠燈、道路標誌與標線範本
+    - 含路徑與足跡的車輛與行人範本
+    - 吸附與共享點編輯
+    - 拖曳即可同步傳遞至連接車道的邊界幾何
+    - 可重新編輯的 drawtonomy.svg 存檔,可直接嵌入論文與簡報
+    - Lanelet2 (.osm) 雙向匯入匯出
+    - 匯出 OpenDRIVE 1.8 與 OpenSCENARIO 1.3,提供 esmini 用 zip 套件
+    - ROS OccupancyGrid (.pgm + .yaml) 匯入
+    - AI 場景產生器擴充功能
+hero:
+  tagline: 一款免費、純瀏覽器運作的自動駕駛場景白板。為論文、簡報、設計討論與場景撰寫繪製車道、路口與交通場景——道路轉彎時,不必每次都重新繪製。
+  image:
+    file: ../../../assets/logo.png
+  actions:
+    - text: 快速入門
+      link: /zh-tw/start/quickstart/
+      icon: right-arrow
+    - text: 試用應用程式
+      link: https://drawtonomy.com
+      icon: external
+      variant: secondary
+    - text: GitHub
+      link: https://github.com/kosuke55/drawtonomy
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## 找到您需要的內容
+
+文件依照四種使用情境組織。請挑選符合您目前需求的章節。
+
+<CardGrid>
+	<LinkCard
+		title="教學"
+		href="/zh-tw/tutorials/"
+		description="從做中學。從空白畫布到完成場景的逐步教學。"
+	/>
+	<LinkCard
+		title="操作指南"
+		href="/zh-tw/guides/"
+		description="完成特定任務。車道、車輛、匯出與匯入的實用配方。"
+	/>
+	<LinkCard
+		title="參考資料"
+		href="/zh-tw/reference/"
+		description="查閱事實。快速鍵、檔案格式、形狀目錄與 SDK API。"
+	/>
+	<LinkCard
+		title="說明"
+		href="/zh-tw/explanation/"
+		description="理解模型。了解 drawtonomy 為何如此設計。"
+	/>
+</CardGrid>
+
+## drawtonomy 是什麼?
+
+drawtonomy 是一款**自動駕駛場景白板**——您放在論文裡的圖、設計審查前在簡報上勾勒的草圖、會議中向團隊解釋邊角案例時繪製的示意圖,以及撰寫 OpenSCENARIO 檔案前先描繪的場景。
+
+只需開啟網址,即可在無限畫布上繪製車道與路口、放置車輛、行人、紅綠燈、行人穿越道與道路標線,然後儲存或匯出。無需安裝、無需帳號、不會上傳任何資料。
+
+它存在的理由是:一般繪圖工具與簡報軟體不知道車道是什麼,所以每當道路移動時,道路幾何就必須重新建構。drawtonomy 將車道、路口及自動駕駛場景中常見的元素都當作內建形狀處理,讓圖形在反覆修改時依然保持正確。
+
+## 大家用它做什麼
+
+<CardGrid>
+	<Card title="論文與學位論文配圖" icon="document">
+		清晰、向量化的自動駕駛場景圖,可乾淨嵌入 LaTeX、簡報與 Markdown——以 `drawtonomy.svg`、PDF 或 EPS 格式匯出。
+	</Card>
+	<Card title="設計討論示意圖" icon="comment-alt">
+		數秒內勾勒變換車道操作、無保護左轉或遮蔽情境。分享結果後,明天即可在同一畫布繼續討論。
+	</Card>
+	<Card title="撰寫前的場景草圖" icon="seti:graphql">
+		在撰寫 OpenSCENARIO XML 之前先繪製場景——草圖完成後可匯出為 `.xosc` / `.xodr`。
+	</Card>
+	<Card title="地圖與 ROS 標註" icon="seti:json">
+		在衛星背景上描繪車道、編輯 Lanelet2 OSM 地圖,或在 ROS 佔據網格上標註路徑與障礙物。
+	</Card>
+</CardGrid>
+
+## 為什麼比一般繪圖工具更快
+
+<CardGrid>
+	<Card title="自駕領域形狀" icon="seti:default">
+		車道、路口、行人穿越道、紅綠燈、道路標線、車輛與行人皆為內建形狀。您也可以新增自己的 SVG 範本並透過 PR 貢獻。
+	</Card>
+	<Card title="拓樸感知的車道" icon="seti:graphql">
+		每條車道都帶有 Next / Previous / Left / Right 連接。共享邊界的兩條車道會共用相同的邊界點,因此拖曳一次即可同時移動兩者。
+	</Card>
+	<Card title="無限畫布、衛星背景" icon="seti:html">
+		跨任意大小的版面平移與縮放。放入衛星或道路地圖背景,從真實位置描繪。吸附與共享點功能讓幾何自動對齊,無需手動清理。
+	</Card>
+	<Card title="免費且僅需瀏覽器" icon="rocket">
+		無需安裝、無需帳號、不上傳任何資料。日後重新開啟已儲存的 drawtonomy.svg,場景會完整還原,連接與重疊關係皆保留。
+	</Card>
+</CardGrid>
+
+## 與您的模擬與地圖工具鏈銜接
+
+白板是核心功能;以下是讓圖形流向其他工作流程的方式。
+
+<CardGrid>
+	<Card title="可重新編輯的 SVG,適用於論文與簡報" icon="document">
+		`drawtonomy.svg` 是標準 SVG,可在瀏覽器、GitHub 與簡報軟體中預覽,並可在 drawtonomy 中重新開啟並保留所有連接。是文件與研究論文配圖的預設格式。
+	</Card>
+	<Card title="Lanelet2 雙向匯入匯出" icon="seti:json">
+		開啟 Lanelet2 OSM 地圖進行編輯,並匯出回 OSM——包括 Autoware 範例地圖。適合針對既有高精地圖勾勒變更。
+	</Card>
+	<Card title="ASAM OpenDRIVE / OpenSCENARIO" icon="seti:db">
+		匯出 OpenDRIVE 1.8 與 OpenSCENARIO 1.3——當您想在模擬器中重播場景時,可一併打包為 [esmini](https://github.com/esmini/esmini) 用的 zip。
+	</Card>
+	<Card title="AI 場景產生器" icon="comment-alt">
+		以自然語言描述場景,或貼上 OpenSCENARIO XML,即可取得可編輯的畫布。輸出為一般的 drawtonomy 場景;可如同其他內容繼續修飾。
+	</Card>
+</CardGrid>
+
+## 給擴充功能開發者
+
+如果您想在 drawtonomy 之上開發,而不只是使用它,請參閱[擴充 drawtonomy](/zh-tw/extend/)。SDK 原始碼、範例與參考資料都與本網站一同放在 [github.com/kosuke55/drawtonomy](https://github.com/kosuke55/drawtonomy)。

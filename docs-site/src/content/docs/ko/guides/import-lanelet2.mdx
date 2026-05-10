@@ -1,0 +1,47 @@
+---
+title: Lanelet2 (.osm) 파일 가져오기
+description: Lanelet2 OSM 지도를 drawtonomy 브라우저 화이트보드에서 열어 차선과 연결을 시각적으로 편집하고, 다시 Lanelet2로 왕복 변환하세요. Autoware 샘플 지도 등 도로 네트워크 파일에 유용합니다.
+keywords:
+  - Lanelet2 브라우저 에디터
+  - Lanelet2 온라인 뷰어
+  - Lanelet2 osm 파일 편집
+  - Autoware 샘플 지도 에디터
+  - lanelet2 다이어그램 도구
+  - 차선 에디터
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+drawtonomy는 [Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2) OSM 형식 지도를 읽을 수 있습니다. 샘플 지도는 [Autoware 문서](https://autowarefoundation.github.io/autoware-documentation/main/demos/planning-sim/#download-the-sample-map)에서 받을 수 있습니다.
+
+<Demo src="/videos/lanelet-import-demo.mp4" caption="Lanelet2 파일 전체 가져오기." />
+
+## 파일 전체 가져오기
+
+1. **File** 메뉴 → **Import**를 엽니다.
+2. `.osm` 파일을 선택합니다.
+3. drawtonomy가 파일을 파싱해 캔버스를 Lane 도형과 연결로 채웁니다.
+
+## 특정 차선만 가져오기
+
+큰 지도의 경우 모든 차선을 가져오면 에디터가 느려집니다. 대신 차선 선택 다이얼로그를 사용하세요.
+
+<Demo src="/videos/lanelet-select-import-demo.mp4" caption="원하는 차선만 드래그-선택해 가져오기." />
+
+1. **File** 메뉴 → **Import → Select lanes**를 엽니다.
+2. drawtonomy가 미리보기 지도를 표시합니다.
+3. 클릭하거나 드래그해 원하는 차선을 선택합니다.
+4. **Import selection**을 클릭합니다.
+
+## 성능 팁
+
+빠른 에디터 성능을 위해 가져온 장면을 약 **500개 이하의 차선**으로 유지하세요. 더 큰 영역이라면 작업을 여러 파일로 나누거나 필요한 영역만 가져오세요.
+
+## 가져온 이후
+
+가져온 차선은 완전한 Lane 도형이며, Lanelet2 파일의 연결도 보존됩니다. 토폴로지를 잃지 않고 편집, [부드럽게 만들기](/ko/guides/smooth-lanes/), [다시 내보내기](/ko/guides/export-asam/)를 할 수 있습니다.
+
+## 함께 보기
+
+- [drawtonomy.svg 형식](/ko/reference/drawtonomy-svg/) — drawtonomy 안에서 다시 편집하기 위한 손실 없는 형식.
+- [지도에서 차선 생성](/ko/guides/lane-from-map/) — 정제된 지도 파일이 없을 때.

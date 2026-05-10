@@ -1,0 +1,79 @@
+---
+title: Bordes de carril suavizados
+description: Activa Smooth Boundary en el panel Carril antes de dibujar — un carril curvado sale como una curva en lugar de una polilínea.
+sidebar:
+  order: 2
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Esta es la segunda lección corta, después de
+[Tus primeros tres carriles](/es/tutorials/your-first-lanes/). Un
+pequeño hábito: activar **Smooth Boundary** antes de dibujar un
+carril curvado.
+
+El conmutador vive en el panel de creación de Carril y cambia cómo
+se generan los bordes para los carriles que dibujes a continuación.
+Los carriles existentes no se tocan.
+
+<Demo src="/videos/smooth-lane.mp4" caption="La misma línea central curvada dibujada dos veces — una con Smooth Boundary desactivado, otra con él activado." />
+
+## 1. Abre el panel Carril
+
+Pulsa <kbd>N</kbd> para la herramienta Carril. Se abre el panel del
+lado derecho. Encuentra la fila **SMOOTH BOUNDARY** — el valor por
+defecto es **Off**:
+
+![Panel de creación de Carril — fila SMOOTH BOUNDARY, actualmente en Off](/img/frames/smooth-toggle-off.png)
+
+## 2. Dibuja un carril curvado con el conmutador desactivado
+
+Deja el conmutador en **Off**. Haz clic en el lienzo para colocar
+puntos de línea central a lo largo de una curva, y pulsa
+<kbd>Enter</kbd> para terminar.
+
+Los bordes son segmentos rectos entre puntos consecutivos, así que
+el carril sale angular:
+
+![Carril curvado dibujado con Smooth Boundary off — los bordes son polilíneas angulares](/img/frames/smooth-off-result.png)
+
+## 3. Activa el conmutador y dibuja el mismo carril otra vez
+
+Haz clic en **On** en la fila SMOOTH BOUNDARY. Haz clic en una
+línea central similar en otro lugar del lienzo y pulsa
+<kbd>Enter</kbd>.
+
+Esta vez los bordes están ajustados con splines, así que el carril
+se curva suavemente:
+
+![Carril curvado dibujado con Smooth Boundary activado — los bordes siguen una curva suave](/img/frames/smooth-on-result.png)
+
+Uno al lado del otro, la diferencia es obvia. Las líneas centrales
+son las mismas; solo cambió la regla de generación de bordes.
+
+## Cuándo dejarlo desactivado, cuándo activarlo
+
+| | Smooth = Off | Smooth = On |
+| --- | --- | --- |
+| Aspecto | Angular, facetado | Curvado |
+| Ideal para | Carriles rectos, ramas de intersección | Carreteras curvadas, rampas |
+| Rendimiento | Ligeramente más barato | Algo más de geometría |
+
+Puedes alternar el conmutador tantas veces como quieras. Cada nuevo
+carril usa el valor configurado al terminar de dibujarlo.
+
+## Lo que aprendiste
+
+- El conmutador Smooth Boundary vive en el panel de creación de
+  Carril y se aplica al siguiente carril que dibujes, no al carril
+  seleccionado.
+- La geometría de la línea central es la misma en ambos modos;
+  solo cambia el renderizado del borde.
+
+## Qué sigue
+
+- [Usar la herramienta Carril](/es/guides/lane-tool/) — el resto del
+  panel (modo Línea Central vs. Borde, Ancho de Carril, Color del
+  Carril).
+- [Gestionar conexiones de carriles](/es/guides/lane-connections/) —
+  los cuatro espacios de conexión en el Panel de Atributos.

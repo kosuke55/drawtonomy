@@ -1,0 +1,68 @@
+---
+title: Path dengan footprint
+description: Gambar Path dari kendaraan dan template kendaraan akan menyusun dirinya secara otomatis di sepanjang path.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+*Footprint* adalah salinan dari kendaraan (atau template lain) yang
+ditempatkan secara otomatis di sepanjang Path. Demo ini dimulai
+dengan satu kendaraan ego, menggambar Path darinya, dan path segera
+terisi dengan salinan kendaraan tersebut — template yang sama,
+diorientasikan di sepanjang kurva, dengan jarak yang sama.
+
+<Demo src="/videos/footprints-demo.mp4" caption="Sebuah kendaraan ego, Path digambar darinya, dan jejak footprint yang dihasilkan." />
+
+## Persiapan
+
+Tempatkan kendaraan di mana saja di kanvas dengan alat Vehicle, lalu
+tekan <kbd>H</kbd> untuk alat Path. Panel kanan menampilkan
+pengaturan Path:
+
+![Panel alat Path — Color, Opacity 90%, Style Solid, Width 5px, Arrow Head 20px, Smooth dicentang](/img/frames/footprints-path-panel.png)
+
+Default yang ditampilkan — hijau solid, lebar 5 px, mulus, dengan
+kepala panah 20 px — adalah yang digunakan demo.
+
+## Menggambar path
+
+Klik kendaraan untuk memulai path. Titik pertama menempel pada
+anchor kendaraan. Klik titik selanjutnya untuk memperpanjang path;
+kepala panah muncul di titik terakhir yang Anda jatuhkan. Tekan
+<kbd>Enter</kbd> untuk menyelesaikan.
+
+Begitu path selesai, drawtonomy menyusun salinan kendaraan sumber di
+sepanjangnya:
+
+![Path digambar; footprint kendaraan muncul di sepanjangnya dengan jarak yang sama](/img/frames/footprints-along-path.png)
+
+Setiap salinan diputar agar sesuai dengan tangen path pada
+posisinya, sehingga jejak mengikuti kurva secara alami.
+
+## Gaya dan template tetap terhubung
+
+Footprint berbagi gaya dengan kendaraan sumbernya: ubah warna,
+opasitas, atau template sumber, dan setiap footprint mengikuti.
+Anda tidak perlu mengedit setiap salinan secara manual untuk
+menjaga diagram manuver tetap konsisten secara visual.
+
+Frame demo berikutnya menyembunyikan path itu sendiri sehingga
+hanya footprint yang tersisa — berguna untuk hasil ekspor saat Anda
+tidak ingin path yang mendasari mengganggu diagram:
+
+![Footprint sendirian, tanpa path digambar](/img/frames/footprints-result.png)
+
+## Apa yang dapat Anda atur
+
+- **Spacing** — jarak antar footprint.
+- **Anchor offset** — geser titik referensi sepanjang arah perjalanan
+  (misalnya base link atau bumper depan alih-alih tengah).
+- **Smooth** — kotak centang di panel Path membuat path itu sendiri
+  melengkung mulus antar titik; orientasi footprint mengikuti.
+- **Color / Opacity / Size** — diterapkan ke setiap footprint
+  sekaligus melalui kendaraan sumber.
+
+## Lihat juga
+
+- [Tambahkan kendaraan, pejalan kaki, dan lampu lalu lintas](/id/guides/participants/)
+- [Sesuaikan warna, opasitas, lebar, dan gaya](/id/guides/styling/)

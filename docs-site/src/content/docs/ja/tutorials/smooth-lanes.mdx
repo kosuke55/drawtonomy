@@ -1,0 +1,58 @@
+---
+title: 滑らかなレーン境界
+description: 描画前に Lane パネルの Smooth Boundary を有効化すれば、曲がるレーンがポリラインではなく曲線として出力されます。
+sidebar:
+  order: 2
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+これは [最初の 3 本のレーン](/ja/tutorials/your-first-lanes/) に続く 2 つ目の短いレッスンです。覚えるのは小さな習慣 1 つ — 曲がるレーンを描く前に **Smooth Boundary** を ON にする、というだけです。
+
+このトグルは Lane 作成パネルにあり、これから描くレーンの境界生成方法を変更します。既存のレーンには影響しません。
+
+<Demo src="/videos/smooth-lane.mp4" caption="同じ曲がるセンターラインを 2 回描く — Smooth Boundary OFF と ON で比較。" />
+
+## 1. Lane パネルを開く
+
+<kbd>N</kbd> キーで Lane ツールを起動します。右側のパネルが開きます。**SMOOTH BOUNDARY** の行を探してください — デフォルトは **Off** です。
+
+![Lane 作成パネル — SMOOTH BOUNDARY 行、現在は Off](/img/frames/smooth-toggle-off.png)
+
+## 2. トグル OFF のまま曲がるレーンを描く
+
+トグルを **Off** のまま、キャンバス上をクリックして曲線に沿ったセンターライン点を配置し、<kbd>Enter</kbd> で確定します。
+
+連続する点の間で境界は直線セグメントになるため、レーンが角ばって見えます。
+
+![Smooth Boundary OFF で描いた曲がるレーン — 境界が角ばったポリライン](/img/frames/smooth-off-result.png)
+
+## 3. トグルを ON にして同じレーンをもう一度描く
+
+SMOOTH BOUNDARY 行で **On** をクリックします。キャンバスの別の場所に同じようなセンターラインをクリックして配置し、<kbd>Enter</kbd> を押します。
+
+今度は境界がスプライン補間されているので、レーンが滑らかに曲がります。
+
+![Smooth Boundary ON で描いた曲がるレーン — 境界が滑らかな曲線](/img/frames/smooth-on-result.png)
+
+並べて見ると違いは明らかです。センターラインは同じで、境界生成ルールだけが変わっています。
+
+## OFF にしておくべき場面、ON にすべき場面
+
+| | Smooth = Off | Smooth = On |
+| --- | --- | --- |
+| 見た目 | 角ばった、面ベースの形状 | 曲線 |
+| 向く用途 | 直線レーン、交差点の進入路 | 曲線道路、ランプ |
+| パフォーマンス | やや軽量 | ジオメトリがやや増加 |
+
+トグルは何度でも切り替えられます。新しいレーンは描き終わったときの値を使用します。
+
+## 学んだこと
+
+- Smooth Boundary トグルは Lane 作成パネルにあり、選択中のレーンではなく、これから描くレーンに適用される。
+- センターラインのジオメトリはどちらのモードでも同じで、境界レンダリングのみ異なる。
+
+## 次は
+
+- [Lane ツールを使う](/ja/guides/lane-tool/) — パネル全体（Center Line と Boundary モード、Lane Width、Lane Color）の解説。
+- [レーン接続を管理する](/ja/guides/lane-connections/) — 属性パネルにある 4 つの接続スロット。

@@ -1,0 +1,73 @@
+---
+title: Zarządzaj połączeniami pasów (Następny / Poprzedni / Lewy / Prawy)
+description: Pasy drawtonomy mają sloty połączeń Następny, Poprzedni, Lewy i Prawy, dzięki czemu sieć drogowa jest interpretowalna, a nie tylko wizualna. Przeciągnij współdzieloną granicę, a połączone pasy aktualizują się razem.
+keywords:
+  - edytor połączeń pasów
+  - diagram topologii drogi
+  - model następny poprzedni lewy prawy pas
+  - interpretowalny szkic sieci drogowej
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Gdy dwa pasy dzielą punkt graniczny, przeciągnięcie tego punktu
+przesuwa oba pasy naraz. Panel Atrybutów udostępnia cztery jawne
+sloty połączeń, więc można też ręcznie podłączyć Następny / Poprzedni /
+Lewy / Prawy.
+
+<Demo src="/videos/lane-connection-demo.mp4" caption="Najpierw narysowany jeden pas, następnie drugi dodany przez rozszerzenie istniejącego punktu — granica staje się współdzielona." />
+
+## Rysowanie połączonych pasów
+
+Wideo zaczyna się od pustego płótna z otwartym narzędziem Pas.
+Pierwszy pas to pojedynczy krzywiący się pas:
+
+![Pojedynczy krzywiący się pas](/img/frames/lane-connection-curve.png)
+
+Następnie rozpoczyna się drugi pas tak, aby jego początkowa granica
+trafiła na istniejące punkty graniczne pierwszego pasa. drawtonomy
+przyciąga się do tych punktów i rejestruje nowy pas jako kontynuację:
+
+![Dodany drugi pas; oba teraz dzielą granicę u dołu](/img/frames/lane-connection-split.png)
+
+Pasy teraz dzielą segment graniczny. Przeciągnij współdzieloną granicę
+po obu stronach, a oba poruszają się razem. Rozchodzący się górny
+koniec jest niezależny po każdej stronie.
+
+## Cztery sloty połączeń
+
+Naciśnij <kbd>V</kbd> dla Wybierz, kliknij dowolny pas i spójrz na
+prawy panel. Sloty to:
+
+| Slot | Oznacza |
+| --- | --- |
+| **Następne Pasy** | Pasy, do których przepływa ruch z tego pasa. |
+| **Poprzednie Pasy** | Pasy, które przepływają do tego pasa. |
+| **Lewy Pas** | Pas bezpośrednio po lewej, dzielący granicę. |
+| **Prawy Pas** | Pas bezpośrednio po prawej, dzielący granicę. |
+
+Każdy slot ma dwa przyciski:
+
+- **Utwórz** — tworzy zupełnie nowy sąsiadujący pas i wskazuje na
+  niego slotem.
+- **Ustaw** — wybierz istniejący pas na płótnie, aby wypełnić slot.
+
+Połączenia są dwukierunkowe. Ustawienie *Następnych Pasów* Pasa A na
+B dodaje również B do *Poprzednich Pasów* A; drawtonomy automatycznie
+utrzymuje odwrotny link.
+
+## Kiedy połączenia powstają automatycznie
+
+- Rysowanie nowego pasa, który zaczyna się na punkcie granicznym
+  istniejącego pasa — przypadek w demo powyżej. Współdzielona granica
+  wystarczy; nie musisz klikać Ustaw.
+- Umieszczanie [szablonu skrzyżowania](/pl/reference/shapes/) — każdy
+  pas dojazdowy jest podłączony.
+
+Dla wszystkiego innego kliknij **Ustaw** i wybierz sąsiada.
+
+## Zobacz także
+
+- [Model połączeń pasów](/pl/explanation/lane-model/) — dlaczego ta
+  abstrakcja istnieje i co eksportery z nią robią.
+- [Użyj narzędzia Pas](/pl/guides/lane-tool/)

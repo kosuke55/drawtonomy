@@ -1,0 +1,100 @@
+---
+title: Sahnenizi SVG, PNG, PDF veya drawtonomy.svg olarak dışa aktarın
+description: Bir drawtonomy sahnesini yeniden düzenleme ve belgelere gömme için drawtonomy.svg olarak kaydedin veya slaytlardaki, makalelerdeki ve tasarım belgelerindeki otonom sürüş görselleri için PNG, JPG, düz SVG, PDF veya EPS seçin. Sürüş simülatörü hedefleri (OpenDRIVE / OpenSCENARIO / Lanelet2) kendi sayfalarına sahiptir.
+keywords:
+  - sürüş diyagramı svg dışa aktarımı
+  - düzenlenebilir svg sürüş sahnesi
+  - otonom sürüş makale görseli
+  - otonom sürüş slayt görseli
+  - otonom sürüş sunum görseli
+  - sürüş senaryosu görseli latex
+  - belgeleme için yol diyagramı
+  - drawtonomy.svg formatı
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+drawtonomy birkaç dışa aktarma formatı sunar. Çoğu zaman tercih
+edeceğiniz **drawtonomy.svg**'dir — ekstra meta verili normal bir SVG,
+böylece dosyayı yeniden açıp kaldığınız yerden devam edebilirsiniz.
+Aynı zamanda geçerli SVG'dir, bu nedenle tarayıcılarda, slayt
+setlerinde ve dokümantasyon işlem hatlarında dönüştürme olmadan doğru
+şekilde önizlenir.
+
+Diğer formatlar — PNG, JPG, SVG (düz), PDF, EPS — statik bir görüntü
+istediğiniz ve yeniden düzenlemenize gerek olmadığı durumlar içindir.
+
+Sürüş simülatörü çıktısı için (OpenDRIVE / OpenSCENARIO / Lanelet2),
+özel [ASAM dışa aktarımı](/tr/guides/export-asam/) sayfasına bakın.
+
+## Nereden başlamalı: drawtonomy.svg
+
+`drawtonomy.svg` şekil kimliklerini, şerit bağlantılarını, paylaşılan
+noktaları, ayak izi gruplarını, stili ve *hangi-şeklin-üstte-olduğu*
+ilişkilerini korur. Aynı dosya:
+
+- **Yeniden düzenlenebilir.** Onu drawtonomy'ye geri sürükleyin ve
+  sahne tam olarak bıraktığınız gibi geri gelir — her bağlantı,
+  paylaşılan nokta ve çakışma ilişkisi bozulmadan.
+- **Önizlenebilir.** Geçerli SVG'dir, bu nedenle GitHub, tarayıcılar,
+  Markdown render araçları ve slayt araçları onu dönüştürme olmadan
+  doğru şekilde görüntüler.
+- **Belge dostu.** Vektör, temiz ölçeklenir, küçük dosya boyutu,
+  raster artefaktı yok. README veya makale görsellerinde herhangi
+  bir yakınlaştırmada keskin kalır.
+
+`drawtonomy.svg`, tekrar düzenlenebilecek, drawtonomy'si olan bir
+takım arkadaşıyla paylaşılabilecek veya teknik dokümantasyona
+gömülebilecek her şey için makul bir varsayılandır.
+
+<Demo src="/videos/export-demo.mp4" caption="Tamamlanmış bir kaçınma sahnesi dışa aktarıldı, ardından yeni bir sekmede yeniden açıldı — her şekil ve çakışma ilişkisi hayatta kalır." />
+
+### drawtonomy.svg olarak kaydetme
+
+1. Menüyü açın (sol üst).
+2. **Dışa Aktar**'a tıklayın.
+3. **drawtonomy.svg**'yi seçin.
+
+Dosya, sahnenin başlığına dayalı bir adla indirilir.
+
+### Yeniden açma
+
+Dosyayı drawtonomy'ye geri sürükleyin veya aynı menüdeki **İçe
+Aktar**'ı kullanın. Tüm sahne yeni bir sekmede her şekil seçilebilir
+şekilde görünür. Şekillerin çakıştığı bir alana tıkladığınızda
+Özellik Paneli bir **ÇAKIŞAN NESNELER** bölümü gösterir — diyelim
+ki bir araç ile üzerinde durduğu şerit arasındaki ilişki gidiş-dönüşte
+hayatta kalır.
+
+## Diğer görüntü formatları
+
+Yalnızca düz bir resme ihtiyacınız olduğunda — düzenleme yok, meta
+veri yok — aynı Dışa Aktar menüsünden bunlardan birini seçin.
+
+| Format | Şunun için kullanın | Notlar |
+|---|---|---|
+| **PNG** | Slaytlar, belgeler, web sayfaları | Kayıpsız raster. |
+| **JPG** | Şeffaflığa ihtiyaç olmadığında daha küçük dosyalar | Kayıplı raster. |
+| **SVG** (düz) | Illustrator / Inkscape'te son işlem, web gömme | Görsel olarak drawtonomy.svg ile aynı, ancak meta veri çıkarılır. |
+| **PDF** | Yazdırma, arşivleme, makaleler | Vektör, şeffaflığı destekler. |
+| **EPS** | Eski yayın işlem hatları | Vektör. **Şeffaflığı desteklemez** — aşağıya bakın. |
+
+### EPS ve şeffaflık
+
+EPS şeffaflığı kodlamaz. %60 opaklığa sahip bir şekil tam opaklıkta
+dışa aktarılır. Sahneniz şeffaflığa dayanıyorsa, bunun yerine PDF
+veya SVG dışa aktarın.
+
+## ASAM ve Lanelet2 dışa aktarımı
+
+Sürüş simülatörü hedefleri için — OpenDRIVE, OpenSCENARIO, esmini
+paketi, Lanelet2 —
+[OpenDRIVE / OpenSCENARIO / esmini'ye dışa aktarın](/tr/guides/export-asam/)
+sayfasına bakın.
+
+## Ayrıca bakın
+
+- [Desteklenen dışa aktarma formatları](/tr/reference/export-formats/) —
+  her formatın ne yaptığı ve neyi koruduğunun tam matrisi.
+- [drawtonomy.svg formatı](/tr/reference/drawtonomy-svg/) — kendiniz
+  okumak veya üretmek isterseniz dosyada ne olduğu.

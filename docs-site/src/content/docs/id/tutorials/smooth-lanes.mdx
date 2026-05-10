@@ -1,0 +1,76 @@
+---
+title: Batas jalur yang mulus
+description: Aktifkan Smooth Boundary di panel Lane sebelum menggambar — jalur yang berbelok keluar sebagai kurva, bukan polyline.
+sidebar:
+  order: 2
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Ini adalah pelajaran singkat kedua, setelah
+[Tiga jalur pertama Anda](/id/tutorials/your-first-lanes/). Satu
+kebiasaan kecil: aktifkan **Smooth Boundary** sebelum menggambar
+jalur yang berbelok.
+
+Toggle ini ada di panel pembuatan Lane dan mengubah cara batas
+dihasilkan untuk jalur yang Anda gambar berikutnya. Jalur yang sudah
+ada tidak terpengaruh.
+
+<Demo src="/videos/smooth-lane.mp4" caption="Centerline berbelok yang sama digambar dua kali — sekali dengan Smooth Boundary off, sekali dengan on." />
+
+## 1. Buka panel Lane
+
+Tekan <kbd>N</kbd> untuk alat Lane. Panel di sisi kanan terbuka.
+Cari baris **SMOOTH BOUNDARY** — defaultnya adalah **Off**:
+
+![Panel pembuatan Lane — baris SMOOTH BOUNDARY, saat ini diset ke Off](/img/frames/smooth-toggle-off.png)
+
+## 2. Gambar jalur berbelok dengan toggle off
+
+Biarkan toggle pada **Off**. Klik di kanvas untuk menjatuhkan
+titik-titik centerline di sepanjang kurva, dan tekan <kbd>Enter</kbd>
+untuk menyelesaikan.
+
+Batas-batas adalah segmen lurus antara titik berurutan, jadi jalur
+keluar sebagai bentuk bersudut:
+
+![Jalur berbelok digambar dengan Smooth Boundary off — batasnya adalah polyline bersudut](/img/frames/smooth-off-result.png)
+
+## 3. Aktifkan toggle, gambar jalur yang sama lagi
+
+Klik **On** di baris SMOOTH BOUNDARY. Klik centerline serupa di tempat
+lain pada kanvas dan tekan <kbd>Enter</kbd>.
+
+Kali ini batas-batas dipasang dengan spline, sehingga jalur melengkung
+dengan mulus:
+
+![Jalur berbelok digambar dengan Smooth Boundary on — batas mengikuti kurva mulus](/img/frames/smooth-on-result.png)
+
+Bersebelahan, perbedaannya jelas. Centerline-nya sama; hanya aturan
+pembuatan batas yang berubah.
+
+## Kapan dibiarkan off, kapan dinyalakan
+
+| | Smooth = Off | Smooth = On |
+| --- | --- | --- |
+| Tampilan | Bersudut, faceted | Melengkung |
+| Cocok untuk | Jalur lurus, persimpangan | Jalan berbelok, ramp |
+| Performa | Sedikit lebih ringan | Geometri sedikit lebih banyak |
+
+Anda dapat mengubah toggle sesering yang Anda mau. Setiap jalur baru
+menggunakan nilai apa pun yang diset saat Anda menyelesaikan
+penggambaran.
+
+## Apa yang Anda pelajari
+
+- Toggle Smooth Boundary ada di panel pembuatan Lane dan berlaku
+  untuk jalur berikutnya yang Anda gambar, bukan jalur yang dipilih.
+- Geometri centerline sama di kedua mode; hanya rendering batas yang
+  berbeda.
+
+## Apa selanjutnya
+
+- [Gunakan alat Lane](/id/guides/lane-tool/) — bagian lain dari panel
+  (mode Center Line vs Boundary, Lane Width, Lane Color).
+- [Kelola koneksi jalur](/id/guides/lane-connections/) — empat slot
+  koneksi di Attribute Panel.

@@ -1,0 +1,79 @@
+---
+title: Kelola koneksi jalur (Next / Prev / Left / Right)
+description: Jalur drawtonomy membawa slot koneksi Next, Previous, Left, dan Right sehingga jaringan jalan dapat diinterpretasikan, bukan hanya visual. Tarik batas bersama dan jalur yang terhubung diperbarui bersama.
+keywords:
+  - editor koneksi jalur
+  - diagram topologi jalan
+  - model jalur next previous left right
+  - sketsa jaringan jalan yang dapat diinterpretasikan
+  - editor jalur drawtonomy
+  - alat diagram topologi jalan
+  - editor diagram jalur AV
+  - pembuatan jaringan jalan
+  - sketsa skenario mengemudi
+  - papan tulis untuk berkendara otonom
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Ketika dua jalur berbagi titik batas, menyeret titik tersebut
+memindahkan kedua jalur sekaligus. Attribute Panel menampilkan empat
+slot koneksi eksplisit sehingga Anda juga dapat menghubungkan
+Next / Previous / Left / Right secara manual.
+
+<Demo src="/videos/lane-connection-demo.mp4" caption="Satu jalur digambar pertama, lalu jalur kedua ditambahkan dengan memperluas titik yang ada — batas menjadi bersama." />
+
+## Menggambar jalur yang terhubung
+
+Video dimulai dari kanvas kosong dengan alat Lane terbuka. Jalur
+pertama adalah satu jalur berbelok:
+
+![Satu jalur berbelok tunggal](/img/frames/lane-connection-curve.png)
+
+Jalur kedua kemudian dimulai sehingga batas awalnya mendarat pada
+titik batas yang ada dari jalur pertama. drawtonomy menempel ke
+titik-titik tersebut dan mendaftarkan jalur baru sebagai kelanjutan:
+
+![Jalur kedua ditambahkan; keduanya sekarang berbagi batas di bagian bawah](/img/frames/lane-connection-split.png)
+
+Jalur sekarang berbagi segmen batas. Tarik batas bersama pada salah
+satu jalur dan keduanya bergerak bersama. Ujung atas yang menyimpang
+independen di setiap sisi.
+
+## Empat slot koneksi
+
+Tekan <kbd>V</kbd> untuk Select, klik jalur mana pun, dan lihat panel
+kanan. Slotnya adalah:
+
+| Slot | Artinya |
+| --- | --- |
+| **Next Lanes** | Jalur tempat lalu lintas dari jalur ini mengalir. |
+| **Prev Lanes** | Jalur yang mengalir ke jalur ini. |
+| **Left Lane** | Jalur tepat di sebelah kiri, berbagi batas. |
+| **Right Lane** | Jalur tepat di sebelah kanan, berbagi batas. |
+
+Setiap slot memiliki dua tombol:
+
+- **Create** — membuat jalur tetangga baru dan mengarahkan slot ke
+  sana.
+- **Set** — pilih jalur yang ada di kanvas untuk mengisi slot.
+
+Koneksi bersifat dua arah. Mengatur *Next Lanes* dari Lane A ke B
+juga menambahkan B ke *Prev Lanes* dari A; drawtonomy memelihara
+tautan balik secara otomatis.
+
+## Kapan koneksi terjadi otomatis
+
+- Menggambar jalur baru yang dimulai pada titik batas jalur yang ada
+  — kasus dalam demo di atas. Batas bersama sudah cukup; Anda tidak
+  perlu mengklik Set.
+- Menempatkan [template persimpangan](/id/reference/shapes/) — setiap
+  jalur pendekatan terhubung.
+
+Untuk semua hal lainnya, klik **Set** dan pilih tetangganya.
+
+## Lihat juga
+
+- [Model koneksi jalur](/id/explanation/lane-model/) — mengapa
+  abstraksi ini ada dan apa yang dilakukan exporter dengannya.
+- [Gunakan alat Lane](/id/guides/lane-tool/)

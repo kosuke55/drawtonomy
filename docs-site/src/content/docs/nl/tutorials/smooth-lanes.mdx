@@ -1,0 +1,78 @@
+---
+title: Vloeiende rijstrookgrenzen
+description: Schakel Smooth Boundary in het Lane-paneel in voordat u tekent — een gebogen rijstrook komt eruit als een curve in plaats van een polylijn.
+sidebar:
+  order: 2
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Dit is de tweede korte les, na
+[Uw eerste drie rijstroken](/nl/tutorials/your-first-lanes/). Eén
+kleine gewoonte: zet **Smooth Boundary** aan voordat u een gebogen
+rijstrook tekent.
+
+De toggle staat in het Lane-creatiepaneel en verandert hoe
+grenzen worden gegenereerd voor de rijstroken die u hierna tekent.
+Bestaande rijstroken worden niet aangepast.
+
+<Demo src="/videos/smooth-lane.mp4" caption="Dezelfde gebogen hartlijn twee keer getekend — eenmaal met Smooth Boundary uit, eenmaal aan." />
+
+## 1. Open het Lane-paneel
+
+Druk op <kbd>N</kbd> voor de Lane-tool. Het rechterpaneel opent.
+Zoek de **SMOOTH BOUNDARY**-rij — de standaardwaarde is **Off**:
+
+![Lane-creatiepaneel — SMOOTH BOUNDARY-rij, momenteel ingesteld op Off](/img/frames/smooth-toggle-off.png)
+
+## 2. Teken een gebogen rijstrook met de toggle uit
+
+Laat de toggle op **Off** staan. Klik op het canvas om
+hartlijnpunten langs een curve te plaatsen, en druk op
+<kbd>Enter</kbd> om te voltooien.
+
+De grenzen zijn rechte segmenten tussen opeenvolgende punten,
+dus de rijstrook komt hoekig uit:
+
+![Gebogen rijstrook getekend met Smooth Boundary uit — grenzen zijn hoekige polylijnen](/img/frames/smooth-off-result.png)
+
+## 3. Zet de toggle aan, teken dezelfde rijstrook opnieuw
+
+Klik op **On** in de SMOOTH BOUNDARY-rij. Klik ergens anders op
+het canvas een vergelijkbare hartlijn en druk op <kbd>Enter</kbd>.
+
+Deze keer zijn de grenzen spline-gefit, dus de rijstrook curveert
+vloeiend:
+
+![Gebogen rijstrook getekend met Smooth Boundary aan — grenzen volgen een vloeiende curve](/img/frames/smooth-on-result.png)
+
+Naast elkaar is het verschil duidelijk. De hartlijnen zijn
+hetzelfde; alleen de grensgeneratieregel is veranderd.
+
+## Wanneer uit laten, wanneer aanzetten
+
+| | Smooth = Off | Smooth = On |
+| --- | --- | --- |
+| Uiterlijk | Hoekig, gefacetteerd | Gebogen |
+| Best voor | Rechte rijstroken, kruispuntbenen | Gebogen wegen, op- en afritten |
+| Prestaties | Iets goedkoper | Iets meer geometrie |
+
+U kunt de toggle zo vaak wisselen als u wilt. Elke nieuwe
+rijstrook gebruikt de waarde die is ingesteld op het moment dat u
+klaar bent met tekenen.
+
+## Wat u heeft geleerd
+
+- De Smooth Boundary-toggle staat in het Lane-creatiepaneel en
+  geldt voor de volgende rijstrook die u tekent, niet voor de
+  geselecteerde rijstrook.
+- De hartlijngeometrie is in beide modi hetzelfde; alleen de
+  grensweergave verschilt.
+
+## Wat is het volgende
+
+- [De Lane-tool gebruiken](/nl/guides/lane-tool/) — de rest van het
+  paneel (Center Line versus Boundary-modus, Lane Width, Lane
+  Color).
+- [Rijstrookverbindingen beheren](/nl/guides/lane-connections/) — de
+  vier verbindingsvelden in het Attribuutpaneel.

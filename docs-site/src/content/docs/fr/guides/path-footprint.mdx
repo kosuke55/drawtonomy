@@ -1,0 +1,48 @@
+---
+title: Trajectoire avec empreintes
+description: Dessinez une trajectoire à partir d'un véhicule et le modèle de véhicule se reproduit le long du tracé.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Une *empreinte* est une copie d'un véhicule (ou autre modèle) placée automatiquement le long d'une trajectoire. La démo commence avec un véhicule ego, dessine une trajectoire à partir de lui, et la trajectoire se remplit immédiatement de copies de ce véhicule — même modèle, orientées le long de la courbe, équidistantes.
+
+<Demo src="/videos/footprints-demo.mp4" caption="Un véhicule ego, une trajectoire dessinée à partir de lui et la traînée d'empreintes obtenue." />
+
+## Préparation
+
+Placez un véhicule n'importe où sur le canevas avec l'outil Véhicule, puis appuyez sur <kbd>H</kbd> pour l'outil Trajectoire. Le panneau de droite affiche les réglages de Trajectoire :
+
+![Panneau de l'outil Trajectoire — Couleur, Opacité 90 %, Style Plein, Largeur 5 px, Pointe de flèche 20 px, Lissé coché](/img/frames/footprints-path-panel.png)
+
+Les valeurs par défaut affichées — vert plein, 5 px de large, lissé, avec une pointe de flèche de 20 px — sont celles utilisées dans la démo.
+
+## Dessiner la trajectoire
+
+Cliquez sur le véhicule pour démarrer la trajectoire. Le premier point se cale sur l'ancre du véhicule. Cliquez d'autres points pour étendre la trajectoire ; la pointe de flèche apparaît au dernier point déposé. Appuyez sur <kbd>Entrée</kbd> pour terminer.
+
+Dès que la trajectoire est terminée, drawtonomy reproduit une copie du véhicule source le long de celle-ci :
+
+![La trajectoire est dessinée ; les empreintes du véhicule apparaissent le long, à intervalles réguliers](/img/frames/footprints-along-path.png)
+
+Chaque copie est orientée selon la tangente de la trajectoire à sa position, de sorte que la traînée suit naturellement les courbes.
+
+## Style et modèle restent liés
+
+Les empreintes partagent le style avec leur véhicule source : modifiez la couleur, l'opacité ou le modèle de la source, et chaque empreinte suit. Vous n'avez pas à éditer chaque copie à la main pour conserver la cohérence visuelle d'un diagramme de manœuvre.
+
+L'image de démo suivante masque la trajectoire elle-même pour ne laisser que les empreintes — utile pour les rendus d'export quand vous ne voulez pas que la trajectoire sous-jacente encombre le diagramme :
+
+![Empreintes seules, sans la trajectoire dessinée](/img/frames/footprints-result.png)
+
+## Ce que vous pouvez ajuster
+
+- **Espacement** — distance entre empreintes.
+- **Décalage de l'ancre** — déplacer le point de référence le long du sens de marche (par exemple, base_link ou pare-chocs avant au lieu du centre).
+- **Lissé** — la case dans le panneau Trajectoire fait courber la trajectoire elle-même de façon lissée entre les points ; l'orientation des empreintes suit.
+- **Couleur / Opacité / Taille** — appliquées à toutes les empreintes en une fois via le véhicule source.
+
+## Voir aussi
+
+- [Ajouter véhicules, piétons et feux tricolores](/fr/guides/participants/)
+- [Personnaliser couleur, opacité, largeur et style](/fr/guides/styling/)

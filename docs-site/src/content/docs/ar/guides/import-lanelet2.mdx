@@ -1,0 +1,47 @@
+---
+title: استيراد ملف Lanelet2 (.osm)
+description: افتح خرائط Lanelet2 OSM في السبورة البيضاء على متصفح drawtonomy، وحرّر المسارات والوصلات بصريًا، وأعد الدورة الكاملة إلى Lanelet2 — مفيد لخرائط Autoware النموذجية وملفات شبكات الطرق المماثلة.
+keywords:
+  - محرر Lanelet2 في المتصفح
+  - عارض Lanelet2 على الإنترنت
+  - تحرير ملف Lanelet2 osm
+  - محرر خرائط Autoware النموذجية
+  - أداة مخطط lanelet2
+  - استيراد خريطة HD
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+يمكن لـ drawtonomy قراءة خرائط [Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2) بصيغة OSM. تتوفر خرائط نموذجية من [وثائق Autoware](https://autowarefoundation.github.io/autoware-documentation/main/demos/planning-sim/#download-the-sample-map).
+
+<Demo src="/videos/lanelet-import-demo.mp4" caption="استيراد ملف Lanelet2 كامل." />
+
+## استيراد الملف بأكمله
+
+1. افتح قائمة **File** ← **Import**.
+2. اختر ملف `.osm`.
+3. يحلّل drawtonomy الملف ويملأ اللوحة بأشكال Lane مع وصلاتها.
+
+## استيراد مسارات محددة فقط
+
+للخرائط الكبيرة، سيؤدي استيراد كل مسار إلى إبطاء المحرر. استخدم بدلًا من ذلك مربع حوار اختيار المسارات:
+
+<Demo src="/videos/lanelet-select-import-demo.mp4" caption="حدد بالسحب فقط المسارات التي تهمك ثم استوردها." />
+
+1. افتح قائمة **File** ← **Import → Select lanes**.
+2. يعرض drawtonomy خريطة معاينة.
+3. انقر أو اسحب لتحديد المسارات التي تريدها.
+4. انقر على **Import selection**.
+
+## نصائح للأداء
+
+أبقِ المشهد المستورد أقل من **500 مسار** تقريبًا للحصول على محرر سلس. للمناطق الأكبر، قسّم العمل على عدة ملفات، أو استورد فقط المنطقة التي تحتاجها.
+
+## بعد الاستيراد
+
+المسارات المستوردة هي أشكال Lane كاملة الدقة؛ وتُحفظ الوصلات الواردة من ملف Lanelet2. حرّر، أو [نعّم](/ar/guides/smooth-lanes/)، أو [صدّر مرة أخرى](/ar/guides/export-asam/) دون فقد الطوبولوجيا.
+
+## انظر أيضًا
+
+- [صيغة drawtonomy.svg](/ar/reference/drawtonomy-svg/) — الصيغة بدون فقد لإعادة التحرير داخل drawtonomy.
+- [توليد المسارات من خريطة](/ar/guides/lane-from-map/) — عند عدم توفر ملف خريطة منسّق.

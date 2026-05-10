@@ -1,0 +1,76 @@
+---
+title: Gładkie granice pasów
+description: Przełącz Gładką Granicę w panelu Pas przed rysowaniem — krzywiący się pas wychodzi jako krzywa zamiast łamanej.
+sidebar:
+  order: 2
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+To jest druga krótka lekcja, po
+[Twoich pierwszych trzech pasach](/pl/tutorials/your-first-lanes/).
+Jeden mały nawyk: włącz **Gładką Granicę** przed narysowaniem
+krzywiącego się pasa.
+
+Przełącznik znajduje się w panelu tworzenia Pasa i zmienia sposób
+generowania granic dla pasów, które rysujesz następnie. Istniejące
+pasy nie są zmieniane.
+
+<Demo src="/videos/smooth-lane.mp4" caption="Ta sama krzywiąca się oś narysowana dwa razy — raz z wyłączoną Gładką Granicą, raz z włączoną." />
+
+## 1. Otwórz panel Pas
+
+Naciśnij <kbd>N</kbd> dla narzędzia Pas. Otworzy się prawy panel.
+Znajdź wiersz **GŁADKA GRANICA** — domyślnie jest **Wyłączona**:
+
+![Panel tworzenia Pasa — wiersz GŁADKA GRANICA, obecnie ustawiony na Wyłączona](/img/frames/smooth-toggle-off.png)
+
+## 2. Narysuj krzywiący się pas z wyłączonym przełącznikiem
+
+Pozostaw przełącznik na **Wyłączona**. Kliknij na płótnie, aby
+umieścić punkty osi wzdłuż krzywej, i naciśnij <kbd>Enter</kbd>, aby
+zakończyć.
+
+Granice są prostymi segmentami między kolejnymi punktami, więc pas
+wychodzi kanciasty:
+
+![Krzywiący się pas narysowany z wyłączoną Gładką Granicą — granice są kanciastymi łamanymi](/img/frames/smooth-off-result.png)
+
+## 3. Włącz przełącznik, narysuj ten sam pas ponownie
+
+Kliknij **Włączona** w wierszu GŁADKA GRANICA. Kliknij podobną oś
+gdzieś indziej na płótnie i naciśnij <kbd>Enter</kbd>.
+
+Tym razem granice są dopasowywane splajnem, więc pas zakrzywia się
+płynnie:
+
+![Krzywiący się pas narysowany z włączoną Gładką Granicą — granice podążają za gładką krzywą](/img/frames/smooth-on-result.png)
+
+Obok siebie różnica jest oczywista. Osie są takie same; zmieniła się
+tylko zasada generowania granicy.
+
+## Kiedy zostawić wyłączone, kiedy włączyć
+
+| | Gładka = Wył. | Gładka = Wł. |
+| --- | --- | --- |
+| Wygląd | Kanciasty, fasetowy | Krzywy |
+| Najlepsze do | Prostych pasów, ramion skrzyżowań | Krzywych dróg, ramp |
+| Wydajność | Nieco tańsza | Nieco więcej geometrii |
+
+Możesz przełączać tak często, jak chcesz. Każdy nowy pas używa
+wartości ustawionej w momencie zakończenia rysowania.
+
+## Czego się nauczyłeś
+
+- Przełącznik Gładkiej Granicy znajduje się w panelu tworzenia Pasa
+  i stosuje się do następnego pasa, który rysujesz, a nie do
+  wybranego.
+- Geometria osi jest taka sama w obu trybach; różni się tylko
+  renderowanie granicy.
+
+## Co dalej
+
+- [Użyj narzędzia Pas](/pl/guides/lane-tool/) — reszta panelu (Tryb
+  Osi vs Granicy, Szerokość Pasa, Kolor Pasa).
+- [Zarządzaj połączeniami pasów](/pl/guides/lane-connections/) —
+  cztery sloty połączeń w Panelu Atrybutów.

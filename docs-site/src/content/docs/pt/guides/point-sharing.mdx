@@ -1,0 +1,39 @@
+---
+title: Compartilhar pontos entre formas
+description: Conecte Linestrings, Polígonos e Trajetórias para que compartilhem um vértice e se movam juntos.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Um *ponto compartilhado* é um único vértice referenciado por várias
+formas. Mova-o uma vez e cada forma que o referencia segue. Use isso
+para manter bordas de faixa adjacentes, cantos de polígono e junções
+de trajetória travados juntos.
+
+<Demo src="/videos/share-demo.mp4" caption="Segure Alt + clique para compartilhar um ponto existente com uma nova forma." />
+
+## Crie um ponto compartilhado enquanto desenha
+
+1. Escolha a ferramenta Linestring (<kbd>L</kbd>), Polígono
+   (<kbd>G</kbd>) ou Trajetória (<kbd>H</kbd>).
+2. Segure <kbd>Alt</kbd> (Option no macOS).
+3. Clique em um vértice existente de outra forma.
+
+A nova forma ganha um vértice que é *compartilhado* com o existente
+— não apenas com snap na mesma coordenada.
+
+## Converta um vértice existente em um compartilhado
+
+1. Clique duplo numa forma para entrar na
+   [edição de segmento](/pt/guides/segment-editing/).
+2. Segure <kbd>Alt</kbd> e arraste um vértice sobre um existente.
+
+## Indicação visual
+
+Pontos compartilhados aparecem como uma alça dupla no modo de edição
+de segmento. Pontos com snap simples aparecem como uma única alça.
+
+## Veja também
+
+- [Modelo de snap & compartilhamento de pontos](/pt/explanation/snap-and-sharing/) —
+  por que compartilhado e com snap são coisas diferentes.

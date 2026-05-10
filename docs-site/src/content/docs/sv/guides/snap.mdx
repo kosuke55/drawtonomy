@@ -1,0 +1,56 @@
+---
+title: Snap till befintlig geometri
+description: drawtonomy snappar varje ritverktyg till närliggande punkter och kanter — tvärs över linstrings, körfält, fordon och grundläggande former.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Snapping är på som standard och fungerar tvärs över varje verktyg.
+När markören kommer nära en befintlig punkt eller kant låser
+drawtonomy fast på den och tänder en indigoindikator.
+
+<Demo src="/videos/snap-demo.mp4" caption="En enskild linstring är utgångsmålet; en andra linstring snappar till den, sedan snappar ett fordon och en rektangel till features i tur och ordning." />
+
+## Tvärs över formtyper
+
+Demon kör tre olika verktyg mot samma typ av mål.
+
+### Linstring snappar till linstring
+
+Med utgångspunkt från en enskild vertikal linstring ritas den
+andra så att dess hörn landar exakt på den förstas övre kant.
+Resultatet är en rät vinkel som delar en punkt — inte bara visuellt
+överlappande pixlar.
+
+![Två linstrings, den andra snappad till den första för att forma ett hörn](/img/frames/snap-linestring.png)
+
+### Fordon snappar till ett körfält
+
+Att växla till Vehicle-verktyget och släppa en bil på ett körfält
+snappar fordonet på körfältets mittlinje och orienterar det längs
+körfältsriktningen.
+
+![Ett fordon placerat på ett horisontellt körfält, snappat till dess mittlinje](/img/frames/snap-vehicle.png)
+
+### Rektangel snappar till ett fordon / en canvas-punkt
+
+Rectangle-verktyget får samma snap-beteende. Den streckade
+indikatorn visar var hörnet dras till.
+
+![Rektangel som ritas nära ett fordon; en streckad linje visar snap-målet](/img/frames/snap-rectangle.png)
+
+## Inaktivera snap tillfälligt
+
+Håll <kbd>Shift</kbd> medan du klickar eller drar för att kringgå
+snap för den enstaka åtgärden. Släpp <kbd>Shift</kbd> för att
+återuppta snappning.
+
+Detta är rätt drag när du vill ha en punkt nära, men inte exakt
+på, ett befintligt mål.
+
+## Se även
+
+- [Dela punkter mellan former](/sv/guides/point-sharing/) — när du
+  vill att den nya punkten ska *vara densamma* som målet, inte
+  bara sammanfallande.
+- [Snap- och punktdelningsmodell](/sv/explanation/snap-and-sharing/)

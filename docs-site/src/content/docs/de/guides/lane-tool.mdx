@@ -1,0 +1,98 @@
+---
+title: Lane-Werkzeug verwenden — Fahrspuren aus Mittellinie oder Rändern zeichnen
+description: Das Lane-Werkzeug von drawtonomy hat zwei Erstellungsmodi. Zeichnen Sie eine Mittellinie und lassen Sie drawtonomy die Ränder erzeugen, oder wählen Sie zwei vorhandene Begrenzungs-Linestrings, um eine Fahrspur dazwischen einzupassen. Der schnelle Weg, Fahrspuren für Abbildungen und Szenarien autonomes Fahren zu zeichnen.
+keywords:
+  - Spureditor im Browser
+  - Fahrspur online zeichnen
+  - Spurdiagramm autonomes Fahren
+  - Abbildung autonomes Fahren
+  - Mittellinie zu Spurgeometrie
+  - Boundary-Modus Fahrspur
+  - Whiteboard für autonomes Fahren
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Drücken Sie <kbd>N</kbd> für das **Lane**-Werkzeug. Rechts öffnet
+sich ein Panel, das sichtbar bleibt, solange das Werkzeug aktiv ist.
+Oben im Panel befindet sich der Schalter **CREATION MODE**:
+
+![Lane-Panel — CREATION MODE mit Buttons Center Line und Boundary; Center Line ist ausgewählt; Lane Width 50 px](/img/frames/lane-tool-panel.png)
+
+Die beiden Modi tun Unterschiedliches; wählen Sie den, der zu Ihrer
+Situation passt.
+
+<Demo src="/videos/lane-tool-demo.mp4" caption="Zwei im Center-Line-Modus gezeichnete Fahrspuren, eine dritte im Boundary-Modus eingefügt." />
+
+## Center-Line-Modus
+
+Sie zeichnen die Mittellinie; drawtonomy erzeugt linken und rechten
+Rand aus dem Wert **Lane Width**. Verwenden Sie diesen Modus, wenn
+Sie bei null beginnen.
+
+1. Klicken Sie auf den Canvas, um den ersten Mittellinienpunkt zu
+   setzen.
+2. Klicken Sie weiter für die nächsten Punkte.
+3. Drücken Sie <kbd>Enter</kbd> (oder doppelklicken Sie auf den
+   letzten Punkt) zum Abschluss.
+
+Das Lane-Werkzeug bleibt aktiv, also klicken Sie an einer anderen
+Stelle, um eine neue Fahrspur zu beginnen. Zwei so gezeichnete
+Fahrspuren:
+
+![Zwei aus Mittellinien gezeichnete Fahrspuren](/img/frames/lane-tool-two-lanes.png)
+
+Sie können Color, Opacity oder Lane Width im Panel zwischen den
+Fahrspuren ändern — der neue Wert gilt für die nächste gezeichnete
+Fahrspur, nicht für die ausgewählte.
+
+## Boundary-Modus
+
+Klicken Sie oben im Panel auf **Boundary**, um den Modus zu wechseln.
+Im Boundary-Modus klicken Sie nicht in leeren Raum, sondern auf zwei
+vorhandene Begrenzungs-Linestrings, und drawtonomy erzeugt eine
+Fahrspur, die diese als linken und rechten Rand verwendet.
+
+Bewegen Sie den Mauszeiger über einen Linestring — drawtonomy hebt
+ihn indigo hervor, sobald der Cursor nahe genug ist — und klicken
+Sie:
+
+![Boundary-Modus — ein vorhandener rechter Rand ist hervorgehoben und kann ausgewählt werden](/img/frames/lane-tool-boundary-mode.png)
+
+Klicken Sie einen zweiten Linestring, und eine neue Fahrspur
+erscheint zwischen ihnen. Die neue Fahrspur teilt beide Ränder mit
+allem anderen, das sie nutzt — sodass das Verschieben eines
+Randpunkts jede abhängige Fahrspur aktualisiert.
+
+Verwenden Sie den Boundary-Modus, wenn Sie bereits Geometrie haben
+(per Hand gezeichnet, aus Lanelet2 importiert oder per Lane
+Generator erzeugt) und Fahrspuren dazwischen passen sollen.
+
+## Eine Fahrspur prüfen
+
+Drücken Sie <kbd>V</kbd> für Select und klicken Sie auf eine
+Fahrspur. Das Panel wechselt zu den Attributen der Fahrspur:
+
+![Lane Attribute Panel — Lane ID, geteilte Boundary-IDs, Direction, vier Verbindungs-Slots](/img/frames/lane-attributes.png)
+
+Was angezeigt wird:
+
+- **Lane ID** sowie die IDs der **Left Boundary** /
+  **Right Boundary**-Linestrings (z. B. `way/1`, `way/2`). Zwei
+  Fahrspuren, die einen Linestring teilen, zeigen dieselbe ID.
+- **Lane Color**, **Lane Opacity**, **Direction (Reverse)** — die
+  visuellen und topologischen Einstellungen für die Fahrspur selbst.
+- **Next Lanes / Prev Lanes / Left Lane / Right Lane** — die vier
+  Verbindungs-Slots, jeweils mit **Create** (eine neue
+  Nachbarspur erstellen) und **Set** (eine vorhandene
+  zuweisen). Siehe
+  [Spurverbindungen verwalten](/de/guides/lane-connections/).
+
+## Siehe auch
+
+- [Glatte Fahrspurränder](/de/guides/smooth-lanes/) — der Smooth-Boundary-Toggle
+  im selben Panel verwandelt eckige Ränder in Splines.
+- [Spurverbindungen verwalten](/de/guides/lane-connections/)
+- [Spurverbindungsmodell](/de/explanation/lane-model/) — warum
+  geteilte Ränder das Fundament des Straßenmodells von drawtonomy
+  sind.

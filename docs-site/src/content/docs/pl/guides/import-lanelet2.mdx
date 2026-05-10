@@ -1,0 +1,58 @@
+---
+title: Importuj plik Lanelet2 (.osm)
+description: Otwórz mapy Lanelet2 OSM w tablicy przeglądarkowej drawtonomy, edytuj pasy i połączenia wizualnie i wykonaj round-trip z powrotem do Lanelet2 — przydatne dla przykładowych map Autoware i podobnych plików sieci drogowej.
+keywords:
+  - Lanelet2 edytor przeglądarka
+  - Lanelet2 podgląd online
+  - edycja pliku Lanelet2 osm
+  - edytor przykładowej mapy Autoware
+  - lanelet2 narzędzie diagramu
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+drawtonomy może odczytywać mapy w formacie OSM
+[Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2).
+Przykładowe mapy są dostępne w
+[dokumentacji Autoware](https://autowarefoundation.github.io/autoware-documentation/main/demos/planning-sim/#download-the-sample-map).
+
+<Demo src="/videos/lanelet-import-demo.mp4" caption="Importowanie pełnego pliku Lanelet2." />
+
+## Importuj cały plik
+
+1. Otwórz menu **Plik** → **Importuj**.
+2. Wybierz plik `.osm`.
+3. drawtonomy parsuje plik i wypełnia płótno kształtami Pasa wraz z
+   ich połączeniami.
+
+## Importuj tylko określone pasy
+
+Dla dużych map import każdego pasa spowolni edytor. Zamiast tego użyj
+okna dialogowego wyboru pasów:
+
+<Demo src="/videos/lanelet-select-import-demo.mp4" caption="Zaznacz przeciąganiem tylko pasy, na których ci zależy, a następnie zaimportuj." />
+
+1. Otwórz menu **Plik** → **Importuj → Wybierz pasy**.
+2. drawtonomy pokazuje mapę podglądu.
+3. Kliknij lub przeciągnij, aby wybrać pasy, których chcesz.
+4. Kliknij **Importuj wybór**.
+
+## Wskazówki dotyczące wydajności
+
+Utrzymuj zaimportowaną scenę poniżej około **500 pasów** dla
+responsywnego edytora. Dla większych obszarów rozdziel pracę między
+wiele plików lub zaimportuj tylko potrzebny region.
+
+## Po imporcie
+
+Zaimportowane pasy są kształtami Pasa o pełnej wierności; połączenia
+z pliku Lanelet2 są zachowane. Edytuj,
+[wygładź](/pl/guides/smooth-lanes/) lub
+[eksportuj z powrotem](/pl/guides/export-asam/) bez utraty topologii.
+
+## Zobacz także
+
+- [Format drawtonomy.svg](/pl/reference/drawtonomy-svg/) — bezstratny
+  format do ponownej edycji w drawtonomy.
+- [Generuj pasy z mapy](/pl/guides/lane-from-map/) — gdy nie masz
+  wyselekcjonowanego pliku mapy.

@@ -1,0 +1,96 @@
+---
+title: Şerit aracını kullanın — bir merkez çizgiden veya sınırlardan şerit çizin
+description: drawtonomy'nin Şerit aracının iki oluşturma modu vardır. Bir merkez çizgi çizin ve drawtonomy'nin sınırları oluşturmasına izin verin veya iki mevcut sınır çizgisi seçerek aralarına bir şerit oturtun. Otonom sürüş görselleri ve senaryoları için şerit çizmenin hızlı yolu.
+keywords:
+  - tarayıcıda şerit düzenleyici
+  - çevrimiçi yol şeritleri çizimi
+  - otonom sürüş için şerit diyagramı çizimi
+  - otonom sürüş şerit görseli
+  - merkez çizgisinden şerit geometrisi
+  - sınır tabanlı şerit çizimi
+  - drawtonomy şerit aracı
+  - sürüş senaryosu diyagramı
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+**Şerit** aracı için <kbd>N</kbd> tuşuna basın. Sağda bir panel
+açılır ve araç etkin olduğu sürece görünür kalır. Panelin üstü
+**OLUŞTURMA MODU** anahtarıdır:
+
+![Şerit paneli — OLUŞTURMA MODU'nda Merkez Çizgi ve Sınır düğmeleri var; Merkez Çizgi seçili; Şerit Genişliği 50 px](/img/frames/lane-tool-panel.png)
+
+İki mod farklı şeyler yapar; durumunuza uyanı seçin.
+
+<Demo src="/videos/lane-tool-demo.mp4" caption="Merkez Çizgi modunda iki şerit çizildi, Sınır modunda üçüncüsü eklendi." />
+
+## Merkez Çizgi modu
+
+Merkez çizgiyi çizersiniz; drawtonomy **Şerit Genişliği** değerinden
+sol ve sağ sınırları oluşturur. Hiçbir şeyden başladığınızda bunu
+kullanın.
+
+1. İlk merkez çizgi noktasını yerleştirmek için tuvale tıklayın.
+2. Bir sonrakini yerleştirmek için tekrar tıklayın ve bu şekilde devam
+   edin.
+3. Bitirmek için <kbd>Enter</kbd> tuşuna basın (veya son noktaya çift
+   tıklayın).
+
+Şerit aracı etkin kalır, bu nedenle yeni bir şerit başlatmak için
+başka bir yere tekrar tıklayın. Bu şekilde çizilen iki şerit:
+
+![Merkez çizgilerden çizilmiş iki şerit](/img/frames/lane-tool-two-lanes.png)
+
+Şeritler arasında panelde Renk, Opaklık veya Şerit Genişliğini
+değiştirebilirsiniz — yeni değer seçili olana değil, çizdiğiniz bir
+sonraki şeride uygulanır.
+
+## Sınır modu
+
+Modları değiştirmek için panelin üst kısmındaki **Sınır**'a tıklayın.
+Sınır modunda boş alana tıklamazsınız; iki mevcut sınır çizgisine
+tıklarsınız ve drawtonomy bunları sol ve sağ sınırları olarak kullanan
+bir şerit yapar.
+
+Bir çizgi parçasının üzerine gelin — drawtonomy, imleç yeterince yakın
+olduğunda onu çividi renkte vurgular — ve tıklayın:
+
+![Sınır modu — mevcut bir sağ sınır vurgulanmış, seçilmeye hazır](/img/frames/lane-tool-boundary-mode.png)
+
+İkinci bir çizgi parçasına tıklayın ve aralarında yeni bir şerit
+görünür. Yeni şerit her iki sınırı da kullanan başka her şeyle
+paylaşır, böylece bir sınır noktasını hareket ettirmek ona bağımlı
+olan her şeridi günceller.
+
+Zaten geometriniz olduğunda (elle çizilmiş, Lanelet2'den içe
+aktarılmış veya Şerit Üreteci tarafından üretilmiş) ve şeritlerin
+aralarına oturmasını istediğinizde Sınır modunu kullanın.
+
+## Bir şeridi inceleme
+
+Seçim için <kbd>V</kbd> tuşuna basın, ardından bir şeride tıklayın.
+Panel şeridin özelliklerine geçer:
+
+![Şerit Özellik Paneli — Şerit Kimliği, paylaşılan sınır kimlikleri, Yön, dört bağlantı yuvası](/img/frames/lane-attributes.png)
+
+Gösterilenler:
+
+- **Şerit Kimliği** ve **Sol Sınır** / **Sağ Sınır** çizgi
+  parçalarının kimlikleri (örn. `way/1`, `way/2`). Bir çizgi parçasını
+  paylaşan iki şerit burada aynı kimliği gösterir.
+- **Şerit Rengi**, **Şerit Opaklığı**, **Yön (Ters)** — şeridin
+  görsel ve topolojik ayarları.
+- **Sonraki Şeritler / Önceki Şeritler / Sol Şerit / Sağ Şerit** —
+  her biri **Oluştur** (yeni komşu şerit yap) ve **Ayarla** (mevcut
+  birine yönlendir) ile dört bağlantı yuvası.
+  [Şerit bağlantılarını yönetin](/tr/guides/lane-connections/)
+  sayfasına bakın.
+
+## Ayrıca bakın
+
+- [Pürüzsüz şerit sınırları](/tr/guides/smooth-lanes/) — aynı
+  paneldeki Pürüzsüz Sınır geçişi açısal sınırları spline'lara
+  dönüştürür.
+- [Şerit bağlantılarını yönetin](/tr/guides/lane-connections/)
+- [Şerit bağlantı modeli](/tr/explanation/lane-model/) — paylaşılan
+  sınırların neden drawtonomy'nin yol modelinin temeli olduğu.

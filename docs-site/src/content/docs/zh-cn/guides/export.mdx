@@ -1,0 +1,90 @@
+---
+title: 导出场景为 SVG、PNG、PDF 或 drawtonomy.svg
+description: 将 drawtonomy 场景保存为 drawtonomy.svg 以便重新编辑或嵌入文档,也可选择 PNG、JPG、扁平 SVG、PDF 或 EPS,用于幻灯片、论文和设计文档中的自动驾驶配图。仿真目标(OpenDRIVE / OpenSCENARIO / Lanelet2)有专门的页面。
+keywords:
+  - 导出行车场景图 SVG
+  - 可编辑 SVG 行车场景
+  - 自动驾驶论文配图
+  - 自动驾驶幻灯片配图
+  - 自动驾驶演示插图
+  - 行车场景 LaTeX 配图
+  - 文档用道路示意图
+  - drawtonomy.svg 格式
+  - 自动驾驶矢量图
+  - 自动驾驶 PDF 配图
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+drawtonomy 提供多种导出格式。最常用的是 **drawtonomy.svg** ——
+一个带有额外元数据的普通 SVG,可以重新打开继续编辑。它同时是
+合法的 SVG,在浏览器、幻灯片和文档流水线里无需转换就能正确预览。
+
+其他格式 — PNG、JPG、SVG(扁平)、PDF、EPS — 适合只需要静态图片、
+不再编辑的场景。
+
+如果要导出给驾驶仿真器(OpenDRIVE / OpenSCENARIO / Lanelet2),
+请见专门的 [ASAM 导出](/zh-cn/guides/export-asam/) 页面。
+
+## 推荐先用:drawtonomy.svg
+
+`drawtonomy.svg` 会保留图形 ID、车道连接、共享点、足迹组、样式
+以及*哪个图形在上面*的层级关系。同一份文件:
+
+- **可重新编辑。** 把它拖回 drawtonomy,场景会原样恢复——
+  每条连接、每个共享点、每层遮挡关系都完好无损。
+- **可直接预览。** 它是合法 SVG,所以 GitHub、浏览器、Markdown
+  渲染器和幻灯片工具都能正确显示,无需转换。
+- **适合文档。** 矢量、缩放干净、文件小、没有栅格化噪点。
+  在 README 或论文配图中无论怎么放大都不糊。
+
+`drawtonomy.svg` 适合作为默认选择,无论你将来还想再编辑、
+和有 drawtonomy 的同事共享,还是嵌入到技术文档中。
+
+<Demo src="/videos/export-demo.mp4" caption="一个完成的避让场景导出后,在新标签页中重新打开——所有图形和遮挡关系都保留下来。" />
+
+### 保存为 drawtonomy.svg
+
+1. 打开左上角的菜单。
+2. 点击 **Export**。
+3. 选 **drawtonomy.svg**。
+
+文件下载后,文件名以场景标题为基础。
+
+### 重新打开
+
+把文件拖回 drawtonomy,或者使用同一菜单的 **Import**。
+整个场景会出现在新标签页中,所有图形都可选中。点击多个图形
+重叠的区域,属性面板会出现 **OVERLAPPING OBJECTS** 段落——
+比如车辆与它所在车道之间的关系,在往返过程中得以保留。
+
+## 其他图片格式
+
+如果只需要扁平图片——不需要再编辑、不需要元数据——可以从同一
+导出菜单中选择以下任一格式。
+
+| 格式 | 适用场景 | 备注 |
+|---|---|---|
+| **PNG** | 幻灯片、文档、网页 | 无损栅格图。 |
+| **JPG** | 不需要透明度时的较小文件 | 有损栅格图。 |
+| **SVG**(扁平) | 在 Illustrator / Inkscape 中后期处理、网页嵌入 | 视觉上与 drawtonomy.svg 一致,但元数据被剥离。 |
+| **PDF** | 印刷、归档、论文 | 矢量,支持透明度。 |
+| **EPS** | 老旧出版流水线 | 矢量。**不支持透明度**——见下文。 |
+
+### EPS 与透明度
+
+EPS 不能编码透明度。一个不透明度 60% 的图形导出后会变成完全不透明。
+若你的场景依赖透明度,请改用 PDF 或 SVG 导出。
+
+## ASAM 与 Lanelet2 导出
+
+如果导出目标是驾驶仿真器——OpenDRIVE、OpenSCENARIO、esmini bundle、
+Lanelet2——请见
+[导出至 OpenDRIVE / OpenSCENARIO / esmini](/zh-cn/guides/export-asam/)。
+
+## 另请参阅
+
+- [支持的导出格式](/zh-cn/reference/export-formats/) — 各格式
+  保留与不保留的内容一览表。
+- [drawtonomy.svg 格式](/zh-cn/reference/drawtonomy-svg/) — 文件
+  在磁盘上的结构,适合自己读取或生成。

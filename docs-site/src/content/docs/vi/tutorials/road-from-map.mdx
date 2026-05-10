@@ -1,0 +1,82 @@
+---
+title: Tái tạo một con đường thực từ bản đồ
+description: Bật nền đường hoặc vệ tinh, căn chỉnh nó với điều khiển xoay, và vẽ con đường bằng công cụ Lane. Tự động tạo cũng có sẵn như một lối tắt.
+sidebar:
+  order: 3
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Bài học này lấy một địa điểm thực làm điểm khởi đầu. Bạn bật nền **Road** hoặc **Satellite**, xoay canvas để con đường nằm theo hướng dễ chịu, và vẽ làn đường bằng tay theo bức ảnh bên dưới. Phần thưởng ở cuối bài cho thấy trình tạo một-cú-nhấp kéo làn đường trực tiếp từ dữ liệu OSM.
+
+## 1. Bật nền bản đồ
+
+Mở menu (góc trên-trái) và tìm hàng **Map**:
+
+![Menu được mở với hàng Map được làm nổi bật; lựa chọn là Off / Road / Satellite](/img/mapBackground.png)
+
+Chọn **Road** cho chế độ xem dạng sơ đồ OpenStreetMap, hoặc **Satellite** cho chế độ ảnh chụp. Bản đồ hiển thị phía sau mọi thứ bạn vẽ và được neo lại — vẽ lên trên không làm nó di chuyển.
+
+Để tắt nó đi, chọn **Off** từ cùng hàng.
+
+## 2. Căn chỉnh canvas với điều khiển xoay
+
+Góc dưới-trái có hai bảng nhỏ gọn:
+
+![Điều khiển góc dưới-trái — Zoom ở bên trái, Rotation ở bên phải](/img/bottomLeft.png)
+
+- **Zoom** — các nút `−` và `+` với phần trăm hiện tại ở giữa. Bạn cũng có thể véo hoặc cuộn bánh xe chuột để zoom.
+- **Rotation** — biểu tượng la bàn và góc hiện tại (`0°` mặc định). Sử dụng tính năng này để xoay canvas sao cho con đường dễ theo hơn với con trỏ.
+
+Làm việc với phép xoay:
+
+- **Nhấp** la bàn để vào chế độ xoay. Con trỏ biến thành handle xoay; kéo trên canvas để xoay toàn bộ canvas (và nền bản đồ cùng với nó).
+- **Nhấp** la bàn lần nữa để rời chế độ xoay.
+- **Nhấp đúp** la bàn để đặt lại về `0°`.
+
+Xoay cho đến khi đoạn đường bạn muốn gần như nằm ngang hoặc dọc — tùy theo cách nào cảm thấy thoải mái hơn để vẽ theo.
+
+## 3. Vẽ theo con đường bằng công cụ Lane
+
+Nhấn <kbd>N</kbd> để dùng công cụ Lane. Bảng tạo Lane mở ra ở bên phải. Chế độ **Center Line** được chọn mặc định.
+
+Nếu con đường trên bản đồ cong, bật **Smooth Boundary** trong bảng trước khi nhấp — biên làn đường sẽ theo đường cong mượt mà thay vì polyline. (Xem [Biên làn đường mượt mà](/vi/tutorials/smooth-lanes/) nếu bạn muốn ôn lại.)
+
+Nhấp dọc theo trung tâm con đường trên bản đồ, đặt một điểm mỗi khi đường thay đổi hướng đáng kể. Nhấn <kbd>Enter</kbd> để hoàn thành làn đường.
+
+Một vài mẹo khi vẽ theo:
+
+- Điều chỉnh **Lane Width** trong bảng trước khi vẽ nếu giá trị mặc định không khớp với con đường trên bản đồ.
+- Giữ <kbd>Shift</kbd> khi nhấp để bỏ qua [snap](/vi/guides/snap/) cho một lần nhấp — tiện khi bạn muốn một điểm gần, nhưng không chính xác trên, một điểm hiện có.
+- Đối với đường nhiều làn, hãy vẽ từng làn riêng. Khi một biên đã có, bạn có thể dùng [chế độ Boundary](/vi/guides/lane-tool/#boundary-mode) cho làn tiếp theo và để nó tự động chia sẻ biên đó.
+
+## 4. Lưu
+
+Khi con đường đã vẽ trông đúng, hãy xuất sang **drawtonomy.svg** để nền bản đồ, hình học làn đường và các kết nối đều được giữ lại khi bạn mở lại tệp. Xem [Xuất cảnh của bạn](/vi/guides/export/).
+
+## Phần thưởng: tạo làn đường một-cú-nhấp
+
+Nếu bạn tin tưởng dữ liệu OSM cho khu vực đó, drawtonomy có thể chuyển đổi đường trực tiếp thành các hình mẫu Lane có thể chỉnh sửa — không cần vẽ theo.
+
+<Demo src="/videos/map-to-lane-demo.mp4" caption="Nhấp một con đường để có một làn; kéo một vùng để có mọi con đường bên trong nó." maxWidth="900px" />
+
+Với nền bản đồ bật:
+
+1. Nhấn <kbd>N</kbd> để dùng công cụ Lane, sau đó bật chế độ **Generator** trong thanh công cụ.
+2. **Nhấp** một đoạn đường để chuyển đổi chỉ đoạn đó thành một Lane.
+3. **Kéo** một hình chữ nhật trên một khu vực để chuyển đổi mọi con đường bên trong nó trong một lô.
+
+Đây là một lối tắt, không phải sự thay thế cho việc vẽ theo. Đầu ra chỉ là các hình mẫu Lane bình thường — tinh chỉnh bằng [chỉnh sửa đoạn](/vi/guides/segment-editing/), [làm mượt](/vi/guides/smooth-lanes/), hoặc nối các [kết nối](/vi/guides/lane-connections/) còn thiếu sau đó.
+
+Đối với khu vực phức tạp hoặc không quen thuộc, vẽ tay thường tạo ra kết quả sạch hơn so với trình tạo, vì dữ liệu đường OSM có thể bị nhiễu hoặc dùng đường tâm không hoàn toàn khớp với ảnh vệ tinh.
+
+## Bạn đã học được gì
+
+- Nền bản đồ nằm trong hàng **Map** của menu, với các tùy chọn **Off**, **Road** và **Satellite**.
+- La bàn **Rotation** ở góc dưới-trái xoay toàn bộ canvas để con đường dễ vẽ theo hơn; nhấp đúp đặt lại về `0°`.
+- Vẽ theo đường bằng công cụ Lane cho phép kiểm soát hoàn toàn hình học; Lane Generator là lối tắt một-cú-nhấp khi dữ liệu OSM đủ tốt.
+
+## Tiếp theo là gì
+
+- [Quản lý kết nối làn đường](/vi/guides/lane-connections/) — nối Next/Previous để mạng lưới đường được kết nối, không chỉ liền kề về mặt hình ảnh.
+- [Nhập tệp Lanelet2 (.osm)](/vi/guides/import-lanelet2/) — khi bạn đã có tệp bản đồ được tinh chỉnh thay vì OSM thô.

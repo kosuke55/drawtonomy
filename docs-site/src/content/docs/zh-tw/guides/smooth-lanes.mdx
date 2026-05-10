@@ -1,0 +1,43 @@
+---
+title: 平滑車道邊界
+description: 在繪製前先於車道面板開啟「平滑邊界」——邊界會以樣條曲線擬合而非角狀。
+keywords:
+  - 平滑車道邊界
+  - drawtonomy 樣條車道
+  - 曲線車道繪製
+  - 車道邊界平滑
+  - 自駕曲線道路
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+drawtonomy 可產生樣條曲線擬合的車道邊界,而非角狀折線。此切換位於車道建立面板,只套用至您接下來繪製的車道;不會回頭平滑既有車道。
+
+<Demo src="/videos/smooth-lane.mp4" caption="同一條車道,平滑邊界關閉(左,角狀)與開啟(右,平滑)時的結果。" />
+
+## 切換位置
+
+按下 <kbd>N</kbd> 切換到車道工具。右側面板包含 **SMOOTH BOUNDARY** 列,有 **On** 與 **Off** 按鈕:
+
+![車道建立面板 — SMOOTH BOUNDARY 切換已標示,目前為 Off](/img/frames/smooth-toggle-off.png)
+
+預設為 **Off**。在開始點擊中心線之前先開啟。
+
+## 比較
+
+下方兩張截圖以相同的中心線繪製。唯一改變的是切換:
+
+| Smooth Boundary = Off | Smooth Boundary = On |
+| --- | --- |
+| ![平滑關閉時繪製的角狀曲線](/img/frames/smooth-off-result.png) | ![平滑開啟時繪製的平滑曲線](/img/frames/smooth-on-result.png) |
+
+切換為關閉時,每對中心線點擊會變成直線邊界區段。開啟時,同一條中心線會擬合為曲線。
+
+## 中途切換
+
+可隨時切換。新車道會在下次點擊時採用目前的值。既有車道會保留繪製當下的邊界樣式。
+
+## 另請參閱
+
+- [使用車道工具](/zh-tw/guides/lane-tool/) — 面板的其餘部分。
+- [車道連接模型](/zh-tw/explanation/lane-model/) — 為何即使邊界彎曲,中心線仍是連通性的依據。

@@ -1,0 +1,75 @@
+---
+title: Ba làn đường đầu tiên của bạn
+description: Đi qua bản demo Lane Tool — vẽ hai làn đường từ đường tâm, sau đó dựng làn thứ ba giữa các biên hiện có.
+sidebar:
+  order: 1
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Bài học này theo bản demo chính thức của Lane Tool. Đến cuối bài, bạn sẽ đã sử dụng cả hai cách drawtonomy tạo làn đường:
+
+- **Chế độ Center Line** — vẽ đường tâm; biên trái và biên phải được tạo cho bạn.
+- **Chế độ Boundary** — chọn hai linestring biên hiện có và drawtonomy khớp một làn đường giữa chúng.
+
+Bản demo vẽ hai làn đường ở chế độ Center Line, sau đó chuyển sang chế độ Boundary cho làn thứ ba lấp đầy khoảng trống.
+
+<Demo src="/videos/lane-tool-demo.mp4" caption="Hai làn đường ở chế độ Center Line, sau đó làn thứ ba được dựng từ các biên hiện có ở chế độ Boundary." />
+
+## 1. Chọn công cụ Lane
+
+Mở [drawtonomy.com](https://drawtonomy.com). Nhấn <kbd>N</kbd> (hoặc nhấp vào biểu tượng làn đường trên thanh công cụ ở dưới).
+
+Bên phải màn hình giờ đây hiển thị bảng điều khiển tạo **Lane**, với **Center Line** được chọn mặc định:
+
+![Bảng Lane — chế độ Center Line đang hoạt động, Lane Width 50 px](/img/frames/lane-tool-panel.png)
+
+Hãy giữ các giá trị mặc định lúc này.
+
+## 2. Vẽ hai làn đường ở chế độ Center Line
+
+Ở chế độ Center Line, nhấp lên canvas để đặt điểm đường tâm đầu tiên, nhấp lần nữa xa hơn để đặt điểm tiếp theo và nhấn <kbd>Enter</kbd> để hoàn thành. Biên trái và biên phải xuất hiện tự động bằng cách sử dụng giá trị **Lane Width** (mặc định 50 px).
+
+Công cụ Lane vẫn hoạt động sau mỗi làn đường, vì vậy hãy nhấp lần nữa ở nơi khác để bắt đầu làn thứ hai. Đặt vài điểm bên phải của làn đầu tiên và nhấn <kbd>Enter</kbd>:
+
+![Hai làn đường được vẽ cạnh nhau ở chế độ Center Line](/img/frames/lane-tool-two-lanes.png)
+
+Hiện tại hai làn đường này độc lập — chúng không chia sẻ biên hay biết về nhau.
+
+## 3. Chuyển sang chế độ Boundary
+
+Nhấp **Boundary** trong cùng bảng điều khiển, bên cạnh **Center Line**, để chuyển chế độ tạo. Ở chế độ Boundary, bạn không nhấp vào không gian trống; bạn nhấp vào **các linestring biên hiện có**, và drawtonomy khớp một làn đường giữa chúng.
+
+Di chuột qua **biên phải của làn trái** — drawtonomy sẽ làm nổi bật linestring bằng màu chàm khi con trỏ đủ gần — và nhấp:
+
+![Chế độ Boundary — biên phải của làn trái được làm nổi bật, sẵn sàng để chọn](/img/frames/lane-tool-boundary-mode.png)
+
+Sau đó nhấp **biên trái của làn phải**. Một làn đường mới lấp đầy khoảng trống, sử dụng cả hai linestring đã được nhấp làm biên trái và biên phải của nó.
+
+## 4. Kiểm tra kết quả
+
+Nhấn <kbd>V</kbd> để dùng công cụ Select và nhấp vào làn giữa mới. Bảng bên phải chuyển sang các thuộc tính của nó:
+
+![Bảng Thuộc tính — làn giữa mới chia sẻ các biên way/1 và way/2 với các làn lân cận](/img/frames/lane-attributes.png)
+
+Các biên được tái sử dụng:
+
+- **Lane ID** — `lane/2`, một làn đường hoàn toàn mới.
+- **Left Boundary** — `way/1`, cùng linestring là biên phải của làn trái.
+- **Right Boundary** — `way/2`, cũng được chia sẻ với làn phải.
+
+Vì các biên được chia sẻ, kéo một điểm ở bên nào sẽ di chuyển cả hai làn đường liền kề cùng nhau. Đó là điều mà [kết nối làn đường](/vi/explanation/lane-model/) được xây dựng dựa trên; hãy đọc trang đó tiếp theo để hiểu mô hình bên dưới.
+
+Bảng cũng hiển thị **Direction**, **Lane Color**, **Lane Opacity**, và bốn khe kết nối **Next Lanes / Prev Lanes / Left Lane / Right Lane**, mà chúng ta để trống lúc này.
+
+## Bạn đã học được gì
+
+- Làn đường có thể được vẽ theo hai cách: từ đường tâm, hoặc bằng cách chọn hai linestring biên hiện có.
+- Chế độ Center Line là tùy chọn nhanh cho canvas trống; chế độ Boundary chèn một làn đường giữa hình học hiện có mà không cần vẽ lại bất cứ thứ gì.
+- Một làn đường được dựng từ các biên hiện có sẽ chia sẻ các biên đó với các làn lân cận.
+
+## Tiếp theo là gì
+
+- [Quản lý kết nối làn đường](/vi/guides/lane-connections/) — bốn khe kết nối trong Bảng Thuộc tính.
+- [Biên làn đường mượt mà](/vi/guides/smooth-lanes/) — công tắc Smooth Boundary trong cùng bảng biến các biên góc cạnh thành đường cong.
+- [Tái tạo một con đường thực từ bản đồ vệ tinh](/vi/tutorials/road-from-map/) — kéo làn đường từ OSM thay vì vẽ chúng.

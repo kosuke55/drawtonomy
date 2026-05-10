@@ -1,0 +1,68 @@
+---
+title: 匯出至 OpenDRIVE / OpenSCENARIO / esmini
+description: 將您的 drawtonomy 場景匯出為 ASAM OpenDRIVE 1.8 (.xodr)、OpenSCENARIO 1.3 (.xosc),或可供模擬器重播的 esmini zip 套件。
+keywords:
+  - 免費 OpenSCENARIO 編輯器
+  - 免費瀏覽器 OpenDRIVE 編輯器
+  - 線上 OpenSCENARIO 撰寫
+  - esmini 場景撰寫
+  - ASAM 場景示意圖工具
+  - 自駕場景轉 OpenDRIVE
+  - 自動駕駛模擬場景匯出
+---
+
+drawtonomy 可將您的場景匯出為 ASAM
+[OpenDRIVE](https://www.asam.net/standards/detail/opendrive/)
+(`.xodr`) 與
+[OpenSCENARIO](https://www.asam.net/standards/detail/openscenario/)
+(`.xosc`),或將兩者打包為可在 [esmini](https://github.com/esmini/esmini) 中重播的 zip。
+
+![drawtonomy 場景匯出後在 esmini 中重播](/img/asam-esmini.png)
+
+## 從編輯器匯出
+
+1. 繪製您的場景(車道、車輛、紅綠燈……)。
+2. 開啟**檔案 → 匯出 → 匯出至 esmini**。
+3. 出現提示時輸入基底名稱。
+4. 會下載一個 `<name>.zip`,內含 `<name>.xodr` 與 `<name>.xosc`。
+
+## 重播
+
+```bash
+unzip my-scene.zip
+esmini --osc my-scene/my-scene.xosc --window 60 60 1024 768
+```
+
+## 個別格式
+
+如果只需要其中之一:
+
+- **檔案 → 匯出 → OpenDRIVE (.xodr)**
+- **檔案 → 匯出 → OpenSCENARIO (.xosc)**
+
+## 程式化匯出
+
+匯出器是 `@drawtonomy/sdk` 的一部分,無需編輯器即可執行。可用於 CI 流程、伺服器端工具或瀏覽器擴充功能:
+
+```ts
+import { exporter, createSnapshot } from '@drawtonomy/sdk'
+
+const snapshot = createSnapshot(shapes)
+const { blob, baseName } = exporter.buildEsminiZip(snapshot, {
+  baseName: 'my-scene',
+})
+```
+
+完整 API 與擴充點請參閱[匯出器 SDK 參考](/zh-tw/extend/exporter-sdk/)。
+
+## 輸出版本
+
+| 格式 | 版本 |
+|---|---|
+| OpenDRIVE | 1.8 |
+| OpenSCENARIO | 1.3 |
+
+## 另請參閱
+
+- [匯出器架構](/zh-tw/explanation/exporter-architecture/) — 從快照到檔案之間的流程。
+- [新增目標格式](/zh-tw/extend/exporter-sdk/) — 串接 CARLA、SUMO、Unity 或其他任何工具。

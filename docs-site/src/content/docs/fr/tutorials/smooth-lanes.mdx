@@ -1,0 +1,58 @@
+---
+title: Bords de voies lissés
+description: Activez Bord lissé dans le panneau Voie avant de dessiner — une voie courbe sort comme une courbe au lieu d'une polyligne.
+sidebar:
+  order: 2
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Voici la deuxième courte leçon, après [Vos trois premières voies](/fr/tutorials/your-first-lanes/). Une petite habitude : activer **Bord lissé** avant de dessiner une voie courbe.
+
+L'interrupteur se trouve dans le panneau de création de voie et modifie la façon dont les bords sont générés pour les voies que vous dessinez ensuite. Les voies existantes ne sont pas modifiées.
+
+<Demo src="/videos/smooth-lane.mp4" caption="La même ligne médiane courbe dessinée deux fois — une fois avec Bord lissé désactivé, une fois activé." />
+
+## 1. Ouvrir le panneau Voie
+
+Appuyez sur <kbd>N</kbd> pour l'outil Voie. Le panneau de droite s'ouvre. Repérez la ligne **BORD LISSÉ** — la valeur par défaut est **Off** :
+
+![Panneau de création de voie — ligne BORD LISSÉ, actuellement réglée sur Off](/img/frames/smooth-toggle-off.png)
+
+## 2. Dessiner une voie courbe avec l'option désactivée
+
+Laissez l'interrupteur sur **Off**. Cliquez sur le canevas pour déposer des points de ligne médiane le long d'une courbe, puis appuyez sur <kbd>Entrée</kbd> pour terminer.
+
+Les bords sont des segments rectilignes entre points consécutifs ; la voie ressort donc anguleuse :
+
+![Voie courbe dessinée avec Bord lissé désactivé — bords en polylignes anguleuses](/img/frames/smooth-off-result.png)
+
+## 3. Activer l'option, redessiner la même voie
+
+Cliquez sur **On** dans la ligne BORD LISSÉ. Cliquez une ligne médiane similaire ailleurs sur le canevas et appuyez sur <kbd>Entrée</kbd>.
+
+Cette fois, les bords sont ajustés par splines et la voie suit donc une courbe lissée :
+
+![Voie courbe dessinée avec Bord lissé activé — bords suivant une courbe lissée](/img/frames/smooth-on-result.png)
+
+Côte à côte, la différence est évidente. Les lignes médianes sont identiques ; seule la règle de génération des bords a changé.
+
+## Quand le laisser désactivé, quand l'activer
+
+| | Lissé = Off | Lissé = On |
+| --- | --- | --- |
+| Aspect | Anguleux, à facettes | Courbé |
+| Idéal pour | Voies droites, branches d'intersection | Routes courbes, bretelles |
+| Performance | Légèrement moins coûteux | Géométrie un peu plus dense |
+
+Vous pouvez basculer l'interrupteur aussi souvent que vous voulez. Chaque nouvelle voie utilise la valeur active au moment où vous terminez le tracé.
+
+## Ce que vous avez appris
+
+- L'interrupteur Bord lissé se trouve dans le panneau de création de voie et s'applique à la prochaine voie que vous dessinez, pas à la voie sélectionnée.
+- La géométrie de la ligne médiane est la même dans les deux modes ; seul le rendu des bords diffère.
+
+## Et ensuite
+
+- [Utiliser l'outil Voie](/fr/guides/lane-tool/) — le reste du panneau (mode Ligne médiane vs Bord, Largeur de voie, Couleur de voie).
+- [Gérer les connexions de voies](/fr/guides/lane-connections/) — les quatre emplacements de connexion dans le panneau d'attributs.

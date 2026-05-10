@@ -1,0 +1,69 @@
+---
+title: Footprints के साथ Path
+description: एक वाहन से एक Path बनाएं और वाहन टेम्पलेट खुद को path के साथ tile करता है।
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+एक *footprint* एक वाहन (या अन्य टेम्पलेट) की एक copy है जो एक
+Path के साथ स्वचालित रूप से रखी जाती है। डेमो एक ego वाहन से
+शुरू होता है, उससे एक Path बनाता है, और path तुरंत उस वाहन
+की copies से भर जाता है — समान टेम्पलेट, curve के साथ oriented,
+समान रूप से spaced।
+
+<Demo src="/videos/footprints-demo.mp4" caption="एक ego वाहन, उससे बनाया गया एक Path, और परिणामी footprint trail।" />
+
+## Setup
+
+Vehicle टूल के साथ कैनवस पर कहीं भी एक वाहन रखें, फिर Path
+टूल के लिए <kbd>H</kbd> दबाएं। दायां पैनल Path settings
+दिखाता है:
+
+![Path टूल पैनल — Color, Opacity 90%, Style Solid, Width 5px, Arrow Head 20px, Smooth checked](/img/frames/footprints-path-panel.png)
+
+दिखाए गए डिफ़ॉल्ट — solid green, 5 px wide, smooth, 20 px
+arrow head के साथ — वही हैं जो डेमो उपयोग करता है।
+
+## Path बनाना
+
+Path शुरू करने के लिए वाहन पर क्लिक करें। पहला पॉइंट वाहन के
+anchor पर latch करता है। path को extend करने के लिए और पॉइंट
+पर क्लिक करें; आप जो आखिरी पॉइंट डालते हैं उस पर arrow head
+दिखाई देता है। समाप्त करने के लिए <kbd>Enter</kbd> दबाएं।
+
+जैसे ही path पूरा होता है, drawtonomy source वाहन की एक copy
+इसके साथ tile करता है:
+
+![Path बनाई गई है; वाहन footprints समान spacing पर इसके साथ दिखाई देते हैं](/img/frames/footprints-along-path.png)
+
+प्रत्येक copy अपनी position पर path tangent से match करने के
+लिए घुमाई जाती है, इसलिए trail naturally curves का अनुसरण करता है।
+
+## शैली और टेम्पलेट linked रहते हैं
+
+Footprints अपने source वाहन के साथ शैली साझा करते हैं: source
+का रंग, opacity, या टेम्पलेट बदलें, और हर footprint follow
+करता है। एक मनूवर आरेख को visually consistent रखने के लिए आपको
+प्रत्येक copy को hand-edit नहीं करना पड़ता।
+
+अगला डेमो frame path को छुपाता है ताकि केवल footprints बने
+रहें — एक्सपोर्ट shots के लिए उपयोगी जब आप नहीं चाहते कि
+underlying path आरेख को clutter करे:
+
+![अकेले footprints, बिना path drawn](/img/frames/footprints-result.png)
+
+## आप क्या tune कर सकते हैं
+
+- **Spacing** — footprints के बीच distance।
+- **Anchor offset** — travel direction के साथ reference पॉइंट
+  को slide करें (उदाहरण के लिए, center के बजाय base link या
+  front bumper)।
+- **Smooth** — Path पैनल में checkbox path को पॉइंट के बीच
+  smoothly curve बनाता है; footprint orientation follow करता है।
+- **Color / Opacity / Size** — source वाहन के माध्यम से एक बार
+  में हर footprint पर लागू।
+
+## इसे भी देखें
+
+- [वाहन, पैदल यात्री, और ट्रैफिक लाइट जोड़ें](/hi/guides/participants/)
+- [रंग, opacity, चौड़ाई, और शैली कस्टमाइज़ करें](/hi/guides/styling/)

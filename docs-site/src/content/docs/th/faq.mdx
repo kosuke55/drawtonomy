@@ -1,0 +1,190 @@
+---
+title: คำถามที่พบบ่อย — drawtonomy ไวท์บอร์ดสำหรับสถานการณ์ขับขี่
+description: คำถามที่พบบ่อยเกี่ยวกับ drawtonomy — ไวท์บอร์ดสำหรับสถานการณ์ขับขี่บนเบราว์เซอร์แบบฟรี ภาพประกอบรถยนต์ขับเคลื่อนอัตโนมัติ การสร้าง OpenSCENARIO การส่งออก OpenDRIVE การแก้ไข Lanelet2 การกำกับข้อมูล occupancy grid ของ ROS และ AI Scene Generator
+sidebar:
+  label: คำถามที่พบบ่อย
+  order: 99
+keywords:
+  - คำถามที่พบบ่อย drawtonomy
+  - คำถามเครื่องมือวาดสถานการณ์ขับขี่
+  - ภาพรถยนต์ขับเคลื่อนอัตโนมัติสำหรับเปเปอร์
+  - วิธีวาดสถานการณ์ขับขี่ออนไลน์
+  - คำถามโปรแกรมแก้ไข OpenSCENARIO ฟรี
+  - มีโปรแกรมแก้ไข Lanelet2 บนเบราว์เซอร์หรือไม่
+  - เครื่องมือร่างรถยนต์ขับเคลื่อนอัตโนมัติฟรี
+  - ไวท์บอร์ดสำหรับสถานการณ์ขับขี่
+  - ADAS แผนภาพสถานการณ์
+  - การกำกับข้อมูล ROS occupancy grid
+jsonLd:
+  '@context': 'https://schema.org'
+  '@type': FAQPage
+  mainEntity:
+    - '@type': Question
+      name: ใช้ drawtonomy วาดภาพประกอบสำหรับเปเปอร์ สไลด์ หรือเอกสารด้านรถยนต์ขับเคลื่อนอัตโนมัติได้หรือไม่?
+      acceptedAnswer:
+        '@type': Answer
+        text: ได้ นี่คือกรณีการใช้งานหลักอย่างหนึ่ง เลน ทางแยก ยานพาหนะ และคนเดินเท้าเป็นรูปทรงสำเร็จรูป ดังนั้นภาพสถานการณ์ขับขี่ที่ต้องใช้เวลาครึ่งชั่วโมงในเครื่องมือวาดทั่วไปจะทำเสร็จภายในไม่กี่นาที ส่งออกเป็น drawtonomy.svg, PDF หรือ EPS สำหรับ LaTeX สไลด์ และ Markdown
+    - '@type': Question
+      name: drawtonomy ใช้งานได้ฟรีหรือไม่?
+      acceptedAnswer:
+        '@type': Answer
+        text: ใช่ drawtonomy.com ทำงานในเบราว์เซอร์ทั้งหมด ไม่ต้องสร้างบัญชี ไม่ต้องติดตั้ง และไม่มีการอัปโหลดข้อมูล SDK และส่วนขยายเป็นโอเพนซอร์สบน GitHub
+    - '@type': Question
+      name: drawtonomy เป็นโปรแกรมแก้ไข OpenSCENARIO และ OpenDRIVE ฟรีหรือไม่?
+      acceptedAnswer:
+        '@type': Answer
+        text: drawtonomy เป็นไวท์บอร์ดที่ส่งออกเป็น ASAM OpenDRIVE 1.8 และ OpenSCENARIO 1.3 รวมถึงไฟล์ zip ชุดเดียวสำหรับเล่นใน esmini ผู้ใช้วาดฉากในรูปแบบภาพ และ drawtonomy จะสร้างไฟล์ .xodr และ .xosc ให้
+    - '@type': Question
+      name: drawtonomy แก้ไขแผนที่ Lanelet2 (.osm) บนเบราว์เซอร์ได้หรือไม่?
+      acceptedAnswer:
+        '@type': Answer
+        text: ได้ drawtonomy นำเข้าไฟล์ Lanelet2 OSM ได้ (รวมถึงแผนที่ตัวอย่างของ Autoware) แก้ไขรูปทรงเลนและการเชื่อมต่อในรูปแบบภาพ และส่งออกกลับเป็น Lanelet2 OSM ได้ เพื่อประสิทธิภาพที่ดีที่สุด ควรนำเข้าไม่เกินประมาณ 500 เลนต่อฉาก
+    - '@type': Question
+      name: นำเข้าแผนที่ ROS occupancy grid ได้หรือไม่?
+      acceptedAnswer:
+        '@type': Answer
+        text: ได้ drawtonomy อ่านรูปแบบ ROS map_server (.pgm + .yaml) ที่ใช้โดย nav2, Cartographer, Gmapping และเครื่องมือ SLAM ที่คล้ายกัน ตารางจะเรนเดอร์เป็นเลเยอร์พื้นหลัง เพื่อให้ผู้ใช้วาดเลน เส้นทาง และสิ่งกีดขวางทับลงไปได้
+    - '@type': Question
+      name: drawtonomy ต่างจากเครื่องมือวาดทั่วไปอย่างไร?
+      acceptedAnswer:
+        '@type': Answer
+        text: เครื่องมือวาดทั่วไปรู้จักเฉพาะรูปทรงทั่วไป เลนจึงเป็นแค่สี่เหลี่ยมที่ต้องวาดใหม่ทุกครั้งที่ถนนเลี้ยว drawtonomy มีเลน ทางแยก ทางม้าลาย สัญญาณไฟจราจร เครื่องหมายบนถนน ยานพาหนะ และคนเดินเท้าเป็นรูปทรงสำเร็จรูป และเลนมีการเชื่อมต่อ Next / Previous / Left / Right ลากขอบเขตแล้วเลนที่เชื่อมต่อจะตามมาด้วย
+    - '@type': Question
+      name: ต้องติดตั้งอะไรหรือไม่?
+      acceptedAnswer:
+        '@type': Answer
+        text: ไม่ต้อง drawtonomy ทำงานในเบราว์เซอร์สมัยใหม่ทุกตัว เปิด drawtonomy.com แล้วเริ่มวาดได้ทันที สำหรับการพัฒนาส่วนขยาย มี npm dev server (@drawtonomy/dev-server) ที่โฮสต์โปรแกรมแก้ไขในเครื่อง
+    - '@type': Question
+      name: drawtonomy สร้างสถานการณ์ขับขี่จากภาษาธรรมชาติได้หรือไม่?
+      acceptedAnswer:
+        '@type': Answer
+        text: ได้ ส่วนขยาย AI Scene Generator อ่านพรอมต์ภาษาธรรมชาติหรือ OpenSCENARIO XML แล้วสร้างผืนผ้าใบที่แก้ไขได้ — เลน ยานพาหนะ เส้นทาง และคนเดินเท้าเป็นรูปทรง drawtonomy ปกติ รองรับ Anthropic Claude, OpenAI GPT และ Google Gemini
+    - '@type': Question
+      name: รูปแบบไฟล์ใดที่เก็บฉาก drawtonomy ในสถานะที่กลับมาแก้ไขได้?
+      acceptedAnswer:
+        '@type': Answer
+        text: drawtonomy.svg เป็นไฟล์ SVG ปกติ (จึงแสดงตัวอย่างได้ในเบราว์เซอร์ GitHub โปรแกรมสไลด์ และตัวเรนเดอร์ Markdown) พร้อมข้อมูลเมทาดาทาเพิ่มเติมที่ drawtonomy ใช้สร้างทุกรูปทรง การเชื่อมต่อ จุดร่วม และความสัมพันธ์การซ้อนทับเมื่อเปิดไฟล์อีกครั้ง
+    - '@type': Question
+      name: เพิ่มเทมเพลตยานพาหนะหรือป้ายของตนเองได้หรือไม่?
+      acceptedAnswer:
+        '@type': Answer
+        text: ได้ เทมเพลตคือไฟล์ SVG ที่ลงทะเบียนใน templates/manifest.json วางไฟล์ในโฟลเดอร์ที่เหมาะสม (vehicle, pedestrian, road_marking, sign, other) เปิด PR แล้วเทมเพลตจะปรากฏในเมนูของโปรแกรมแก้ไขเคียงข้างเทมเพลตในตัว
+    - '@type': Question
+      name: drawtonomy รองรับเครือข่ายถนนขนาดใหญ่หรือไม่?
+      acceptedAnswer:
+        '@type': Answer
+        text: drawtonomy เหมาะกับการวาดแผนภาพมากกว่าแผนที่ระดับเมือง เพื่อการแก้ไขที่ลื่นไหล ควรเก็บฉากเดียวให้น้อยกว่าประมาณ 500 เลน สำหรับพื้นที่ขนาดใหญ่ ให้แบ่งงานออกเป็นไฟล์หลายไฟล์ หรือนำเข้าเฉพาะบริเวณที่ต้องการ
+    - '@type': Question
+      name: ใช้แผนภาพ drawtonomy ในเปเปอร์ สไลด์ หรือเอกสารได้หรือไม่?
+      acceptedAnswer:
+        '@type': Answer
+        text: ได้ รูปแบบ drawtonomy.svg เป็น SVG ที่ถูกต้อง ฝังในเปเปอร์ สไลด์ Markdown และเว็บไซต์ได้โดยไม่ต้องแปลง รูปแบบ PDF, PNG, JPG และ EPS ก็ใช้ได้สำหรับสายการเผยแพร่แบบดั้งเดิม
+---
+
+import { LinkCard } from '@astrojs/starlight/components';
+
+## ใช้ drawtonomy วาดภาพประกอบสำหรับเปเปอร์ สไลด์ หรือเอกสารด้านรถยนต์ขับเคลื่อนอัตโนมัติได้หรือไม่?
+
+ได้ — เป็นกรณีการใช้งานหลักอย่างหนึ่ง เลน ทางแยก ยานพาหนะ
+และคนเดินเท้าเป็นรูปทรงสำเร็จรูป ดังนั้นภาพสถานการณ์ขับขี่
+ที่ต้องใช้เวลาครึ่งชั่วโมงในเครื่องมือวาดทั่วไป จะทำเสร็จในไม่กี่นาที
+ส่งออกเป็น [`drawtonomy.svg`](/th/guides/export/), PDF หรือ EPS
+สำหรับ LaTeX สไลด์ และ Markdown
+
+## drawtonomy ใช้งานได้ฟรีหรือไม่?
+
+ใช่ [drawtonomy.com](https://drawtonomy.com) ทำงานในเบราว์เซอร์
+ทั้งหมด ไม่ต้องสร้างบัญชี ไม่ต้องติดตั้ง และไม่มีการอัปโหลดข้อมูล
+SDK และส่วนขยายเป็นโอเพนซอร์สบน
+[GitHub](https://github.com/kosuke55/drawtonomy)
+
+## drawtonomy เป็นโปรแกรมแก้ไข OpenSCENARIO และ OpenDRIVE ฟรีหรือไม่?
+
+drawtonomy เป็นไวท์บอร์ดที่ **ส่งออกเป็น** ASAM OpenDRIVE 1.8 และ
+OpenSCENARIO 1.3 รวมถึงไฟล์ zip ชุดเดียวที่พร้อมใช้กับ
+[esmini](https://github.com/esmini/esmini) ผู้ใช้วาดฉากในรูปแบบภาพ
+— เลน ทางแยก ยานพาหนะ เส้นทาง — แล้ว drawtonomy จะสร้างไฟล์
+`.xodr` และ `.xosc` ให้ ดูเพิ่มที่
+[ส่งออกเป็น OpenDRIVE / OpenSCENARIO / esmini](/th/guides/export-asam/)
+
+## drawtonomy แก้ไขแผนที่ Lanelet2 (.osm) บนเบราว์เซอร์ได้หรือไม่?
+
+ได้ drawtonomy นำเข้าไฟล์
+[Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2)
+OSM ได้ (รวมถึง
+[แผนที่ตัวอย่างของ Autoware](https://autowarefoundation.github.io/autoware-documentation/main/demos/planning-sim/#download-the-sample-map))
+แก้ไขรูปทรงเลนและการเชื่อมต่อในรูปแบบภาพ และส่งออกกลับเป็น
+Lanelet2 OSM ได้ เพื่อประสิทธิภาพที่ดีที่สุด ควรนำเข้าไม่เกินประมาณ
+500 เลนต่อฉาก ดูเพิ่มที่ [นำเข้าไฟล์ Lanelet2 (.osm)](/th/guides/import-lanelet2/)
+
+## นำเข้าแผนที่ ROS occupancy grid ได้หรือไม่?
+
+ได้ drawtonomy อ่านรูปแบบ ROS `map_server` (`.pgm` + `.yaml`)
+ที่ใช้โดย [nav2](https://navigation.ros.org/), Cartographer,
+Gmapping และเครื่องมือ SLAM ที่คล้ายกัน ตารางจะเรนเดอร์เป็น
+เลเยอร์พื้นหลัง เพื่อให้วาดเลน เส้นทาง และสิ่งกีดขวางทับลงไปได้
+ดูเพิ่มที่ [นำเข้า ROS OccupancyGrid](/th/guides/import-ros-map/)
+
+## drawtonomy ต่างจากเครื่องมือวาดทั่วไปอย่างไร?
+
+เครื่องมือวาดทั่วไปรู้จักเฉพาะรูปทรงทั่วไป เลนจึงเป็นแค่
+สี่เหลี่ยมที่ต้องวาดใหม่ทุกครั้งที่ถนนเลี้ยว drawtonomy มี
+**เลน ทางแยก ทางม้าลาย สัญญาณไฟจราจร เครื่องหมายบนถนน
+ยานพาหนะ และคนเดินเท้าเป็นรูปทรงสำเร็จรูป** และเลนมีการเชื่อมต่อ
+**Next / Previous / Left / Right** ลากขอบเขตแล้วเลนที่เชื่อมต่อ
+จะตามมา ดูเพิ่มที่ [ทำไมเลือก drawtonomy](/th/explanation/why-drawtonomy/)
+และ [โมเดลการเชื่อมต่อเลน](/th/explanation/lane-model/)
+
+## ต้องติดตั้งอะไรหรือไม่?
+
+ไม่ต้อง drawtonomy ทำงานในเบราว์เซอร์สมัยใหม่ทุกตัว เปิด
+[drawtonomy.com](https://drawtonomy.com) แล้วเริ่มวาดได้
+นักพัฒนาส่วนขยายสามารถใช้ dev server ในเครื่อง
+([`@drawtonomy/dev-server`](https://www.npmjs.com/package/@drawtonomy/dev-server))
+ซึ่งโฮสต์โปรแกรมแก้ไขบน localhost
+
+## drawtonomy สร้างสถานการณ์ขับขี่จากภาษาธรรมชาติได้หรือไม่?
+
+ได้ ส่วนขยาย [AI Scene Generator](/th/tutorials/ai-scene/) อ่าน
+พรอมต์ภาษาธรรมชาติหรือ OpenSCENARIO XML แล้วสร้างผืนผ้าใบที่
+แก้ไขได้ — เลน ยานพาหนะ เส้นทาง และคนเดินเท้าเป็นรูปทรง
+drawtonomy ปกติ รองรับ Anthropic Claude, OpenAI GPT และ
+Google Gemini
+
+## รูปแบบไฟล์ใดที่เก็บฉาก drawtonomy ในสถานะที่กลับมาแก้ไขได้?
+
+`drawtonomy.svg` เป็นไฟล์ SVG ปกติ — แสดงตัวอย่างได้ในเบราว์เซอร์
+GitHub โปรแกรมสไลด์ และตัวเรนเดอร์ Markdown — พร้อมเมทาดาทา
+ที่ drawtonomy ใช้สร้างทุกรูปทรง การเชื่อมต่อ จุดร่วม และ
+ความสัมพันธ์การซ้อนทับเมื่อเปิดไฟล์อีกครั้ง ดูเพิ่มที่
+[ส่งออกฉาก](/th/guides/export/) และ
+[เอกสารอ้างอิงรูปแบบ drawtonomy.svg](/th/reference/drawtonomy-svg/)
+
+## เพิ่มเทมเพลตยานพาหนะหรือป้ายของตนเองได้หรือไม่?
+
+ได้ เทมเพลตคือไฟล์ SVG ที่ลงทะเบียนใน `templates/manifest.json`
+วางไฟล์ในโฟลเดอร์ที่เหมาะสม (`vehicle`, `pedestrian`,
+`road_marking`, `sign`, `other`) เปิด PR แล้วเทมเพลตจะปรากฏ
+ในเมนูของโปรแกรมแก้ไขเคียงข้างเทมเพลตในตัว ดูเพิ่มที่
+[การมีส่วนร่วมเทมเพลต](/th/extend/templates/)
+
+## drawtonomy รองรับเครือข่ายถนนขนาดใหญ่หรือไม่?
+
+drawtonomy เหมาะกับการวาดแผนภาพมากกว่าแผนที่ระดับเมือง เพื่อ
+การแก้ไขที่ลื่นไหล ควรเก็บฉากเดียวให้น้อยกว่าประมาณ **500 เลน**
+สำหรับพื้นที่ขนาดใหญ่ ให้แบ่งงานออกเป็นไฟล์หลายไฟล์
+หรือนำเข้าเฉพาะบริเวณที่ต้องการ
+
+## ใช้แผนภาพ drawtonomy ในเปเปอร์ สไลด์ หรือเอกสารได้หรือไม่?
+
+ได้ รูปแบบ [`drawtonomy.svg`](/th/guides/export/) เป็น SVG ที่ถูกต้อง
+จึงฝังในเปเปอร์ สไลด์ Markdown และเว็บไซต์ได้โดยไม่ต้องแปลง
+รูปแบบ PDF, PNG, JPG และ EPS ก็ใช้ได้สำหรับสายการเผยแพร่
+แบบดั้งเดิม
+
+## ซอร์สโค้ดอยู่ที่ไหน?
+
+SDK ส่วนขยาย เทมเพลต และเอกสารชุดนี้อยู่ที่
+[github.com/kosuke55/drawtonomy](https://github.com/kosuke55/drawtonomy)
+ส่วนตัวแอปพลิเคชันอยู่ที่
+[drawtonomy.com](https://drawtonomy.com)

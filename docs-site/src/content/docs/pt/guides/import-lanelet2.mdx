@@ -1,0 +1,59 @@
+---
+title: Importar um arquivo Lanelet2 (.osm)
+description: Abra mapas OSM do Lanelet2 no quadro branco do drawtonomy no navegador, edite faixas e conexões visualmente, e faça round-trip de volta para Lanelet2 — útil para mapas de exemplo do Autoware e arquivos similares de rede viária.
+keywords:
+  - editor Lanelet2 no navegador
+  - visualizador Lanelet2 online
+  - editar arquivo Lanelet2 osm
+  - editor de mapa de exemplo Autoware
+  - ferramenta de diagrama lanelet2
+  - editor de mapa HD grátis
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+O drawtonomy pode ler mapas no formato OSM do
+[Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2).
+Mapas de exemplo estão disponíveis na
+[documentação do Autoware](https://autowarefoundation.github.io/autoware-documentation/main/demos/planning-sim/#download-the-sample-map).
+
+<Demo src="/videos/lanelet-import-demo.mp4" caption="Importando um arquivo Lanelet2 completo." />
+
+## Importar o arquivo inteiro
+
+1. Abra o menu **Arquivo** → **Importar**.
+2. Escolha o arquivo `.osm`.
+3. O drawtonomy analisa o arquivo e preenche a tela com formas de
+   Faixa mais suas conexões.
+
+## Importar apenas faixas específicas
+
+Para mapas grandes, importar todas as faixas vai deixar o editor
+lento. Use a caixa de seleção de faixas:
+
+<Demo src="/videos/lanelet-select-import-demo.mp4" caption="Arraste para selecionar apenas as faixas que você quer, depois importe." />
+
+1. Abra o menu **Arquivo** → **Importar → Selecionar faixas**.
+2. O drawtonomy mostra um mapa de pré-visualização.
+3. Clique ou arraste para selecionar as faixas que você quer.
+4. Clique em **Importar seleção**.
+
+## Dicas de desempenho
+
+Mantenha a cena importada abaixo de aproximadamente **500 faixas**
+para um editor responsivo. Para áreas maiores, divida seu trabalho em
+vários arquivos, ou importe apenas a região de que precisa.
+
+## Após a importação
+
+Faixas importadas são formas de Faixa de fidelidade total; as
+conexões do arquivo Lanelet2 são preservadas. Edite,
+[suavize](/pt/guides/smooth-lanes/), ou [exporte de volta](/pt/guides/export-asam/)
+sem perder a topologia.
+
+## Veja também
+
+- [Formato drawtonomy.svg](/pt/reference/drawtonomy-svg/) — o formato
+  sem perdas para reedição dentro do drawtonomy.
+- [Gerar faixas a partir de um mapa](/pt/guides/lane-from-map/) — quando
+  você não tem um arquivo de mapa curado.

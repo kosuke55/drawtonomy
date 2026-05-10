@@ -1,0 +1,162 @@
+---
+title: drawtonomy — 자율주행 시나리오를 위한 화이트보드
+description: 자율주행 시나리오 작성을 위한 무료 브라우저 기반 화이트보드. 논문, 슬라이드, 설계 토론, 시나리오 작성을 위해 차선, 교차로, 차량, 보행자를 스케치하세요. OpenDRIVE, OpenSCENARIO, Lanelet2로 내보낼 수 있습니다.
+template: splash
+keywords:
+  - 자율주행 시나리오 화이트보드
+  - 자율주행 시나리오 다이어그램
+  - 자율주행 다이어그램 도구
+  - 자율주행 논문 그림
+  - 자율주행 발표 자료 그림
+  - 자율주행 화이트보드
+  - 차선 에디터
+  - 교차로 다이어그램
+  - 자율주행 시뮬레이션 시나리오
+  - ADAS 시나리오 다이어그램
+  - 무료 OpenSCENARIO 에디터
+  - 무료 OpenDRIVE 에디터
+  - Lanelet2 브라우저 에디터
+  - esmini 시나리오 에디터
+  - ROS 점유 격자 주석 도구
+  - 자율주행 시뮬레이션
+  - 도로 네트워크 그리기
+  - 무료 온라인 자율주행 도구
+jsonLd:
+  '@context': 'https://schema.org'
+  '@type': SoftwareApplication
+  name: drawtonomy
+  alternateName: drawtonomy — 자율주행 시나리오를 위한 화이트보드
+  url: 'https://drawtonomy.com'
+  sameAs:
+    - 'https://github.com/kosuke55/drawtonomy'
+  description: 자율주행 시나리오 작성을 위한 무료 브라우저 기반 화이트보드. 차선, 교차로, 차량, 보행자, 노면 표시가 모두 기본 도형으로 내장되어 있어 논문, 슬라이드, 설계 토론, 시나리오 작성에 적합합니다. OpenDRIVE, OpenSCENARIO, Lanelet2로 내보낼 수 있습니다.
+  applicationCategory: DesignApplication
+  applicationSubCategory: 다이어그램 에디터
+  operatingSystem: 모든 환경 (브라우저 기반)
+  browserRequirements: 최신 웹 브라우저가 필요합니다
+  offers:
+    '@type': Offer
+    price: '0'
+    priceCurrency: USD
+  featureList:
+    - Next / Previous / Left / Right 연결을 가지는 차선
+    - 교차로, 횡단보도, 신호등, 도로 표지판, 노면 표시 템플릿
+    - 경로(Path) 및 풋프린트를 가지는 차량과 보행자 템플릿
+    - 스냅 및 공유 점 편집
+    - 드래그하여 편집 가능한 경계 형상이 연결된 차선들에 자동 전파
+    - 다시 편집 가능한 drawtonomy.svg 저장 형식, 논문과 슬라이드에 그대로 삽입 가능
+    - Lanelet2 (.osm) 왕복 변환
+    - OpenDRIVE 1.8 및 OpenSCENARIO 1.3 내보내기, esmini 즉시 실행 가능 zip
+    - ROS OccupancyGrid (.pgm + .yaml) 가져오기
+    - AI Scene Generator 확장
+hero:
+  tagline: 자율주행 시나리오를 위한 무료 브라우저 기반 화이트보드. 도로가 꺾일 때마다 다시 그릴 필요 없이, 논문·슬라이드·설계 토론·시나리오 작성을 위한 차선과 교차로, 교통 장면을 스케치하세요.
+  image:
+    file: ../../../assets/logo.png
+  actions:
+    - text: 빠른 시작
+      link: /ko/start/quickstart/
+      icon: right-arrow
+    - text: 앱 사용해 보기
+      link: https://drawtonomy.com
+      icon: external
+      variant: secondary
+    - text: GitHub
+      link: https://github.com/kosuke55/drawtonomy
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## 필요한 정보를 찾아보세요
+
+문서는 네 가지 목적에 맞춰 구성되어 있습니다. 지금 하려는 작업에 맞는 섹션을 선택하세요.
+
+<CardGrid>
+	<LinkCard
+		title="튜토리얼"
+		href="/ko/tutorials/"
+		description="직접 따라 하면서 배우기. 빈 캔버스에서 완성된 장면까지 단계별로 진행합니다."
+	/>
+	<LinkCard
+		title="How-to 가이드"
+		href="/ko/guides/"
+		description="특정 작업을 끝내기 위한 레시피. 차선, 차량, 내보내기, 가져오기 작업법을 다룹니다."
+	/>
+	<LinkCard
+		title="레퍼런스"
+		href="/ko/reference/"
+		description="사실 정보를 찾아보기. 단축키, 파일 형식, 도형 카탈로그, SDK API."
+	/>
+	<LinkCard
+		title="설명"
+		href="/ko/explanation/"
+		description="모델을 이해하기. drawtonomy가 왜 이런 방식으로 동작하는지 설명합니다."
+	/>
+</CardGrid>
+
+## drawtonomy란?
+
+drawtonomy는 **자율주행 시나리오를 위한 화이트보드**입니다 — 논문에 들어가는 그림, 설계 리뷰 전에 그리는 슬라이드, 팀원에게 코너 케이스를 설명하기 위해 회의 중에 그리는 다이어그램, OpenSCENARIO 파일을 작성하기 전에 미리 스케치하는 장면 등을 위한 도구입니다.
+
+URL을 열고 무한 캔버스에 차선과 교차로를 그리고, 차량·보행자·신호등·횡단보도·노면 표시를 배치한 뒤 저장하거나 내보내면 됩니다. 설치할 것도, 계정도, 업로드되는 파일도 없습니다.
+
+이 도구가 존재하는 이유는 단순합니다. 일반적인 그림 도구나 슬라이드 도구는 차선이 무엇인지 알지 못하기 때문에, 무언가가 움직일 때마다 도로 형상을 다시 만들어야 합니다. drawtonomy는 차선, 교차로 등 자율주행 시나리오 도메인의 어휘 자체를 기본 도형으로 다루므로, 반복 작업을 거치는 동안에도 그림이 정확하게 유지됩니다.
+
+## 사람들이 이런 용도로 사용합니다
+
+<CardGrid>
+	<Card title="논문과 학위 논문 그림" icon="document">
+		LaTeX, 슬라이드, Markdown에 깔끔하게 들어가는 선명한 벡터 자율주행 시나리오 그림 — `drawtonomy.svg`, PDF, EPS로 내보낼 수 있습니다.
+	</Card>
+	<Card title="설계 토론용 다이어그램" icon="comment-alt">
+		차선 변경, 비보호 좌회전, 가림(occlusion) 사례 같은 상황을 몇 초만에 스케치할 수 있습니다. 결과를 공유하고 다음 날에도 같은 캔버스에서 토론을 이어가세요.
+	</Card>
+	<Card title="시나리오 작성 전 스케치" icon="seti:graphql">
+		OpenSCENARIO XML을 작성하기 전에 장면을 먼저 그려 보고, 스케치가 완성되면 `.xosc` / `.xodr`로 내보내세요.
+	</Card>
+	<Card title="지도와 ROS 주석" icon="seti:json">
+		위성 이미지 위에 차선을 따라 그리거나, Lanelet2 OSM 지도를 편집하거나, ROS 점유 격자 위에 경로와 장애물을 주석으로 표시하세요.
+	</Card>
+</CardGrid>
+
+## 일반 그림 도구보다 빠른 이유
+
+<CardGrid>
+	<Card title="자율주행 도메인 도형" icon="seti:default">
+		차선, 교차로, 횡단보도, 신호등, 노면 표시, 차량, 보행자가 기본 내장되어 있습니다. 직접 만든 SVG 템플릿을 추가해 PR로 기여할 수도 있습니다.
+	</Card>
+	<Card title="토폴로지를 인식하는 차선" icon="seti:graphql">
+		각 차선은 Next / Previous / Left / Right 연결 정보를 가집니다. 경계를 공유하는 두 차선은 같은 경계 점을 사용하므로, 한 번 드래그하면 두 차선이 함께 움직입니다.
+	</Card>
+	<Card title="무한 캔버스, 위성 이미지 배경" icon="seti:html">
+		임의로 큰 레이아웃을 자유롭게 패닝·줌할 수 있습니다. 위성 또는 도로 지도 배경을 깔고 실제 위치를 따라 그릴 수 있습니다. 스냅과 공유 점 기능이 형상을 정렬해 주므로 수동 보정이 필요 없습니다.
+	</Card>
+	<Card title="무료, 브라우저 전용" icon="rocket">
+		설치, 계정, 업로드가 모두 없습니다. 저장한 drawtonomy.svg를 나중에 다시 열면 모든 연결과 겹침 관계까지 그대로 복원됩니다.
+	</Card>
+</CardGrid>
+
+## 시뮬레이션·매핑 워크플로우와 연결
+
+화이트보드 자체가 핵심이고, 아래 항목들은 그려진 다이어그램이 이후 워크플로우로 흘러가는 방식을 보여 줍니다.
+
+<CardGrid>
+	<Card title="논문·슬라이드용 재편집 가능 SVG" icon="document">
+		`drawtonomy.svg`는 브라우저, GitHub, 슬라이드에서 그대로 미리보기되는 표준 SVG이며, 모든 연결을 유지한 채 drawtonomy에서 다시 열립니다. 문서와 연구 논문 그림의 기본 형식입니다.
+	</Card>
+	<Card title="Lanelet2 왕복" icon="seti:json">
+		Autoware 샘플 지도를 포함한 Lanelet2 OSM 지도를 편집하기 위해 열고 다시 OSM으로 내보낼 수 있습니다. 기존 HD 맵에 변경 사항을 스케치할 때 유용합니다.
+	</Card>
+	<Card title="ASAM OpenDRIVE / OpenSCENARIO" icon="seti:db">
+		OpenDRIVE 1.8과 OpenSCENARIO 1.3을 내보낼 수 있습니다 — 시뮬레이터에서 장면을 재생하고 싶다면 [esmini](https://github.com/esmini/esmini) 즉시 실행 가능 zip으로 함께 묶을 수 있습니다.
+	</Card>
+	<Card title="AI Scene Generator" icon="comment-alt">
+		자연어로 시나리오를 설명하거나 OpenSCENARIO XML을 붙여넣으면 편집 가능한 캔버스를 받을 수 있습니다. 출력은 일반적인 drawtonomy 장면이므로, 다른 장면처럼 자유롭게 다듬을 수 있습니다.
+	</Card>
+</CardGrid>
+
+## 확장 개발자라면
+
+drawtonomy를 단순히 사용하는 것을 넘어 그 위에서 무엇인가 만들고 싶다면 [drawtonomy 확장하기](/ko/extend/)를 참고하세요. SDK 소스, 예제, 레퍼런스는 이 사이트와 함께 [github.com/kosuke55/drawtonomy](https://github.com/kosuke55/drawtonomy)에 있습니다.

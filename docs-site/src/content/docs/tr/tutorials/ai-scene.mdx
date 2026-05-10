@@ -1,0 +1,66 @@
+---
+title: Yapay zekayla bir sahne oluşturun, sonra elle iyileştirin
+description: AI Scene Generator ile doğal dilde bir senaryo açıklayın ve sonucu tuvalde düzenleyin.
+sidebar:
+  order: 4
+keywords:
+  - yapay zeka sürüş senaryosu üretimi
+  - doğal dilden senaryo
+  - drawtonomy ai scene generator
+  - OpenSCENARIO yapay zeka
+  - sürüş sahnesi otomatik oluşturma
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+[AI Scene Generator](https://github.com/kosuke55/drawtonomy/tree/main/extensions/ai-scene-generator)
+uzantısı doğal dil bir komut, OpenSCENARIO XML veya DSL girdisi alır
+ve düzenlenebilir bir tuval yayar.
+
+<Demo src="/videos/ai-scene-natural.mp4" caption="Doğal dil senaryosu → tuvalde düzenlenebilir sahne." maxWidth="900px" />
+
+## 1. AI Scene Generator'ı açın
+
+1. Tuvalin sağ alt kısmındaki **Uzantılar**'a tıklayın.
+2. **AI Scene Generator**'ı seçin.
+3. AI sağlayıcınızı (Anthropic Claude, OpenAI GPT veya Google Gemini)
+   seçin ve API anahtarınızı yapıştırın. Anahtar tarayıcınızda kalır.
+
+## 2. Sahneyi açıklayın
+
+Şuna benzer bir komut yapıştırın:
+
+> Soldan sağa giden 3 şeritli bir otoyol. Orta şeritte bir ego sedan
+> (mavi), sağ şeritte biraz önde bir kamyon (gri). Ego aracın sol
+> şeride geçişi için kesik çizgili bir yol gösterin.
+
+**Üret**'e tıklayın. Uzantı tuvale şeritleri, araçları ve bir Yol
+şekli yerleştirir.
+
+## 3. İyileştirin
+
+Üretilen her şey normal bir şekildir. Şunları deneyin:
+
+- Kamyonu seçin ve şablonunu **Bus** olarak değiştirin.
+- Ego aracın yolunu farklı bir eğriye sürükleyin.
+- Banket kenarına bir yaya ekleyin.
+
+## 4. Veya OpenSCENARIO'dan başlayın
+
+Aynı panelde, giriş modunu **OpenSCENARIO XML**'e değiştirin ve bir
+`.xosc` dosyası yapıştırın. Uzantı tuvale aktörleri ve yörüngeleri
+yerleştirir — mevcut bir senaryoyu görselleştirmenin en hızlı yolu.
+
+<Demo src="/videos/ai-scene-dsl.mp4" caption="Tuvale yerleştirilmiş bir ASAM OpenSCENARIO DSL örneği." maxWidth="900px" />
+
+## Öğrendikleriniz
+
+- Yapay zeka üretimi bir başlangıç noktasıdır — sonrasındaki her
+  şekil, tuvaldeki her şey gibi düzenlenebilir.
+- Aynı panel doğal dil komutlarını ve OpenSCENARIO girdisini kabul
+  eder, böylece düzenleyiciden ayrılmadan kaba fikir ile resmi
+  spesifikasyon arasında geçiş yapabilirsiniz.
+
+İyi çalışan komut kalıpları için
+[AI Scene Generator README](https://github.com/kosuke55/drawtonomy/tree/main/extensions/ai-scene-generator)
+sayfasına bakın.

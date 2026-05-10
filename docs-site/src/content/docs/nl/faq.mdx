@@ -1,0 +1,198 @@
+---
+title: FAQ — drawtonomy whiteboard voor rijscenario's
+description: Veelgestelde vragen over drawtonomy — het gratis, browsergebaseerde whiteboard voor rijscenario's. Figuren voor autonoom rijden, OpenSCENARIO-creatie, OpenDRIVE-export, Lanelet2-bewerking, ROS occupancy grid annotatie, AI Scene Generator.
+sidebar:
+  label: FAQ
+  order: 99
+keywords:
+  - drawtonomy faq
+  - rijscenario diagramtool faq
+  - autonoom rijden figuur paper
+  - rijscenario online tekenen
+  - gratis OpenSCENARIO editor vraag
+  - Lanelet2 editor browser bestaat
+  - autonoom rijden schetstool gratis
+  - whiteboard autonoom rijden
+  - rijstrook editor browser
+  - kruispunt diagramtool
+  - simulatie autonoom voertuig
+jsonLd:
+  '@context': 'https://schema.org'
+  '@type': FAQPage
+  mainEntity:
+    - '@type': Question
+      name: Kan ik drawtonomy gebruiken om figuren te tekenen voor een paper, dia of document over autonoom rijden?
+      acceptedAnswer:
+        '@type': Answer
+        text: Ja. Dat is een van de belangrijkste use cases. Rijstroken, kruispunten, voertuigen en voetgangers zijn ingebouwde vormen, dus een rijscenario-figuur dat in een generieke tekentool een half uur zou kosten, is in enkele minuten klaar. Exporteer als drawtonomy.svg, PDF of EPS voor LaTeX, slidedecks en Markdown.
+    - '@type': Question
+      name: Is drawtonomy gratis te gebruiken?
+      acceptedAnswer:
+        '@type': Answer
+        text: Ja. drawtonomy.com draait volledig in uw browser. Geen account, geen installatie, en niets wordt geüpload. De SDK en extensies zijn open-source op GitHub.
+    - '@type': Question
+      name: Is drawtonomy een gratis OpenSCENARIO- en OpenDRIVE-editor?
+      acceptedAnswer:
+        '@type': Answer
+        text: drawtonomy is een whiteboard dat exporteert naar ASAM OpenDRIVE 1.8 en OpenSCENARIO 1.3, inclusief één enkele zip-bundel voor afspelen in esmini. U schetst de scène visueel en drawtonomy genereert de .xodr- en .xosc-bestanden.
+    - '@type': Question
+      name: Kan drawtonomy Lanelet2 (.osm)-kaarten in de browser bewerken?
+      acceptedAnswer:
+        '@type': Answer
+        text: Ja. drawtonomy kan Lanelet2 OSM-bestanden importeren (inclusief Autoware-voorbeeldkaarten), rijstrookgeometrie en verbindingen visueel bewerken en weer exporteren naar Lanelet2 OSM. Voor de beste prestaties houdt u imports onder ongeveer 500 rijstroken per scène.
+    - '@type': Question
+      name: Kan ik een ROS occupancy grid-kaart importeren?
+      acceptedAnswer:
+        '@type': Answer
+        text: Ja. drawtonomy leest het ROS map_server-formaat (.pgm + .yaml) dat door nav2, Cartographer, Gmapping en vergelijkbare SLAM-tools wordt gebruikt. Het grid wordt als achtergrondlaag weergegeven, zodat u rijstroken, paden en obstakels er direct overheen kunt schetsen.
+    - '@type': Question
+      name: Hoe verschilt drawtonomy van generieke tekenprogramma's?
+      acceptedAnswer:
+        '@type': Answer
+        text: Generieke tekenprogramma's kennen alleen generieke vormen, dus een rijstrook is gewoon een rechthoek die u opnieuw tekent zodra de weg afbuigt. drawtonomy levert rijstroken, kruispunten, zebrapaden, verkeerslichten, wegmarkeringen, voertuigen en voetgangers als ingebouwde vormen, en rijstroken bevatten verbindingen voor Volgende / Vorige / Links / Rechts. Sleep een grenslijn en de verbonden rijstroken volgen.
+    - '@type': Question
+      name: Moet ik iets installeren?
+      acceptedAnswer:
+        '@type': Answer
+        text: Nee. drawtonomy draait in elke moderne webbrowser. Open drawtonomy.com en u kunt direct beginnen te tekenen. Voor extensieontwikkeling is er ook een npm dev-server (@drawtonomy/dev-server) die de editor lokaal host.
+    - '@type': Question
+      name: Kan drawtonomy een rijscenario uit natuurlijke taal genereren?
+      acceptedAnswer:
+        '@type': Answer
+        text: Ja. De AI Scene Generator-extensie leest een prompt in natuurlijke taal of OpenSCENARIO XML en levert een bewerkbaar canvas — rijstroken, voertuigen, paden en voetgangers als gewone drawtonomy-vormen. Ondersteunt Anthropic Claude, OpenAI GPT en Google Gemini.
+    - '@type': Question
+      name: Welk bestandsformaat houdt een drawtonomy-scène herbewerkbaar?
+      acceptedAnswer:
+        '@type': Answer
+        text: drawtonomy.svg. Het is een gewoon SVG-bestand (te bekijken in browsers, GitHub, slidedecks en Markdown-renderers) met extra metadata die drawtonomy gebruikt om elke vorm, verbinding, gedeelde punt en overlap-relatie te reconstrueren wanneer u het bestand heropent.
+    - '@type': Question
+      name: Kan ik mijn eigen voertuig- of bordensjablonen toevoegen?
+      acceptedAnswer:
+        '@type': Answer
+        text: Ja. Sjablonen zijn SVG's geregistreerd in templates/manifest.json. Plaats die van u in de juiste map (vehicle, pedestrian, road_marking, sign, other), open een PR en het verschijnt in het menu van de editor naast de ingebouwde sjablonen.
+    - '@type': Question
+      name: Ondersteunt drawtonomy grote wegennetwerken?
+      acceptedAnswer:
+        '@type': Answer
+        text: drawtonomy is afgestemd op diagrammen, niet op kaarten op stadsschaal. Voor responsief bewerken houdt u één scène onder ongeveer 500 rijstroken. Voor grotere gebieden splitst u het werk over meerdere bestanden of importeert u alleen de regio die u nodig hebt.
+    - '@type': Question
+      name: Kan ik drawtonomy-diagrammen gebruiken in papers, dia's of documentatie?
+      acceptedAnswer:
+        '@type': Answer
+        text: Ja. Het drawtonomy.svg-formaat is geldige SVG, dus het integreert in papers, dia's, Markdown en websites zonder conversie. PDF, PNG, JPG en EPS zijn ook beschikbaar voor traditionele publicatiepijplijnen.
+---
+
+import { LinkCard } from '@astrojs/starlight/components';
+
+## Kan ik drawtonomy gebruiken om figuren te tekenen voor een paper, dia of document over autonoom rijden?
+
+Ja — het is een van de belangrijkste use cases. Rijstroken,
+kruispunten, voertuigen en voetgangers zijn ingebouwde vormen,
+dus een rijscenario-figuur dat in een generieke tekentool een
+half uur zou kosten, is in enkele minuten klaar. Exporteer als
+[`drawtonomy.svg`](/nl/guides/export/), PDF of EPS voor LaTeX,
+slidedecks en Markdown.
+
+## Is drawtonomy gratis te gebruiken?
+
+Ja. [drawtonomy.com](https://drawtonomy.com) draait volledig in
+uw browser. Geen account, geen installatie, en niets wordt
+geüpload. De SDK en extensies zijn open-source op
+[GitHub](https://github.com/kosuke55/drawtonomy).
+
+## Is drawtonomy een gratis OpenSCENARIO- en OpenDRIVE-editor?
+
+drawtonomy is een whiteboard dat **exporteert naar** ASAM
+OpenDRIVE 1.8 en OpenSCENARIO 1.3, inclusief één enkele zip-bundel
+klaar voor afspelen in [esmini](https://github.com/esmini/esmini).
+U schetst de scène visueel — rijstroken, kruispunten, voertuigen,
+paden — en drawtonomy genereert de `.xodr`- en `.xosc`-bestanden.
+Zie
+[Exporteren naar OpenDRIVE / OpenSCENARIO / esmini](/nl/guides/export-asam/).
+
+## Kan drawtonomy Lanelet2 (.osm)-kaarten in de browser bewerken?
+
+Ja. drawtonomy kan [Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2)
+OSM-bestanden importeren (inclusief
+[Autoware-voorbeeldkaarten](https://autowarefoundation.github.io/autoware-documentation/main/demos/planning-sim/#download-the-sample-map)),
+rijstrookgeometrie en verbindingen visueel bewerken en weer
+exporteren naar Lanelet2 OSM. Voor de beste prestaties houdt u
+imports onder ongeveer 500 rijstroken per scène. Zie
+[Een Lanelet2 (.osm)-bestand importeren](/nl/guides/import-lanelet2/).
+
+## Kan ik een ROS occupancy grid-kaart importeren?
+
+Ja. drawtonomy leest het ROS `map_server`-formaat (`.pgm` +
+`.yaml`) dat door [nav2](https://navigation.ros.org/),
+Cartographer, Gmapping en vergelijkbare SLAM-tools wordt gebruikt.
+Het grid wordt als achtergrondlaag weergegeven, zodat u
+rijstroken, paden en obstakels er direct overheen kunt schetsen.
+Zie [Een ROS OccupancyGrid importeren](/nl/guides/import-ros-map/).
+
+## Hoe verschilt drawtonomy van generieke tekenprogramma's?
+
+Generieke tekenprogramma's kennen alleen generieke vormen, dus
+een rijstrook is gewoon een rechthoek die u opnieuw tekent zodra
+de weg afbuigt. drawtonomy levert **rijstroken, kruispunten,
+zebrapaden, verkeerslichten, wegmarkeringen, voertuigen en
+voetgangers als ingebouwde vormen**, en rijstroken bevatten
+verbindingen voor **Volgende / Vorige / Links / Rechts**. Sleep
+een grenslijn en de verbonden rijstroken volgen. Zie
+[Waarom drawtonomy](/nl/explanation/why-drawtonomy/) en het
+[rijstrookverbindingsmodel](/nl/explanation/lane-model/).
+
+## Moet ik iets installeren?
+
+Nee. drawtonomy draait in elke moderne webbrowser. Open
+[drawtonomy.com](https://drawtonomy.com) en begin te tekenen.
+Extensieontwikkelaars kunnen ook de lokale dev-server gebruiken
+([`@drawtonomy/dev-server`](https://www.npmjs.com/package/@drawtonomy/dev-server)),
+die de editor host op localhost.
+
+## Kan drawtonomy een rijscenario uit natuurlijke taal genereren?
+
+Ja. De [AI Scene Generator](/nl/tutorials/ai-scene/)-extensie leest
+een prompt in natuurlijke taal of OpenSCENARIO XML en levert een
+bewerkbaar canvas — rijstroken, voertuigen, paden en voetgangers
+als gewone drawtonomy-vormen. Ondersteunt Anthropic Claude,
+OpenAI GPT en Google Gemini.
+
+## Welk bestandsformaat houdt een drawtonomy-scène herbewerkbaar?
+
+`drawtonomy.svg`. Het is een gewoon SVG-bestand — te bekijken in
+browsers, GitHub, slidedecks en Markdown-renderers — met metadata
+die drawtonomy gebruikt om elke vorm, verbinding, gedeelde punt
+en overlap-relatie te reconstrueren wanneer u het bestand
+heropent. Zie [Uw scène exporteren](/nl/guides/export/) en de
+[drawtonomy.svg-formaatreferentie](/nl/reference/drawtonomy-svg/).
+
+## Kan ik mijn eigen voertuig- of bordensjablonen toevoegen?
+
+Ja. Sjablonen zijn SVG's geregistreerd in
+`templates/manifest.json`. Plaats die van u in de juiste map
+(`vehicle`, `pedestrian`, `road_marking`, `sign`, `other`), open
+een PR en het verschijnt in het menu van de editor naast de
+ingebouwde sjablonen. Zie
+[Sjablonen bijdragen](/nl/extend/templates/).
+
+## Ondersteunt drawtonomy grote wegennetwerken?
+
+drawtonomy is afgestemd op diagrammen, niet op kaarten op
+stadsschaal. Voor responsief bewerken houdt u één scène onder
+ongeveer **500 rijstroken**. Voor grotere gebieden splitst u het
+werk over meerdere bestanden of importeert u alleen de regio die
+u nodig hebt.
+
+## Kan ik drawtonomy-diagrammen gebruiken in papers, dia's of documentatie?
+
+Ja. Het [`drawtonomy.svg`](/nl/guides/export/)-formaat is geldige
+SVG, dus het integreert in papers, dia's, Markdown en websites
+zonder conversie. PDF, PNG, JPG en EPS zijn ook beschikbaar voor
+traditionele publicatiepijplijnen.
+
+## Waar staat de broncode?
+
+De SDK, extensies, sjablonen en deze documentatiesite staan op
+[github.com/kosuke55/drawtonomy](https://github.com/kosuke55/drawtonomy).
+De applicatie zelf staat op
+[drawtonomy.com](https://drawtonomy.com).

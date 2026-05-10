@@ -1,0 +1,75 @@
+---
+title: Rijstrookverbindingen beheren (Volgende / Vorige / Links / Rechts)
+description: drawtonomy-rijstroken bevatten verbindingsvelden voor Volgende, Vorige, Links en Rechts, zodat het wegennet interpreteerbaar is, niet alleen visueel. Sleep een gedeelde grenslijn en de verbonden rijstroken werken samen bij.
+keywords:
+  - rijstrookverbindingseditor
+  - wegtopologie diagram
+  - volgende vorige links rechts rijstrookmodel
+  - interpreteerbare wegennetschets
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Wanneer twee rijstroken een grenspunt delen, beweegt het slepen
+van dat punt beide rijstroken tegelijk. Het Attribuutpaneel toont
+vier expliciete verbindingsvelden zodat u ook handmatig
+Volgende / Vorige / Links / Rechts kunt bedraden.
+
+<Demo src="/videos/lane-connection-demo.mp4" caption="Eerst wordt één rijstrook getekend, daarna wordt een tweede toegevoegd door een bestaand punt te verlengen — de grens wordt gedeeld." />
+
+## Verbonden rijstroken tekenen
+
+De video begint met een leeg canvas en een geopende Lane-tool. De
+eerste rijstrook is een enkele gebogen rijstrook:
+
+![Een enkele gebogen rijstrook](/img/frames/lane-connection-curve.png)
+
+Een tweede rijstrook wordt vervolgens gestart, zodat zijn
+beginrand op de bestaande grenspunten van de eerste rijstrook
+landt. drawtonomy snapt naar die punten en registreert de nieuwe
+rijstrook als een voortzetting:
+
+![Een tweede rijstrook toegevoegd; de twee delen nu een grens onderaan](/img/frames/lane-connection-split.png)
+
+De rijstroken delen nu een grenslijnsegment. Sleep de gedeelde
+grens op een van beide rijstroken en beide bewegen samen. Het
+divergerende bovenuiteinde is aan elke kant onafhankelijk.
+
+## De vier verbindingsvelden
+
+Druk op <kbd>V</kbd> voor Select, klik op een willekeurige
+rijstrook en kijk naar het rechterpaneel. De velden zijn:
+
+| Veld | Betekenis |
+| --- | --- |
+| **Next Lanes** | Rijstroken waarin verkeer van deze rijstrook stroomt. |
+| **Prev Lanes** | Rijstroken die in deze rijstrook stromen. |
+| **Left Lane** | De rijstrook direct links, die een grens deelt. |
+| **Right Lane** | De rijstrook direct rechts, die een grens deelt. |
+
+Elk veld heeft twee knoppen:
+
+- **Create** — maak een gloednieuwe naburige rijstrook en wijs
+  het veld daarnaar.
+- **Set** — kies een bestaande rijstrook op het canvas om het
+  veld te vullen.
+
+Verbindingen zijn bidirectioneel. *Next Lanes* van Lane A op B
+zetten voegt B ook toe aan A's *Prev Lanes*; drawtonomy
+onderhoudt de omgekeerde link automatisch.
+
+## Wanneer verbindingen automatisch ontstaan
+
+- Een nieuwe rijstrook tekenen die op het grenspunt van een
+  bestaande rijstrook begint — het geval in de demo hierboven.
+  De gedeelde grens is voldoende; u hoeft niet op Set te klikken.
+- Een [kruispuntsjabloon](/nl/reference/shapes/) plaatsen — elke
+  toegangsrijstrook wordt bedraad.
+
+Voor al het andere klikt u op **Set** en kiest u de buur.
+
+## Zie ook
+
+- [Rijstrookverbindingsmodel](/nl/explanation/lane-model/) — waarom
+  deze abstractie bestaat en wat exporters ermee doen.
+- [De Lane-tool gebruiken](/nl/guides/lane-tool/)

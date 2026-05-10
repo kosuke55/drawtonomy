@@ -1,0 +1,74 @@
+---
+title: Exporteren naar OpenDRIVE / OpenSCENARIO / esmini
+description: Exporteer uw drawtonomy-scène als ASAM OpenDRIVE 1.8 (.xodr), OpenSCENARIO 1.3 (.xosc) of als een esmini-klare zip-bundel voor afspelen in een simulator.
+keywords:
+  - gratis OpenSCENARIO editor
+  - gratis OpenDRIVE editor browser
+  - OpenSCENARIO authoring online
+  - esmini scenario authoring
+  - ASAM scenario diagramtool
+  - tekening converteren naar OpenDRIVE
+---
+
+drawtonomy kan uw scène exporteren als ASAM
+[OpenDRIVE](https://www.asam.net/standards/detail/opendrive/)
+(`.xodr`) en
+[OpenSCENARIO](https://www.asam.net/standards/detail/openscenario/)
+(`.xosc`), of beide bundelen als zip klaar voor afspelen in
+[esmini](https://github.com/esmini/esmini).
+
+![Een drawtonomy-scène afgespeeld in esmini na export](/img/asam-esmini.png)
+
+## Exporteren vanuit de editor
+
+1. Teken uw scène (rijstroken, voertuigen, verkeerslichten…).
+2. Open **File → Export → Export for esmini**.
+3. Voer een basisnaam in wanneer daarom wordt gevraagd.
+4. Een `<naam>.zip` met `<naam>.xodr` en `<naam>.xosc` wordt
+   gedownload.
+
+## Afspelen
+
+```bash
+unzip my-scene.zip
+esmini --osc my-scene/my-scene.xosc --window 60 60 1024 768
+```
+
+## Individuele formaten
+
+Als u maar één van de twee nodig heeft:
+
+- **File → Export → OpenDRIVE (.xodr)**
+- **File → Export → OpenSCENARIO (.xosc)**
+
+## Programmatische export
+
+De exporter is onderdeel van `@drawtonomy/sdk` en draait zonder
+de editor. Gebruik het in CI-pijplijnen, server-side tooling of
+browserextensies:
+
+```ts
+import { exporter, createSnapshot } from '@drawtonomy/sdk'
+
+const snapshot = createSnapshot(shapes)
+const { blob, baseName } = exporter.buildEsminiZip(snapshot, {
+  baseName: 'my-scene',
+})
+```
+
+Voor de volledige API en uitbreidingspunten, zie de
+[Exporter SDK-referentie](/nl/extend/exporter-sdk/).
+
+## Geleverde versies
+
+| Formaat | Versie |
+|---|---|
+| OpenDRIVE | 1.8 |
+| OpenSCENARIO | 1.3 |
+
+## Zie ook
+
+- [Exporter-architectuur](/nl/explanation/exporter-architecture/) —
+  wat de pijplijn doet tussen snapshot en bestand.
+- [Een doelformaat toevoegen](/nl/extend/exporter-sdk/) — koppel
+  CARLA, SUMO, Unity of iets anders.

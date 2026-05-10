@@ -1,0 +1,48 @@
+---
+title: Lanelet2 (.osm) ファイルをインポートする
+description: Lanelet2 OSM 地図を drawtonomy のブラウザホワイトボードで開き、レーンと接続を視覚的に編集して Lanelet2 にラウンドトリップ — Autoware サンプル地図やそれに類する道路ネットワークファイルに有用です。
+keywords:
+  - Lanelet2 エディタ ブラウザ
+  - Lanelet2 ビューア オンライン
+  - Lanelet2 osm 編集
+  - Autoware サンプル 地図 エディタ
+  - lanelet2 図 ツール
+  - HD マップ 編集
+  - 自動運転 地図 編集
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+drawtonomy は [Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2) 形式の OSM 地図を読み込めます。サンプル地図は [Autoware ドキュメント](https://autowarefoundation.github.io/autoware-documentation/main/demos/planning-sim/#download-the-sample-map) から入手できます。
+
+<Demo src="/videos/lanelet-import-demo.mp4" caption="Lanelet2 ファイルをまるごとインポート。" />
+
+## ファイル全体をインポート
+
+1. **File** メニュー → **Import** を開きます。
+2. `.osm` ファイルを選びます。
+3. drawtonomy がファイルをパースし、Lane 図形と接続情報をキャンバスに展開します。
+
+## 特定のレーンだけをインポート
+
+大規模な地図ですべてのレーンをインポートするとエディタの動作が重くなります。代わりにレーン選択ダイアログを使ってください。
+
+<Demo src="/videos/lanelet-select-import-demo.mp4" caption="必要なレーンだけをドラッグ選択してからインポート。" />
+
+1. **File** メニュー → **Import → Select lanes** を開きます。
+2. drawtonomy がプレビュー地図を表示します。
+3. 必要なレーンをクリックまたはドラッグで選びます。
+4. **Import selection** をクリックします。
+
+## パフォーマンスの目安
+
+エディタを快適に動作させるには、インポート後のシーンを約 **500 レーン** 以下に保ってください。広域を扱う場合は複数ファイルに分割するか、必要な領域だけをインポートしてください。
+
+## インポート後
+
+インポートされたレーンは完全な Lane 図形として展開され、Lanelet2 ファイル内の接続情報も保持されます。トポロジーを失うことなく編集、[滑らか化](/ja/guides/smooth-lanes/)、[書き戻し](/ja/guides/export-asam/) ができます。
+
+## 関連項目
+
+- [drawtonomy.svg 形式](/ja/reference/drawtonomy-svg/) — drawtonomy 内で再編集するためのロスレス形式。
+- [地図からレーンを生成する](/ja/guides/lane-from-map/) — 整備済みの地図ファイルがない場合。

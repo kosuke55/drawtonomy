@@ -1,0 +1,47 @@
+---
+title: Anpassa färg, opacitet, bredd och stil
+description: Ange stil per form och ändra standardvärden som gäller för nya former.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Varje form bär sin egen stil. Du kan också ändra de
+redigerar-omfattande standardvärdena så att nya former börjar som
+du vill.
+
+<Demo src="/videos/style-demo.mp4" caption="Färg, opacitet, bredd och mallvariant per form från attributpanelen." />
+
+## Stil per form
+
+1. Tryck på <kbd>V</kbd> för Select, klicka sedan på en form.
+2. **Attributpanelen** till höger exponerar:
+   - **Color** (palett + anpassad)
+   - **Opacity** (0–100 %)
+   - **Width** (för linjeliknande former)
+   - **Style** (solid / streckad / mallvariant)
+
+Multi-välj för att applicera samma ändring på flera former
+samtidigt.
+
+## Standardvärden
+
+För att få varje nytt körfält att börja vid till exempel 60 %
+opacitet:
+
+1. Öppna **hamburgermenyn**.
+2. Välj **Defaults**.
+3. Ändra värdet under **Lane**.
+
+Standardvärden träder i kraft för nyligen skapade former.
+Befintliga former påverkas inte.
+
+## Färgpalett
+
+drawtonomy använder en palett i Tailwind-stil (grey-100 till
+grey-900, plus färger). För den fullständiga listan, se
+[Färgpalettreferens](/sv/reference/color-palette/).
+
+## Se även
+
+- [drawtonomy.svg-format](/sv/reference/drawtonomy-svg/) — hur stil
+  bevaras vid spara/öppna.

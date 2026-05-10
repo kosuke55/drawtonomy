@@ -1,0 +1,31 @@
+---
+title: Chia sẻ điểm giữa các hình mẫu
+description: Kết nối Linestring, Polygon và Path để chúng dùng chung một đỉnh và di chuyển cùng nhau.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Một *điểm dùng chung* là một đỉnh đơn được tham chiếu bởi nhiều hình mẫu. Di chuyển nó một lần và mọi hình mẫu tham chiếu đến nó sẽ theo sau. Sử dụng tính năng này để giữ các biên làn đường liền kề, các góc polygon và các điểm nối path khóa với nhau.
+
+<Demo src="/videos/share-demo.mp4" caption="Giữ Alt + nhấp để chia sẻ một điểm hiện có với một hình mẫu mới." />
+
+## Tạo một điểm dùng chung trong khi vẽ
+
+1. Chọn công cụ Linestring (<kbd>L</kbd>), Polygon (<kbd>G</kbd>), hoặc Path (<kbd>H</kbd>).
+2. Giữ <kbd>Alt</kbd> (Option trên macOS).
+3. Nhấp một đỉnh hiện có của một hình mẫu khác.
+
+Hình mẫu mới có được một đỉnh được *chia sẻ* với hình mẫu hiện có — không chỉ snap đến cùng tọa độ.
+
+## Chuyển đổi một đỉnh hiện có thành điểm dùng chung
+
+1. Nhấp đúp một hình mẫu để vào [chỉnh sửa đoạn](/vi/guides/segment-editing/).
+2. Giữ <kbd>Alt</kbd> và kéo một đỉnh lên trên một đỉnh hiện có.
+
+## Tín hiệu trực quan
+
+Các điểm dùng chung hiển thị dưới dạng handle nhân đôi trong chế độ chỉnh sửa đoạn. Các điểm chỉ snap thông thường hiển thị dưới dạng handle đơn.
+
+## Xem thêm
+
+- [Mô hình snap & chia sẻ điểm](/vi/explanation/snap-and-sharing/) — vì sao chia sẻ và snap là những thứ khác nhau.

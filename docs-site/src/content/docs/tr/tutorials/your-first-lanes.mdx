@@ -1,0 +1,117 @@
+---
+title: İlk üç şeridiniz
+description: Resmi Şerit Aracı demosunu adım adım takip edin — merkez çizgilerinden iki şerit çizin, ardından mevcut sınırlar arasında üçüncü bir şerit oluşturun.
+sidebar:
+  order: 1
+keywords:
+  - şerit aracı eğitimi
+  - şerit düzenleyici
+  - merkez çizgisinden şerit
+  - sınırdan şerit
+  - drawtonomy şerit eğitimi
+  - sürüş senaryosu çizimi
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Bu ders resmi Şerit Aracı demosunu takip eder. Ders sonunda
+drawtonomy'nin şerit oluşturmanın iki yolunu da kullanmış
+olacaksınız:
+
+- **Merkez Çizgi modu** — merkez çizgiyi çizin; sol ve sağ sınırlar
+  sizin için oluşturulur.
+- **Sınır modu** — mevcut iki sınır çizgisi seçin ve drawtonomy
+  bunların arasına bir şerit oturtur.
+
+Demo, Merkez Çizgi modunda iki şerit çizer, ardından boşluğu
+dolduran üçüncü bir şerit için Sınır moduna geçer.
+
+<Demo src="/videos/lane-tool-demo.mp4" caption="İki Merkez Çizgi şeridi, ardından Sınır modunda mevcut sınırlardan oluşturulan üçüncü bir şerit." />
+
+## 1. Şerit aracını seçin
+
+[drawtonomy.com](https://drawtonomy.com)'u açın. <kbd>N</kbd> tuşuna
+basın (veya alt araç çubuğundaki şerit simgesine tıklayın).
+
+Ekranın sağ tarafı şimdi varsayılan olarak **Merkez Çizgi** seçili
+**Şerit** oluşturma panelini gösterir:
+
+![Şerit paneli — Merkez Çizgi modu aktif, Şerit Genişliği 50 px](/img/frames/lane-tool-panel.png)
+
+Şimdilik varsayılanları bırakın.
+
+## 2. Merkez Çizgi modunda iki şerit çizin
+
+Merkez Çizgi modunda, ilk merkez çizgi noktasını yerleştirmek için
+tuvale tıklayın, bir sonrakini yerleştirmek için biraz ileride
+tekrar tıklayın ve bitirmek için <kbd>Enter</kbd> tuşuna basın. Sol
+ve sağ sınırlar **Şerit Genişliği** değeri (varsayılan olarak 50 px)
+kullanılarak otomatik olarak görünür.
+
+Şerit aracı her şeritten sonra etkin kalır, bu nedenle ikincisini
+başlatmak için başka bir yere tekrar tıklayın. İlk şeridin sağına
+birkaç nokta yerleştirin ve <kbd>Enter</kbd> tuşuna basın:
+
+![Merkez Çizgi modunda yan yana çizilmiş iki şerit](/img/frames/lane-tool-two-lanes.png)
+
+Şu anda iki şerit bağımsız — bir sınır paylaşmıyorlar veya
+birbirlerini tanımıyorlar.
+
+## 3. Sınır moduna geçin
+
+Oluşturma modunu değiştirmek için aynı paneldeki **Merkez Çizgi**'nin
+yanındaki **Sınır**'a tıklayın. Sınır modunda boş alana
+tıklamazsınız; **mevcut sınır çizgilerine** tıklarsınız ve drawtonomy
+bunların arasına bir şerit oturtur.
+
+**Sol şeridin sağ sınırının** üzerine gelin — drawtonomy, imleç
+yeterince yakın olduğunda çizgi parçasını çividi renkte vurgular
+— ve tıklayın:
+
+![Sınır modu — sol şeridin sağ sınırı vurgulanmış, seçilmeye hazır](/img/frames/lane-tool-boundary-mode.png)
+
+Ardından **sağ şeridin sol sınırına** tıklayın. Yeni bir şerit
+boşluğu doldurur, tıklanan iki çizgi parçasını sol ve sağ sınırları
+olarak kullanır.
+
+## 4. Sonucu inceleyin
+
+Seçim aracı için <kbd>V</kbd> tuşuna basın ve yeni orta şeride
+tıklayın. Sağ panel onun özelliklerine geçer:
+
+![Özellik Paneli — yeni orta şerit komşularıyla way/1 ve way/2 sınırlarını paylaşıyor](/img/frames/lane-attributes.png)
+
+Sınırlar yeniden kullanılır:
+
+- **Şerit Kimliği** — `lane/2`, yepyeni bir şerit.
+- **Sol Sınır** — `way/1`, sol şeridin sağ sınırı olan aynı çizgi
+  parçası.
+- **Sağ Sınır** — `way/2`, aynı şekilde sağ şeritle paylaşılır.
+
+Sınırlar paylaşıldığı için, herhangi bir tarafta bir noktayı
+sürüklemek bitişik iki şeridi birlikte hareket ettirir. İşte
+[şerit bağlantılarının](/tr/explanation/lane-model/) üzerine inşa
+edildiği şey budur; temel model için bir sonraki sayfayı okuyun.
+
+Panel ayrıca **Yön**, **Şerit Rengi**, **Şerit Opaklığı** ve dört
+bağlantı yuvası **Sonraki Şeritler / Önceki Şeritler / Sol Şerit /
+Sağ Şerit**'i de gösterir, şimdilik bunları boş bırakıyoruz.
+
+## Öğrendikleriniz
+
+- Şeritler iki şekilde çizilebilir: bir merkez çizgiden veya iki
+  mevcut sınır çizgisi seçilerek.
+- Merkez Çizgi modu boş tuval için hızlı seçenektir; Sınır modu hiçbir
+  şeyi yeniden çizmeden mevcut geometri arasına bir şerit yerleştirir.
+- Mevcut sınırlardan oluşturulan bir şerit bu sınırları komşularıyla
+  paylaşır.
+
+## Sıradaki ne
+
+- [Şerit bağlantılarını yönetin](/tr/guides/lane-connections/) —
+  Özellik Panelindeki dört bağlantı yuvası.
+- [Pürüzsüz şerit sınırları](/tr/guides/smooth-lanes/) — aynı
+  paneldeki Pürüzsüz Sınır geçişi açısal sınırları eğrilere
+  dönüştürür.
+- [Bir uydu haritasından gerçek bir yolu yeniden oluşturma](/tr/tutorials/road-from-map/) —
+  şeritleri çizmek yerine OSM'den çekin.

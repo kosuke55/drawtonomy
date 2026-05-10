@@ -1,0 +1,78 @@
+---
+title: Ekspor ke OpenDRIVE / OpenSCENARIO / esmini
+description: Ekspor adegan drawtonomy Anda sebagai ASAM OpenDRIVE 1.8 (.xodr), OpenSCENARIO 1.3 (.xosc), atau sebagai paket zip siap esmini untuk pemutaran simulator.
+keywords:
+  - editor OpenSCENARIO gratis
+  - editor OpenDRIVE gratis browser
+  - penulisan OpenSCENARIO online
+  - penulisan skenario esmini
+  - alat diagram skenario ASAM
+  - konversi gambar ke OpenDRIVE
+  - editor skenario simulasi AV
+  - pembuatan skenario simulasi
+  - editor adegan ASAM
+  - simulasi kendaraan otonom
+---
+
+drawtonomy dapat mengekspor adegan Anda sebagai ASAM
+[OpenDRIVE](https://www.asam.net/standards/detail/opendrive/)
+(`.xodr`) dan
+[OpenSCENARIO](https://www.asam.net/standards/detail/openscenario/)
+(`.xosc`), atau menggabungkan keduanya sebagai zip siap pemutaran
+[esmini](https://github.com/esmini/esmini).
+
+![Adegan drawtonomy yang diputar di esmini setelah ekspor](/img/asam-esmini.png)
+
+## Ekspor dari editor
+
+1. Gambar adegan Anda (jalur, kendaraan, lampu lalu lintas…).
+2. Buka **File → Export → Export for esmini**.
+3. Masukkan nama dasar saat diminta.
+4. Sebuah `<name>.zip` yang berisi `<name>.xodr` dan `<name>.xosc`
+   akan terunduh.
+
+## Putar kembali
+
+```bash
+unzip my-scene.zip
+esmini --osc my-scene/my-scene.xosc --window 60 60 1024 768
+```
+
+## Format individual
+
+Jika Anda hanya membutuhkan salah satu dari keduanya:
+
+- **File → Export → OpenDRIVE (.xodr)**
+- **File → Export → OpenSCENARIO (.xosc)**
+
+## Ekspor programatik
+
+Exporter adalah bagian dari `@drawtonomy/sdk` dan berjalan tanpa
+editor. Gunakan dalam pipeline CI, tooling sisi server, atau ekstensi
+peramban:
+
+```ts
+import { exporter, createSnapshot } from '@drawtonomy/sdk'
+
+const snapshot = createSnapshot(shapes)
+const { blob, baseName } = exporter.buildEsminiZip(snapshot, {
+  baseName: 'my-scene',
+})
+```
+
+Untuk API lengkap dan titik ekstensi, lihat
+[Referensi Exporter SDK](/id/extend/exporter-sdk/).
+
+## Versi yang dihasilkan
+
+| Format | Versi |
+|---|---|
+| OpenDRIVE | 1.8 |
+| OpenSCENARIO | 1.3 |
+
+## Lihat juga
+
+- [Arsitektur exporter](/id/explanation/exporter-architecture/) —
+  apa yang dilakukan pipeline antara snapshot dan berkas.
+- [Menambahkan format target](/id/extend/exporter-sdk/) — hubungkan
+  CARLA, SUMO, Unity, atau apa pun.

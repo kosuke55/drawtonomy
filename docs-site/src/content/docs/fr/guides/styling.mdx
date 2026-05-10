@@ -1,0 +1,39 @@
+---
+title: Personnaliser couleur, opacité, largeur et style
+description: Définissez le style par forme et modifiez les valeurs par défaut qui s'appliquent aux nouvelles formes.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Chaque forme porte son propre style. Vous pouvez aussi modifier les valeurs par défaut de l'éditeur pour que les nouvelles formes démarrent comme vous le souhaitez.
+
+<Demo src="/videos/style-demo.mp4" caption="Couleur, opacité, largeur et variante de modèle par forme depuis le panneau d'attributs." />
+
+## Style par forme
+
+1. Appuyez sur <kbd>V</kbd> pour Sélection, puis cliquez sur une forme.
+2. Le **panneau d'attributs** à droite expose :
+   - **Couleur** (palette + personnalisée)
+   - **Opacité** (0–100 %)
+   - **Largeur** (pour les formes de type ligne)
+   - **Style** (plein / pointillé / variante de modèle)
+
+Sélectionnez plusieurs formes pour appliquer le même changement à plusieurs à la fois.
+
+## Valeurs par défaut
+
+Pour que chaque nouvelle voie commence, par exemple, à 60 % d'opacité :
+
+1. Ouvrez le menu **hamburger**.
+2. Choisissez **Valeurs par défaut**.
+3. Modifiez la valeur sous **Voie**.
+
+Les valeurs par défaut prennent effet pour les nouvelles formes créées. Les formes existantes ne sont pas modifiées.
+
+## Palette de couleurs
+
+drawtonomy utilise une palette de style Tailwind (grey-100 à grey-900, plus des couleurs nommées). Pour la liste complète, voir la [Référence de la palette de couleurs](/fr/reference/color-palette/).
+
+## Voir aussi
+
+- [Format drawtonomy.svg](/fr/reference/drawtonomy-svg/) — comment le style est conservé entre enregistrements et chargements.

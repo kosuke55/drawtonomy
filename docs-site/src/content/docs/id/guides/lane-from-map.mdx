@@ -1,0 +1,64 @@
+---
+title: Hasilkan jalur dari peta
+description: Konversi data jalan OSM di bawah latar peta satelit atau jalan menjadi jalur yang dapat diedit.
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Lane Generator menarik geometri jalan nyata dari OpenStreetMap dan
+mengubahnya menjadi bentuk Lane yang dapat diedit, selaras dengan
+latar peta.
+
+<Demo src="/videos/map-to-lane-demo.mp4" caption="Klik jalan untuk satu jalur, tarik wilayah untuk banyak." maxWidth="900px" />
+
+## Aktifkan latar peta
+
+1. Buka menu **Background** di kiri atas kanvas.
+2. Pilih **Satellite** (foto) atau **Roadmap** (skematis).
+3. Geser dan zoom ke area yang Anda inginkan.
+
+Peta dirender di belakang kanvas dan tetap berlabuh saat Anda
+menggambar.
+
+## Hasilkan satu jalur
+
+1. Tekan <kbd>N</kbd> untuk alat Lane.
+2. Aktifkan mode **Generator** di toolbar.
+3. Arahkan kursor ke jalan. drawtonomy menyorot segmen jalan OSM
+   yang cocok di bawah kursor.
+4. Klik. Segmen diambil dan dikonversi menjadi bentuk Lane.
+
+## Hasilkan setiap jalan dalam suatu wilayah
+
+Dengan mode Generator menyala:
+
+1. Tarik persegi panjang di atas area yang ingin Anda tangkap.
+2. Lepaskan. Setiap jalan di dalam persegi panjang menjadi Lane
+   dalam satu batch.
+
+Berguna untuk persimpangan utuh, lingkungan, atau lokasi uji.
+
+## Batas yang direkomendasikan
+
+Pengambilan dan konversi OSM berjalan di browser. Untuk pengeditan
+yang responsif, jaga adegan yang dihasilkan di bawah sekitar **500
+jalur** — bagi area yang lebih besar ke beberapa berkas jika Anda
+butuh lebih.
+
+## Setelah pembangkitan
+
+Jalur yang dihasilkan adalah bentuk Lane normal. Anda dapat:
+
+- Menarik titik untuk menyempurnakan geometri.
+- Menerapkan [Smooth](/id/guides/smooth-lanes/) untuk mengganti
+  polyline padat dengan spline.
+- Mengatur [koneksi](/id/guides/lane-connections/) di mana
+  generator tidak menyimpulkannya secara otomatis.
+- Letakkan kendaraan, pejalan kaki, atau path di atasnya.
+
+## Lihat juga
+
+- [Tutorial: Bangun ulang jalan nyata dari peta satelit](/id/tutorials/road-from-map/)
+- [Impor berkas Lanelet2 (.osm)](/id/guides/import-lanelet2/) —
+  ketika Anda sudah memiliki berkas peta yang dikurasi alih-alih
+  OSM mentah.

@@ -1,0 +1,111 @@
+---
+title: Dina första tre körfält
+description: Gå igenom den officiella Lane Tool-demon — rita två körfält från mittlinjer och bygg sedan ett tredje mellan de befintliga gränserna.
+sidebar:
+  order: 1
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Den här lektionen följer den officiella Lane Tool-demon. När du är
+klar har du använt båda sätten drawtonomy skapar körfält på:
+
+- **Center Line-läge** — rita mittlinjen; vänster och höger
+  gränser genereras åt dig.
+- **Boundary-läge** — välj två befintliga linjegränser och
+  drawtonomy passar in ett körfält mellan dem.
+
+Demon ritar två körfält i Center Line-läge och växlar sedan till
+Boundary-läge för ett tredje körfält som fyller mellanrummet.
+
+<Demo src="/videos/lane-tool-demo.mp4" caption="Två Center-Line-körfält, sedan ett tredje körfält byggt från befintliga gränser i Boundary-läge." />
+
+## 1. Välj Lane-verktyget
+
+Öppna [drawtonomy.com](https://drawtonomy.com). Tryck på <kbd>N</kbd>
+(eller klicka på körfältsikonen i nedre verktygsfältet).
+
+Höger sida av skärmen visar nu **Lane**-skapelsepanelen, med
+**Center Line** vald som standard:
+
+![Lane-panel — Center Line-läge aktivt, körfältsbredd 50 px](/img/frames/lane-tool-panel.png)
+
+Lämna standardvärdena för nu.
+
+## 2. Rita två körfält i Center Line-läge
+
+I Center Line-läge klickar du på canvasen för att släppa den första
+mittlinjepunkten, klickar igen längre fram för att släppa nästa,
+och trycker på <kbd>Enter</kbd> för att avsluta. Vänster och höger
+gränser visas automatiskt med värdet **Lane Width** (50 px som
+standard).
+
+Lane-verktyget förblir aktivt efter varje körfält, så klicka igen
+någon annanstans för att starta det andra. Släpp ett par punkter
+till höger om det första körfältet och tryck på <kbd>Enter</kbd>:
+
+![Två körfält ritade sida vid sida i Center Line-läge](/img/frames/lane-tool-two-lanes.png)
+
+Just nu är de två körfälten oberoende — de delar inte en gräns
+eller känner till varandra.
+
+## 3. Växla till Boundary-läge
+
+Klicka på **Boundary** i samma panel, bredvid **Center Line**, för
+att växla skapelseläge. I Boundary-läge klickar du inte på tom yta;
+du klickar på **befintliga linjegränser**, och drawtonomy passar
+in ett körfält mellan dem.
+
+Hovra över **höger gräns på det vänstra körfältet** — drawtonomy
+markerar linjen i indigo när markören är tillräckligt nära — och
+klicka:
+
+![Boundary-läge — höger gräns på det vänstra körfältet är markerad, redo att väljas](/img/frames/lane-tool-boundary-mode.png)
+
+Klicka sedan på **vänster gräns på det högra körfältet**. Ett nytt
+körfält fyller mellanrummet och använder båda klickade linjer som
+sina vänster- och högergränser.
+
+## 4. Inspektera resultatet
+
+Tryck på <kbd>V</kbd> för Select-verktyget och klicka på det nya
+mittersta körfältet. Höger panel växlar till dess attribut:
+
+![Attributpanel — det nya mittersta körfältet delar gränserna way/1 och way/2 med sina grannar](/img/frames/lane-attributes.png)
+
+Gränserna återanvänds:
+
+- **Lane ID** — `lane/2`, ett helt nytt körfält.
+- **Left Boundary** — `way/1`, samma linje som är höger gräns på
+  det vänstra körfältet.
+- **Right Boundary** — `way/2`, likaså delad med det högra
+  körfältet.
+
+Eftersom gränserna är delade flyttar ett drag i en punkt på endera
+sidan båda angränsande körfält tillsammans. Det är vad
+[körfältskopplingar](/sv/explanation/lane-model/) bygger på; läs den
+sidan härnäst för den underliggande modellen.
+
+Panelen exponerar också **Direction**, **Lane Color**, **Lane
+Opacity** och de fyra kopplingsfacken **Next Lanes / Prev Lanes /
+Left Lane / Right Lane**, som vi lämnar tomma för nu.
+
+## Vad du lärde dig
+
+- Körfält kan ritas på två sätt: från en mittlinje, eller genom
+  att välja två befintliga linjegränser.
+- Center Line-läge är det snabba alternativet för en tom canvas;
+  Boundary-läge passar in ett körfält mellan befintlig geometri
+  utan att rita om något.
+- Ett körfält byggt från befintliga gränser delar dessa gränser
+  med sina grannar.
+
+## Vad händer härnäst
+
+- [Hantera körfältskopplingar](/sv/guides/lane-connections/) — de
+  fyra kopplingsfacken i attributpanelen.
+- [Mjuka körfältsgränser](/sv/guides/smooth-lanes/) — Smooth
+  Boundary-omkopplaren i samma panel gör vinklade gränser till
+  kurvor.
+- [Återskapa en riktig väg från en satellitkarta](/sv/tutorials/road-from-map/) —
+  hämta körfält från OSM istället för att rita dem.

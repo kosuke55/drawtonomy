@@ -1,0 +1,75 @@
+---
+title: Ayak izli yol
+description: Bir araçtan bir Yol çizin ve araç şablonu kendini yol boyunca tekrarlasın.
+keywords:
+  - drawtonomy ayak izi
+  - yol takip eden araçlar
+  - drawtonomy araç tekrarlama
+  - takip mesafesi diyagramı
+  - sürüş senaryosu yörüngesi
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+*Ayak izi*, bir Yol boyunca otomatik olarak yerleştirilen bir aracın
+(veya başka bir şablonun) kopyasıdır. Demo bir ego araçla başlar,
+ondan bir Yol çizer ve yol hemen o aracın kopyalarıyla dolar — aynı
+şablon, eğri boyunca yönlendirilmiş, eşit aralıklarla.
+
+<Demo src="/videos/footprints-demo.mp4" caption="Bir ego araç, ondan çizilen bir Yol ve sonuçta oluşan ayak izi izi." />
+
+## Kurulum
+
+Araç aracı ile tuvalin herhangi bir yerine bir araç yerleştirin,
+ardından Yol aracı için <kbd>H</kbd> tuşuna basın. Sağ panel Yol
+ayarlarını gösterir:
+
+![Yol aracı paneli — Renk, Opaklık %90, Stil Düz, Genişlik 5px, Ok Başı 20px, Pürüzsüz işaretli](/img/frames/footprints-path-panel.png)
+
+Gösterilen varsayılanlar — düz yeşil, 5 px genişlik, pürüzsüz, 20 px
+ok başı ile — demonun kullandığıdır.
+
+## Yolu çizme
+
+Yolu başlatmak için araca tıklayın. İlk nokta aracın bağlantı
+noktasına kilitlenir. Yolu uzatmak için daha fazla nokta tıklayın;
+ok başı bıraktığınız son noktada görünür. Bitirmek için
+<kbd>Enter</kbd> tuşuna basın.
+
+Yol bittiği anda, drawtonomy onun boyunca kaynak aracın bir kopyasını
+döşer:
+
+![Yol çizilir; araç ayak izleri eşit aralıklarla yol boyunca görünür](/img/frames/footprints-along-path.png)
+
+Her kopya, konumundaki yol teğetiyle eşleşecek şekilde döndürülür,
+böylece iz eğrileri doğal olarak takip eder.
+
+## Stil ve şablon bağlı kalır
+
+Ayak izleri kaynak araçla stil paylaşır: kaynağın rengini, opaklığını
+veya şablonunu değiştirin ve her ayak izi takip eder. Bir manevra
+diyagramını görsel olarak tutarlı tutmak için her kopyayı elle
+düzenlemek zorunda değilsiniz.
+
+Sonraki demo karesi yolun kendisini gizler, böylece sadece ayak
+izleri kalır — alttaki yolun diyagramı dağıtmasını istemediğiniz dışa
+aktarma çekimleri için kullanışlı:
+
+![Yol çizilmeden tek başına ayak izleri](/img/frames/footprints-result.png)
+
+## Ayarlayabilecekleriniz
+
+- **Aralık** — ayak izleri arasındaki mesafe.
+- **Bağlantı noktası ofseti** — referans noktasını seyahat yönü
+  boyunca kaydırın (örneğin, merkez yerine taban bağlantısı veya ön
+  tampon).
+- **Pürüzsüz** — Yol panelindeki onay kutusu yolun kendisini noktalar
+  arasında pürüzsüz bir şekilde eğri yapar; ayak izi yönelimi takip
+  eder.
+- **Renk / Opaklık / Boyut** — kaynak araç aracılığıyla her ayak
+  izine bir kerede uygulanır.
+
+## Ayrıca bakın
+
+- [Araç, yaya ve trafik ışığı ekleyin](/tr/guides/participants/)
+- [Renk, opaklık, genişlik ve stili özelleştirin](/tr/guides/styling/)

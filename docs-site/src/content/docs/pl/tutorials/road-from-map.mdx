@@ -1,0 +1,133 @@
+---
+title: Odtwórz prawdziwą drogę z mapy
+description: Włącz tło drogowe lub satelitarne, dopasuj je za pomocą kontroli obrotu i obrysuj drogę narzędziem Pas. Auto-generacja jest również dostępna jako skrót.
+sidebar:
+  order: 3
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Ta lekcja bierze rzeczywistą lokalizację jako punkt wyjścia. Włączasz
+tło **Drogowe** lub **Satelitarne**, obracasz płótno, aby droga
+była zwrócona w wygodnym kierunku, i obrysowujesz pasy ręcznie po
+zdjęciu pod spodem. Sekcja bonusowa na końcu pokazuje generator
+jednoklikowy, który pobiera pasy bezpośrednio z danych OSM.
+
+## 1. Włącz tło mapy
+
+Otwórz menu (lewy górny róg) i znajdź wiersz **Mapa**:
+
+![Otwarte menu z podświetlonym wierszem Mapa; wybory to Wyłączona / Drogowa / Satelitarna](/img/mapBackground.png)
+
+Wybierz **Drogowa** dla schematycznego widoku OpenStreetMap lub
+**Satelitarna** dla widoku fotograficznego. Mapa renderuje się za
+wszystkim, co rysujesz, i pozostaje zakotwiczona — rysowanie po
+wierzchu jej nie przesuwa.
+
+Aby ją wyłączyć, wybierz **Wyłączona** z tego samego wiersza.
+
+## 2. Dopasuj płótno za pomocą kontroli obrotu
+
+Lewy dolny róg ma dwa kompaktowe panele:
+
+![Kontrolki w lewym dolnym rogu — Powiększenie po lewej, Obrót po prawej](/img/bottomLeft.png)
+
+- **Powiększenie** — przyciski `−` i `+` z aktualną wartością procentową
+  między nimi. Można też ścisnąć lub przewijać kółkiem, aby
+  powiększyć.
+- **Obrót** — ikona kompasu i bieżący kąt (`0°` domyślnie). Użyj
+  tego, aby obrócić płótno, dzięki czemu droga jest łatwiejsza do
+  podążania kursorem.
+
+Praca z obrotem:
+
+- **Kliknij** kompas, aby wejść w tryb obrotu. Kursor zmienia się w
+  uchwyt obrotu; przeciągnij po płótnie, aby obrócić całe płótno
+  (i tło mapy z nim).
+- **Kliknij** kompas ponownie, aby opuścić tryb obrotu.
+- **Kliknij dwukrotnie** kompas, aby zresetować z powrotem do `0°`.
+
+Obracaj, aż odcinek drogi, którego chcesz, będzie w przybliżeniu
+poziomy lub pionowy — w zależności od tego, co jest wygodniejsze do
+obrysowania.
+
+## 3. Obrysuj drogę narzędziem Pas
+
+Naciśnij <kbd>N</kbd> dla narzędzia Pas. Panel tworzenia Pasa
+otwiera się po prawej stronie. Tryb **Osi** jest wybrany domyślnie.
+
+Jeśli droga na mapie jest zakrzywiona, włącz **Gładką Granicę** w
+panelu przed kliknięciem — granice pasa będą podążały za gładką
+krzywą zamiast łamaną. (Zobacz
+[Gładkie granice pasów](/pl/tutorials/smooth-lanes/), jeśli chcesz
+przypomnienia.)
+
+Kliknij wzdłuż środka drogi na mapie, upuszczając punkt za każdym
+razem, gdy droga zauważalnie zmienia kierunek. Naciśnij
+<kbd>Enter</kbd>, aby zakończyć pas.
+
+Kilka wskazówek podczas obrysowywania:
+
+- Dostosuj **Szerokość Pasa** w panelu przed rysowaniem, jeśli
+  domyślna nie pasuje do drogi na mapie.
+- Przytrzymaj <kbd>Shift</kbd> podczas klikania, aby pominąć
+  [przyciąganie](/pl/guides/snap/) dla jednego kliknięcia — przydatne,
+  gdy chcesz punkt blisko, ale nie dokładnie na, istniejącego.
+- Dla dróg wielopasmowych narysuj każdy pas osobno. Gdy jedna granica
+  jest na miejscu, można użyć
+  [trybu Granicy](/pl/guides/lane-tool/#tryb-granicy) dla następnego
+  pasa i mieć go automatycznie współdzielącego tę granicę.
+
+## 4. Zapisz
+
+Gdy obrysowana droga wygląda prawidłowo, wyeksportuj jako
+**drawtonomy.svg**, aby tło mapy, geometria pasów i połączenia
+przeszły round-trip po ponownym otwarciu pliku. Zobacz
+[Eksport sceny](/pl/guides/export/).
+
+## Bonus: jednoklikowe generowanie pasów
+
+Jeśli ufasz danym OSM dla danego obszaru, drawtonomy może konwertować
+drogi bezpośrednio na edytowalne kształty Pasa — bez konieczności
+obrysowywania.
+
+<Demo src="/videos/map-to-lane-demo.mp4" caption="Kliknij drogę dla jednego pasa; przeciągnij obszar dla każdej drogi w nim." maxWidth="900px" />
+
+Z włączonym tłem Mapa:
+
+1. Naciśnij <kbd>N</kbd> dla narzędzia Pas, a następnie włącz tryb
+   **Generator** na pasku narzędzi.
+2. **Kliknij** segment drogi, aby skonwertować tylko ten segment na
+   Pas.
+3. **Przeciągnij** prostokąt nad obszarem, aby skonwertować każdą
+   drogę w nim w jednej partii.
+
+To skrót, a nie zamiennik obrysowywania. Wynik to po prostu zwykłe
+kształty Pasa — dopracuj je za pomocą
+[edycji segmentów](/pl/guides/segment-editing/),
+[wygładź je](/pl/guides/smooth-lanes/) lub podłącz brakujące
+[połączenia](/pl/guides/lane-connections/) później.
+
+Dla złożonych lub nieznanych obszarów ręczne obrysowywanie często
+daje czystszy wynik niż generator, ponieważ dane drogowe OSM mogą być
+zaszumione lub używać osi, która nie do końca pasuje do obrazu
+satelitarnego.
+
+## Czego się nauczyłeś
+
+- Tło mapy znajduje się w wierszu **Mapa** w menu, z opcjami
+  **Wyłączona**, **Drogowa** i **Satelitarna**.
+- Kompas **Obrotu** w lewym dolnym rogu obraca całe płótno, dzięki
+  czemu droga jest łatwiejsza do obrysowania; podwójne kliknięcie
+  resetuje do `0°`.
+- Obrysowywanie dróg narzędziem Pas daje pełną kontrolę nad
+  geometrią; Generator Pasów jest skrótem jednoklikowym, gdy dane
+  OSM są wystarczająco dobre.
+
+## Co dalej
+
+- [Zarządzaj połączeniami pasów](/pl/guides/lane-connections/) —
+  podłącz Następny/Poprzedni, aby sieć drogowa była połączona, a nie
+  tylko wizualnie sąsiadująca.
+- [Importuj plik Lanelet2 (.osm)](/pl/guides/import-lanelet2/) —
+  gdy masz już wyselekcjonowany plik mapy zamiast surowego OSM.

@@ -1,0 +1,73 @@
+---
+title: Bordas de faixa suaves
+description: Ative Borda Suave no painel de Faixa antes de desenhar — uma faixa curva sai como curva em vez de polilinha.
+sidebar:
+  order: 2
+---
+
+import Demo from '../../../../components/Demo.astro';
+
+Esta é a segunda lição curta, depois de
+[Suas primeiras três faixas](/pt/tutorials/your-first-lanes/). Um pequeno
+hábito: ative **Borda Suave** antes de desenhar uma faixa curva.
+
+O toggle fica no painel de criação de Faixa e muda como as bordas são
+geradas para as faixas que você desenhar a seguir. Faixas existentes
+não são afetadas.
+
+<Demo src="/videos/smooth-lane.mp4" caption="A mesma linha central curva desenhada duas vezes — uma com Borda Suave desligada, outra com ela ligada." />
+
+## 1. Abra o painel de Faixa
+
+Pressione <kbd>N</kbd> para a ferramenta Faixa. O painel à direita abre.
+Encontre a linha **BORDA SUAVE** — o padrão é **Off**:
+
+![Painel de criação de Faixa — linha BORDA SUAVE, atualmente em Off](/img/frames/smooth-toggle-off.png)
+
+## 2. Desenhe uma faixa curva com o toggle desligado
+
+Deixe o toggle em **Off**. Clique na tela para soltar pontos da linha
+central ao longo de uma curva, e pressione <kbd>Enter</kbd> para finalizar.
+
+As bordas são segmentos retos entre pontos consecutivos, então a faixa
+sai angular:
+
+![Faixa curva desenhada com Borda Suave desligada — bordas são polilinhas angulares](/img/frames/smooth-off-result.png)
+
+## 3. Ligue o toggle e desenhe a mesma faixa novamente
+
+Clique em **On** na linha BORDA SUAVE. Clique uma linha central similar
+em outro lugar na tela e pressione <kbd>Enter</kbd>.
+
+Desta vez as bordas são ajustadas com splines, então a faixa curva
+suavemente:
+
+![Faixa curva desenhada com Borda Suave ligada — bordas seguem uma curva suave](/img/frames/smooth-on-result.png)
+
+Lado a lado, a diferença é óbvia. As linhas centrais são as mesmas; só
+a regra de geração da borda mudou.
+
+## Quando deixar desligado, quando ligar
+
+| | Suave = Off | Suave = On |
+| --- | --- | --- |
+| Aparência | Angular, facetada | Curva |
+| Melhor para | Faixas retas, segmentos de cruzamento | Estradas curvas, rampas |
+| Desempenho | Ligeiramente mais barato | Ligeiramente mais geometria |
+
+Você pode alternar o toggle quantas vezes quiser. Cada nova faixa usa
+o valor que estiver definido quando você terminar de desenhá-la.
+
+## O que você aprendeu
+
+- O toggle Borda Suave fica no painel de criação de Faixa e se aplica
+  à próxima faixa que você desenhar, não à faixa selecionada.
+- A geometria da linha central é a mesma em ambos os modos; apenas a
+  renderização da borda difere.
+
+## E agora?
+
+- [Use a ferramenta Faixa](/pt/guides/lane-tool/) — o resto do painel
+  (modo Linha Central vs Borda, Largura da Faixa, Cor da Faixa).
+- [Gerenciar conexões de faixa](/pt/guides/lane-connections/) — os
+  quatro slots de conexão no Painel de Atributos.
