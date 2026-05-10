@@ -84,18 +84,13 @@ sidebar:
 - Reference pages are tables and lists, no narrative.
 - Link generously: every page is a few clicks from the rest.
 
-## What stays out
+## Linting
 
-This is the **public** documentation site. Do not include:
-
-- References to private repositories or internal hostnames.
-- Implementation paths beyond what is in `kosuke55/drawtonomy`.
-- Internal release timelines, customer names, or unannounced features.
-
-The CI guard in [`scripts/check-private-leaks.sh`](./scripts/check-private-leaks.sh)
-greps the source for known forbidden patterns. Run it locally before
-opening a PR:
+[`scripts/lint-docs.sh`](./scripts/lint-docs.sh) greps the source for a
+small list of patterns that shouldn't be committed (local worktree
+paths, editor scratch directories, etc.). It runs in CI on every PR;
+you can also run it locally:
 
 ```bash
-./docs-site/scripts/check-private-leaks.sh
+./docs-site/scripts/lint-docs.sh
 ```

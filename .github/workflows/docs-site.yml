@@ -27,8 +27,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Check for private-repo leaks
-        run: ./docs-site/scripts/check-private-leaks.sh
+      - name: Lint docs
+        run: ./docs-site/scripts/lint-docs.sh
 
       - name: Build site
         run: pnpm --filter @drawtonomy/docs-site build
