@@ -5,8 +5,8 @@ sidebar:
   order: 0
 ---
 
-Reference is for looking things up. Each page is a list of facts, kept
-short, with no narrative.
+Reference pages are for looking things up. Each one is a list of
+facts, kept short.
 
 ## Editor
 

@@ -5,18 +5,23 @@ sidebar:
   order: 0
 ---
 
-Tutorials are lessons. They take you on rails through a complete task so
-you can learn by doing, even if you have never used drawtonomy before.
+The tutorials are short, hands-on lessons. Each one walks through a
+complete task end-to-end, so you can pick up the editor by following
+along.
 
-If you already know what you want to accomplish, the
-[How-to guides](/guides/) are probably a better fit.
+If you already know what you want and just need the steps, the
+[How-to guides](/guides/) are usually a better fit.
 
 ## Lessons
 
-- [Quickstart](/start/quickstart/) — your first lane and vehicle in five minutes.
-- [Build a 3-lane intersection](/tutorials/three-lane-intersection/) — combine the
-  Lane tool, intersection templates, and lane-connection editing.
-- [Recreate a real road from a satellite map](/tutorials/road-from-map/) — use the
-  Lane Generator to convert OSM roads into editable lanes.
-- [Generate a scene with AI, then refine by hand](/tutorials/ai-scene/) — describe a
-  scenario in natural language and tweak the result.
+- [Quickstart](/start/quickstart/) — your first lane and vehicle in
+  five minutes.
+- [Your first three lanes](/tutorials/your-first-lanes/) — the two
+  creation modes of the Lane tool (Center Line and Boundary).
+- [Smooth lane boundaries](/tutorials/smooth-lanes/) — switching on
+  Smooth Boundary before drawing curves.
+- [Recreate a real road from a map](/tutorials/road-from-map/) —
+  tracing a road on a satellite background, with the one-click
+  generator covered as a shortcut.
+- [Generate a scene with AI, then refine by hand](/tutorials/ai-scene/) —
+  describing a scenario in natural language and editing the result.

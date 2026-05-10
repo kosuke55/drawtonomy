@@ -3,10 +3,10 @@ title: Exporter architecture
 description: How a canvas becomes a snapshot, and a snapshot becomes a file.
 ---
 
-The exporter is the bridge between drawtonomy's in-editor data and any
-external format — OpenDRIVE, OpenSCENARIO, Lanelet2, or whatever you
-plug in next. Understanding the pipeline is the prerequisite for
-adding a new target format.
+The exporter is the bridge between drawtonomy's in-editor data and
+external formats — OpenDRIVE, OpenSCENARIO, Lanelet2, or whatever
+you plug in next. Understanding the pipeline is the prerequisite
+for adding a new target format.
 
 ## The pipeline
 
@@ -17,9 +17,9 @@ Editor state ──► DrawtonomySnapshot ──► Exporter ──► File / bl
 
 ### 1. `DrawtonomySnapshot`
 
-A snapshot is a plain object: a list of shapes plus a version stamp and
-a timestamp. It is serialisable, has no DOM references, and is the only
-input the exporter takes.
+A snapshot is a plain object: a list of shapes plus a version
+stamp and a timestamp. It is serialisable, has no DOM references,
+and is the only input the exporter takes.
 
 ```ts
 interface DrawtonomySnapshot {
@@ -29,8 +29,8 @@ interface DrawtonomySnapshot {
 }
 ```
 
-You build a snapshot with `createSnapshot(shapes)`, or by parsing a
-saved `drawtonomy.svg` with `parseDrawtonomySvg(svg)`.
+You build a snapshot with `createSnapshot(shapes)`, or by parsing
+a saved `drawtonomy.svg` with `parseDrawtonomySvg(svg)`.
 
 ### 2. The exporter modules
 
@@ -41,8 +41,8 @@ Each target format is a separate pure function:
 - `exporter.exportToLanelet2(snapshot, options) → string` (OSM XML)
 - `exporter.buildEsminiZip(snapshot, options) → { blob, baseName }`
 
-They take a snapshot, return a string or a blob. No editor access, no
-DOM, no async dependencies. Same input → same output.
+They take a snapshot, return a string or a blob. No editor access,
+no DOM, no async dependencies. Same input, same output.
 
 ### 3. Round-trip
 
@@ -56,12 +56,13 @@ This is what powers the
 
 ## Why pure functions
 
-The exporter is the same code path whether it runs in the browser, in a
-Node CI script, in a server-side pipeline, or in a browser extension.
-Tests can run against snapshot fixtures with no headless browser.
+The exporter runs the same code path in the browser, in a Node CI
+script, in a server-side pipeline, or in a browser extension. Tests
+run against snapshot fixtures with no headless browser.
 
-This is why the exporter lives in `@drawtonomy/sdk` and not inside the
-editor — the editor depends on the SDK, not the other way around.
+That's why the exporter lives in `@drawtonomy/sdk` and not inside
+the editor — the editor depends on the SDK, not the other way
+round.
 
 ## Adding a target format
 
@@ -70,10 +71,11 @@ Unity, SUMO, custom DSLs. The recipe:
 
 1. Add a new module under `packages/drawtonomy-sdk/src/exporter/`.
 2. Take `DrawtonomySnapshot` in, return a string or blob.
-3. Add tests under `packages/drawtonomy-sdk/__tests__/exporter/` using
-   snapshot fixtures.
-4. Wire a UI entry point if you want the editor's Export menu to know
-   about it (optional — many users will call it programmatically).
+3. Add tests under `packages/drawtonomy-sdk/__tests__/exporter/`
+   using snapshot fixtures.
+4. Wire a UI entry point if you want the editor's Export menu to
+   know about it (optional — many users will call it
+   programmatically).
 
 The full developer guide is in the public repo:
 [Exporter Developer Guide](https://github.com/kosuke55/drawtonomy/blob/main/docs/exporter.md).

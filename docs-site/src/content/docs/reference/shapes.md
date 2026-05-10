@@ -31,7 +31,6 @@ description: Every shape drawtonomy can create, grouped by purpose.
 
 ## Custom templates
 
-You can add SVG templates for vehicles, pedestrians, road markings, and
-signs. See the
-[Template Guide](https://github.com/kosuke55/drawtonomy/blob/main/templates/TEMPLATE_GUIDE.md)
-for the contribution flow.
+You can add SVG templates for vehicles, pedestrians, road
+markings, and signs. The contribution flow is in the
+[Template Guide](https://github.com/kosuke55/drawtonomy/blob/main/templates/TEMPLATE_GUIDE.md).

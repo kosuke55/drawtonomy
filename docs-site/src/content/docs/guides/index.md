@@ -5,10 +5,10 @@ sidebar:
   order: 0
 ---
 
-How-to guides are recipes. They assume you already know your way around
-the editor and just need the steps for a specific job.
+How-to guides are recipes. They assume you've used the editor a bit
+and just need the steps for a specific task.
 
-If you are new, start with the [Tutorials](/tutorials/).
+If you're new, start with the [Tutorials](/tutorials/).
 
 ## Drawing lanes
 
@@ -36,6 +36,6 @@ If you are new, start with the [Tutorials](/tutorials/).
 
 ## Exporting
 
-- [Export as image (PNG, SVG, PDF, EPS, JPG)](/guides/export-image/)
-- [Save and re-edit (drawtonomy.svg)](/guides/export-drawtonomy-svg/)
+- [Export your scene](/guides/export/) — drawtonomy.svg as the
+  default, plus PNG / JPG / SVG / PDF / EPS for static images.
 - [Export to OpenDRIVE / OpenSCENARIO / esmini](/guides/export-asam/)

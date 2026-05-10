@@ -1,6 +1,12 @@
 ---
 title: Import a Lanelet2 (.osm) file
-description: Open a Lanelet2 OSM map for editing, optionally selecting only the lanes you need.
+description: Open Lanelet2 OSM maps in drawtonomy's browser whiteboard, edit lanes and connections visually, and round-trip back to Lanelet2 — useful for Autoware sample maps and similar road network files.
+keywords:
+  - Lanelet2 editor browser
+  - Lanelet2 viewer online
+  - edit Lanelet2 osm file
+  - Autoware sample map editor
+  - lanelet2 diagram tool
 ---
 
 import Demo from '../../../components/Demo.astro';
@@ -15,13 +21,13 @@ OSM-format maps. Sample maps are available from the
 
 1. Open the **File** menu → **Import**.
 2. Pick the `.osm` file.
-3. drawtonomy parses the file and populates the canvas with Lane shapes
-   plus their connections.
+3. drawtonomy parses the file and populates the canvas with Lane
+   shapes plus their connections.
 
 ## Import only specific lanes
 
-For large maps, importing every lane will slow the editor down. Use
-the lane-selection dialog instead:
+For large maps, importing every lane will slow the editor down.
+Use the lane-selection dialog instead:
 
 <Demo src="/videos/lanelet-select-import-demo.mp4" caption="Drag-select only the lanes you care about, then import." />
 
@@ -32,19 +38,19 @@ the lane-selection dialog instead:
 
 ## Performance tips
 
-Keep the imported scene under roughly **500 lanes** for a responsive
-editor. For larger areas, split your work across multiple files, or
-import only the region of interest.
+Keep the imported scene under roughly **500 lanes** for a
+responsive editor. For larger areas, split your work across
+multiple files, or import only the region you need.
 
 ## After import
 
-Imported lanes are full-fidelity Lane shapes — connections from the
-Lanelet2 file are preserved. You can edit, [smooth](/guides/smooth-lanes/),
+Imported lanes are full-fidelity Lane shapes; the connections from
+the Lanelet2 file are preserved. Edit, [smooth](/guides/smooth-lanes/),
 or [export back](/guides/export-asam/) without losing topology.
 
 ## See also
 
-- [drawtonomy.svg format](/reference/drawtonomy-svg/) — the lossless
-  format for re-editing within drawtonomy.
-- [Generate lanes from a map](/guides/lane-from-map/) — when you do not
-  have a curated map file.
+- [drawtonomy.svg format](/reference/drawtonomy-svg/) — the
+  lossless format for re-editing within drawtonomy.
+- [Generate lanes from a map](/guides/lane-from-map/) — when you
+  don't have a curated map file.

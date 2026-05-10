@@ -2,14 +2,14 @@
 title: Generate a scene with AI, then refine by hand
 description: Describe a scenario in natural language with the AI Scene Generator and edit the result on the canvas.
 sidebar:
-  order: 3
+  order: 4
 ---
 
 import Demo from '../../../components/Demo.astro';
 
 The [AI Scene Generator](https://github.com/kosuke55/drawtonomy/tree/main/extensions/ai-scene-generator)
-extension reads a natural-language prompt, OpenSCENARIO XML, or DSL,
-and emits a fully editable canvas.
+extension takes a natural-language prompt, OpenSCENARIO XML, or DSL
+input and emits an editable canvas.
 
 <Demo src="/videos/ai-scene-natural.mp4" caption="Natural-language scenario → editable scene on the canvas." maxWidth="900px" />
 
@@ -25,15 +25,15 @@ and emits a fully editable canvas.
 Paste a prompt like:
 
 > A 3-lane highway going left-to-right. An ego sedan (blue) in the
-> centre lane, a truck (grey) in the right lane slightly ahead. Show a
-> dashed path for the ego vehicle changing to the left lane.
+> centre lane, a truck (grey) in the right lane slightly ahead.
+> Show a dashed path for the ego vehicle changing to the left lane.
 
-Click **Generate**. The extension places lanes, vehicles, and a Path
-shape on the canvas.
+Click **Generate**. The extension lays out lanes, vehicles, and a
+Path shape on the canvas.
 
 ## 3. Refine
 
-Everything generated is a regular shape. Try:
+Everything generated is a normal shape. Try:
 
 - Selecting the truck and changing its template to **Bus**.
 - Dragging the ego vehicle's path to a different curve.
@@ -41,19 +41,20 @@ Everything generated is a regular shape. Try:
 
 ## 4. Or start from OpenSCENARIO
 
-In the same panel, switch the input mode to **OpenSCENARIO XML** and
-paste a `.xosc` file. The extension lays out actors and trajectories on
-the canvas. This is the fastest way to visualise a scenario you
-already have.
+In the same panel, switch the input mode to **OpenSCENARIO XML**
+and paste a `.xosc` file. The extension lays out actors and
+trajectories on the canvas — the fastest way to visualise an
+existing scenario.
 
 <Demo src="/videos/ai-scene-dsl.mp4" caption="An ASAM OpenSCENARIO DSL example placed on the canvas." maxWidth="900px" />
 
 ## What you learned
 
-- AI generation is a starting point, not a final product — every
-  shape is editable.
-- Switching between natural-language and OpenSCENARIO inputs lets you
-  go from rough idea to formal spec without leaving the canvas.
+- AI generation is a starting point — every shape afterwards is
+  editable like anything else on the canvas.
+- The same panel accepts natural-language prompts and OpenSCENARIO
+  input, so you can move between rough idea and formal spec without
+  leaving the editor.
 
-For the prompt patterns that work best, see the
+For prompt patterns that work well, see the
 [AI Scene Generator README](https://github.com/kosuke55/drawtonomy/tree/main/extensions/ai-scene-generator).

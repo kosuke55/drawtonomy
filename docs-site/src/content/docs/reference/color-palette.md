@@ -3,7 +3,7 @@ title: Color palette
 description: drawtonomy's color keys and their HEX values.
 ---
 
-drawtonomy uses a Tailwind / Material-style palette with grey-100 (lightest)
+drawtonomy uses a Tailwind / Material-style palette: grey-100 (lightest)
 through grey-900 (darkest), plus named colours.
 
 ## Greyscale
@@ -33,5 +33,5 @@ Lower number = lighter. This matches Tailwind's convention.
 
 ## Setting colour programmatically
 
-Use the SDK's `resolveColor()` to convert a key to a HEX value. See the
-[Extension SDK API](/extend/extension-sdk/) for details.
+Use the SDK's `resolveColor()` to convert a key to a HEX value. See
+the [Extension SDK API](/extend/extension-sdk/) for details.

@@ -1,52 +1,73 @@
 ---
-title: Manage lane connections
-description: Set Next, Previous, Left, and Right relationships so the editor understands your road topology.
+title: Manage lane connections (Next / Prev / Left / Right)
+description: drawtonomy lanes carry Next, Previous, Left, and Right connection slots so the road network is interpretable, not just visual. Drag a shared boundary and connected lanes update together.
+keywords:
+  - lane connection editor
+  - road topology diagram
+  - next previous left right lane model
+  - interpretable road network sketch
 ---
 
 import Demo from '../../../components/Demo.astro';
 
-Lane connections tell the editor which lanes are neighbours. Once set,
-moving a shared boundary updates every connected lane, and exporters
-(OpenDRIVE, Lanelet2) emit a coherent road network.
+When two lanes share a boundary point, dragging that point moves
+both lanes at once. The Attribute Panel exposes four explicit
+connection slots so you can also wire up Next / Previous / Left /
+Right by hand.
 
-<Demo src="/videos/lane-connection-demo.mp4" caption="Editing one boundary moves the neighbouring lane that shares it." />
+<Demo src="/videos/lane-connection-demo.mp4" caption="One lane drawn first, then a second is added by extending an existing point — the boundary becomes shared." />
 
-For a deeper explanation, see [Lane connection model](/explanation/lane-model/).
+## Drawing connected lanes
 
-## Inspect existing connections
+The video starts from an empty canvas with the Lane tool open.
+The first lane is a single curving lane:
 
-1. Press <kbd>V</kbd> for Select.
-2. Click a lane.
-3. The **Attribute Panel** on the right lists **Next**, **Previous**,
-   **Left**, **Right**.
-4. Hover an entry to highlight that neighbour on the canvas in indigo.
+![A single curving lane](/img/frames/lane-connection-curve.png)
 
-## Set a connection
+A second lane is then started so its starting boundary lands on
+the first lane's existing boundary points. drawtonomy snaps to
+those points and registers the new lane as a continuation:
 
-1. With the lane selected, click the **+** (or **Set**) button next to
-   **Next** (or another slot).
-2. Click the neighbouring lane on the canvas.
+![A second lane added; the two now share a boundary at the bottom](/img/frames/lane-connection-split.png)
 
-drawtonomy adds the reciprocal connection automatically — if you set
-Lane A's **Next** to Lane B, Lane B's **Previous** becomes Lane A.
+The lanes now share a boundary segment. Drag the shared boundary
+on either lane and both move together. The diverging upper end is
+independent on each side.
 
-## Clear a connection
+## The four connection slots
 
-In the Attribute Panel, click the ✕ next to the connection you want to
-remove. The reciprocal entry on the neighbour is cleared too.
+Press <kbd>V</kbd> for Select, click any lane, and look at the
+right panel. The slots are:
 
-## When connections are set automatically
+| Slot | Means |
+| --- | --- |
+| **Next Lanes** | Lanes that traffic from this lane flows into. |
+| **Prev Lanes** | Lanes that flow into this lane. |
+| **Left Lane** | The lane immediately to the left, sharing a boundary. |
+| **Right Lane** | The lane immediately to the right, sharing a boundary. |
 
-| Action | What gets connected |
-|---|---|
-| Draw a new lane starting on an existing endpoint | New lane → **Previous** = existing lane |
-| Use the parallel-lane shortcut (<kbd>Alt</kbd>+click with Lane tool) | New lane → **Left** or **Right** = source lane |
-| Place an [intersection template](/guides/participants/) | All approach lanes pre-connected |
-| [Generate from map](/guides/lane-from-map/) | Connections inferred from OSM topology where unambiguous |
+Each slot has two buttons:
+
+- **Create** — make a brand-new neighbouring lane and point the
+  slot at it.
+- **Set** — pick an existing lane on the canvas to fill the slot.
+
+Connections are bidirectional. Setting Lane A's *Next Lanes* to B
+also adds B to A's *Prev Lanes*; drawtonomy maintains the reverse
+link automatically.
+
+## When connections happen automatically
+
+- Drawing a new lane that starts on an existing lane's boundary
+  point — the case in the demo above. The shared boundary is
+  enough; you don't need to click Set.
+- Placing an [intersection template](/reference/shapes/) — every
+  approach lane is wired up.
+
+For everything else, click **Set** and pick the neighbour.
 
 ## See also
 
-- [Lane connection model](/explanation/lane-model/) — what these slots
-  mean and what exporters do with them.
-- [drawtonomy.svg format](/reference/drawtonomy-svg/) — how connections
-  are persisted on save.
+- [Lane connection model](/explanation/lane-model/) — why this
+  abstraction exists and what exporters do with it.
+- [Use the Lane tool](/guides/lane-tool/)

@@ -5,21 +5,22 @@ description: Connect Linestrings, Polygons, and Paths so they share a vertex and
 
 import Demo from '../../../components/Demo.astro';
 
-A *shared point* is a single vertex that several shapes reference. Move
-it, and every shape that shares it follows. This is how you keep
-adjoining lane boundaries, polygon corners, and path joints in sync.
+A *shared point* is a single vertex referenced by several shapes.
+Move it once and every shape that references it follows. Use this
+to keep adjoining lane boundaries, polygon corners, and path joints
+locked together.
 
 <Demo src="/videos/share-demo.mp4" caption="Hold Alt + click to share an existing point with a new shape." />
 
 ## Create a shared point while drawing
 
-1. Pick the Linestring (<kbd>L</kbd>), Polygon (<kbd>G</kbd>), or Path
-   (<kbd>H</kbd>) tool.
+1. Pick the Linestring (<kbd>L</kbd>), Polygon (<kbd>G</kbd>), or
+   Path (<kbd>H</kbd>) tool.
 2. Hold <kbd>Alt</kbd> (Option on macOS).
 3. Click an existing vertex of another shape.
 
-The new shape gains a vertex that is *shared* with the existing one —
-not just snapped at the same coordinate.
+The new shape gains a vertex that's *shared* with the existing one
+— not just snapped to the same coordinate.
 
 ## Convert an existing vertex to a shared one
 
@@ -29,10 +30,10 @@ not just snapped at the same coordinate.
 
 ## Visual cue
 
-Shared points render as a doubled handle in segment-editing mode. Plain
-snapped points render as a single handle.
+Shared points render as a doubled handle in segment-editing mode.
+Plain snapped points render as a single handle.
 
 ## See also
 
-- [Snap & point sharing model](/explanation/snap-and-sharing/) — why
-  shared and snapped are different things.
+- [Snap & point sharing model](/explanation/snap-and-sharing/) —
+  why shared and snapped are different things.

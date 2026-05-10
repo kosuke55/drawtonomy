@@ -14,5 +14,8 @@
     "@astrojs/starlight": "^0.39.0",
     "astro": "^6.1.0",
     "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "playwright": "^1.59.1"
   }
 }

@@ -1,12 +1,49 @@
-/* drawtonomy theme — match the app's indigo-300 (#a5b4fc) palette. */
+/* drawtonomy docs theme — palette is the app's PANEL_COLORS token set
+   (see src/client/components/ui/panelStyles.ts in the app):
+
+     bgActive       #e0e7ff   indigo-100   active button bg (e.g. Solid pressed)
+     bgDefault      #f4f4f5   neutral      idle button bg
+     bgValue        #f9fafb   neutral      value-box / hover bg
+     bgWhite        #ffffff
+     textActive     #4f46e5   indigo-600   active button text
+     textDark       #1e1e1e                primary text
+     textLabel      #374151
+     textSecondary  #6b7280
+     textMuted      #71717a
+     textIndex      #9ca3af
+     borderActive   #a5b4fc   indigo-300   slider thumb / active border
+     borderDefault  #e4e4e7
+     separator      #e4e4e7
+     panel chrome:  white, borderRadius 10, boxShadow 0 2px 12px rgba(0,0,0,.12)
+
+   Note on theme flash:
+     Starlight ships HTML with data-theme="dark" set on the server. The
+     light-mode override only kicks in once the browser script flips
+     data-theme on <html>. If accent values differ between the two modes,
+     every reload visibly flashes the dark accent before settling. So
+     accent / accent-low / accent-high are kept identical across modes
+     here; only the very-low background tint differs. */
+
+:root,
+:root[data-theme='dark'],
+:root[data-theme='light'] {
+	--sl-color-accent: #818cf8;       /* indigo-400, primary accent for links and chrome */
+	--sl-color-accent-high: #6366f1;  /* indigo-500, hover / :active — still soft */
+}
+
+:root,
+:root[data-theme='dark'] {
+	/* Deep wash on dark backgrounds. */
+	--sl-color-accent-low: #312e81;   /* indigo-900 */
+}
+
+:root[data-theme='light'] {
+	/* Same indigo family, but the active-state background is indigo-100
+	   to mirror the app's PANEL_COLORS.bgActive on white panels. */
+	--sl-color-accent-low: #e0e7ff;   /* indigo-100, app bgActive */
+}
 
 :root {
-	/* Accent palette derived from Tailwind indigo. */
-	--sl-color-accent-low: #1f1f3d;
-	--sl-color-accent: #818cf8;       /* indigo-400 — links, focus */
-	--sl-color-accent-high: #c7d2fe;  /* indigo-200 — hovered links on dark */
-
-	/* Hero gradient for the splash page. */
 	--sl-hero-gradient: linear-gradient(
 		120deg,
 		#a5b4fc 0%,
@@ -15,13 +52,7 @@
 	);
 }
 
-:root[data-theme='light'] {
-	--sl-color-accent-low: #eef2ff;   /* indigo-50 */
-	--sl-color-accent: #6366f1;       /* indigo-500 — readable on white */
-	--sl-color-accent-high: #4338ca;  /* indigo-700 — hover */
-}
-
-/* Splash hero: tint the background with a soft indigo wash. */
+/* Splash hero: soft indigo wash. */
 .hero {
 	background:
 		radial-gradient(
@@ -36,23 +67,48 @@
 		);
 }
 
-/* Gentle indigo border on cards / link cards. */
+/* Cards / link cards — match AttributePanel chrome:
+   white panel, 10px radius, hairline indigo border. */
 .card,
 .sl-link-card {
-	border-color: color-mix(in srgb, var(--sl-color-accent) 20%, transparent);
+	border-color: color-mix(in srgb, var(--sl-color-accent) 35%, transparent);
+	border-radius: 10px;
 }
 
+/* Hover mirrors the app's bgActive (indigo-100) on white. */
 .sl-link-card:hover {
 	border-color: var(--sl-color-accent);
+	background: color-mix(in srgb, var(--sl-color-accent-low) 80%, transparent);
 }
 
-/* Inline code & kbd pick up the accent. */
-:not(pre) > code {
+/* Inline code — indigo-100 fill, indigo-600 text in light mode (matches
+   app's Solid pressed button). accent-high is intentionally kept soft so
+   :active states don't flash darker, so #4f46e5 is used directly. */
+:root[data-theme='light'] :not(pre) > code {
+	color: #4f46e5;
+	background: color-mix(in srgb, var(--sl-color-accent-low) 80%, transparent);
+}
+
+:root[data-theme='dark'] :not(pre) > code {
 	color: var(--sl-color-accent-high);
-	background: color-mix(in srgb, var(--sl-color-accent) 12%, transparent);
+	background: color-mix(in srgb, var(--sl-color-accent) 14%, transparent);
 }
 
 kbd {
-	background: color-mix(in srgb, var(--sl-color-accent) 14%, transparent);
-	border-color: color-mix(in srgb, var(--sl-color-accent) 35%, transparent);
+	background: color-mix(in srgb, var(--sl-color-accent-low) 80%, transparent);
+	border-color: color-mix(in srgb, var(--sl-color-accent) 60%, transparent);
+}
+
+/* Hero primary action (Quickstart on the splash page) — bumped one step
+   darker than the page accent so it reads as the dominant CTA. Same value
+   for dark and light to avoid the SSR theme-flash. */
+.sl-link-button.primary {
+	background-color: #6366f1;       /* indigo-500 */
+	border-color: #6366f1;
+	color: #ffffff;
+}
+
+.sl-link-button.primary:hover {
+	background-color: #4f46e5;       /* indigo-600 */
+	border-color: #4f46e5;
 }

@@ -5,10 +5,9 @@ sidebar:
   order: 0
 ---
 
-Explanation is for understanding. These pages take a step back from
-"how do I do X" and look at *why* drawtonomy is built the way it is.
-Read them when you want a richer mental model than the
-[How-to guides](/guides/) provide.
+The Explanation pages step back from "how do I do X" and look at why
+drawtonomy is built the way it is. Read them when you want a richer
+mental model than the [How-to guides](/guides/) provide.
 
 ## Pages
 

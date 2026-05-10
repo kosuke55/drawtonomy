@@ -9,8 +9,9 @@ export default defineConfig({
 		starlight({
 			title: 'drawtonomy docs',
 			description:
-				'Documentation for drawtonomy — a browser-based whiteboard for driving diagrams.',
+				'Documentation for drawtonomy — a free, install-free whiteboard for driving diagrams. Sketch lanes, intersections, vehicles, crosswalks, and traffic scenarios in the browser; export to OpenDRIVE, OpenSCENARIO, and Lanelet2.',
 			customCss: ['./src/styles/custom.css'],
+			routeMiddleware: ['./src/route-data.ts'],
 			logo: {
 				src: './src/assets/logo.png',
 				alt: 'drawtonomy',
@@ -68,6 +69,8 @@ export default defineConfig({
 					collapsed: true,
 					items: [{ autogenerate: { directory: 'extend' } }],
 				},
+				{ label: 'FAQ', slug: 'faq' },
+				{ label: 'Contact', slug: 'contact' },
 			],
 			components: {},
 			head: [

@@ -1,60 +1,127 @@
 ---
-title: Recreate a real road from a satellite map
-description: Use the Lane Generator to convert OSM roads under a satellite background into editable lanes.
+title: Recreate a real road from a map
+description: Switch on a road or satellite background, align it with the rotation control, and trace the road with the Lane tool. Auto-generation is also available as a shortcut.
 sidebar:
-  order: 2
+  order: 3
 ---
 
 import Demo from '../../../components/Demo.astro';
 
-In this lesson you start from a real-world location, drop in a
-satellite background, and turn the road network into editable
-drawtonomy lanes.
+This lesson takes a real-world location as the starting point. You
+turn on the **Road** or **Satellite** background, rotate the canvas
+so the road faces a comfortable direction, and trace lanes by hand
+against the photo underneath. The bonus section at the end shows the
+one-click generator that pulls lanes from OSM data directly.
 
-<Demo src="/videos/map-to-lane-demo.mp4" caption="Click for one lane, drag for many." maxWidth="900px" />
+## 1. Switch on the map background
 
-## 1. Switch on the satellite layer
+Open the menu (top-left) and find the **Map** row:
 
-1. Open the canvas background menu (top-left of the canvas).
-2. Pick **Satellite** (or **Roadmap** if you prefer schematic colours).
-3. Pan and zoom to the location you want to model.
+![Menu opened with the Map row highlighted; choices are Off / Road / Satellite](/img/mapBackground.png)
 
-## 2. Click a road to generate a single lane
+Pick **Road** for the schematic OpenStreetMap view, or **Satellite**
+for the photographic one. The map renders behind everything you
+draw and stays anchored — drawing on top doesn't move it.
 
-1. Press <kbd>N</kbd> for the **Lane** tool, then enable **Generator**
+To turn it back off, pick **Off** from the same row.
+
+## 2. Align the canvas with the rotation control
+
+The bottom-left corner has two compact panels:
+
+![Bottom-left controls — Zoom on the left, Rotation on the right](/img/bottomLeft.png)
+
+- **Zoom** — `−` and `+` buttons with the current percentage between
+  them. You can also pinch or scroll-wheel to zoom.
+- **Rotation** — a compass icon and the current angle (`0°` by
+  default). Use this to spin the canvas so the road is easier to
+  follow with the cursor.
+
+Working with rotation:
+
+- **Click** the compass to enter rotation mode. The cursor turns
+  into a rotation handle; drag on the canvas to rotate the whole
+  canvas (and the map background with it).
+- **Click** the compass again to leave rotation mode.
+- **Double-click** the compass to reset back to `0°`.
+
+Rotate until the stretch of road you want is roughly horizontal or
+vertical — whichever feels more comfortable to trace.
+
+## 3. Trace the road with the Lane tool
+
+Press <kbd>N</kbd> for the Lane tool. The Lane creation panel opens
+on the right. **Center Line** mode is selected by default.
+
+If the road in the map is curved, switch on **Smooth Boundary** in
+the panel before clicking — the lane boundaries will follow a
+smooth curve instead of a polyline. (See
+[Smooth lane boundaries](/tutorials/smooth-lanes/) if you want a
+refresher.)
+
+Click along the centre of the road in the map, dropping a point
+each time the road changes direction noticeably. Press
+<kbd>Enter</kbd> to finish the lane.
+
+A few tips while tracing:
+
+- Adjust **Lane Width** in the panel before drawing if the default
+  doesn't match the road on the map.
+- Hold <kbd>Shift</kbd> while clicking to bypass
+  [snap](/guides/snap/) for one click — handy when you want a
+  point near, but not exactly on, an existing one.
+- For multi-lane roads, draw each lane separately. Once one
+  boundary is in place, you can use
+  [Boundary mode](/guides/lane-tool/#boundary-mode) for the next
+  lane and have it share that boundary automatically.
+
+## 4. Save
+
+Once the traced road looks right, export as **drawtonomy.svg** so
+the map background, lane geometry, and connections all round-trip
+when you reopen the file. See
+[Export your scene](/guides/export/).
+
+## Bonus: one-click lane generation
+
+If you trust the OSM data for the area, drawtonomy can convert
+roads directly into editable Lane shapes — no tracing required.
+
+<Demo src="/videos/map-to-lane-demo.mp4" caption="Click a road for one lane; drag a region for every road inside it." maxWidth="900px" />
+
+With the Map background on:
+
+1. Press <kbd>N</kbd> for the Lane tool, then enable **Generator**
    mode in the toolbar.
-2. Hover a road. The Lane Generator highlights the road segment under
-   your cursor.
-3. Click. drawtonomy fetches OSM data for that segment and converts it
-   to a Lane shape with realistic geometry.
+2. **Click** a road segment to convert just that segment into a
+   Lane.
+3. **Drag** a rectangle over an area to convert every road inside
+   it in one batch.
 
-## 3. Drag a region to generate many lanes
+This is a shortcut, not a replacement for tracing. The output is
+just normal Lane shapes — refine with
+[segment editing](/guides/segment-editing/),
+[smooth them](/guides/smooth-lanes/), or wire up missing
+[connections](/guides/lane-connections/) afterwards.
 
-1. Drag a rectangle on the map to enclose the area you want to capture.
-2. Release. Every road inside the rectangle becomes a Lane shape, all
-   aligned to the underlying map.
-
-## 4. Tidy up
-
-Generated lanes are normal Lane shapes — you can:
-
-- Drag them, edit their boundaries with [Segment Editing](/guides/segment-editing/),
-- Connect them with the Attribute Panel,
-- Or [smooth their boundaries](/guides/smooth-lanes/).
-
-<Demo src="/videos/smooth-lane.mp4" caption="Smooth a generated lane to replace dense polylines with splines." />
-
-## 5. Save
-
-Export as `drawtonomy.svg` to keep the satellite alignment and lane
-connection info, or as PNG/SVG for sharing.
+For complex or unfamiliar areas, tracing by hand often produces a
+cleaner result than the generator, since OSM road data can be noisy
+or use a centerline that doesn't quite match the satellite image.
 
 ## What you learned
 
-- The Lane Generator turns OSM roads into editable lanes.
-- Drag-to-region is the fastest way to capture a network.
-- Generated lanes behave like any other lane and can be refined
-  further.
+- The map background lives in the menu's **Map** row, with
+  **Off**, **Road**, and **Satellite** options.
+- The bottom-left **Rotation** compass spins the whole canvas so
+  the road is easier to trace; double-click resets to `0°`.
+- Tracing roads with the Lane tool gives full control over
+  geometry; the Lane Generator is a one-click shortcut for when
+  OSM data is good enough.
 
-For the full set of generator options, see
-[Generate lanes from a map](/guides/lane-from-map/).
+## What's next
+
+- [Manage lane connections](/guides/lane-connections/) — wire up
+  Next/Previous so the road network is connected, not just
+  visually adjacent.
+- [Import a Lanelet2 (.osm) file](/guides/import-lanelet2/) — when
+  you already have a curated map file rather than raw OSM.

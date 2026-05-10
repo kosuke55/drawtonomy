@@ -30,5 +30,5 @@ description: What drawtonomy can read and write.
 
 ## See also
 
-- [Save and re-edit (drawtonomy.svg)](/guides/export-drawtonomy-svg/)
+- [Export your scene](/guides/export/)
 - [Export to OpenDRIVE / OpenSCENARIO / esmini](/guides/export-asam/)

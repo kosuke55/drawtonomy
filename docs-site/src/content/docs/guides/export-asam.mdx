@@ -1,24 +1,31 @@
 ---
 title: Export to OpenDRIVE / OpenSCENARIO / esmini
-description: Produce ASAM-format files or an esmini-ready zip from your scene.
+description: Export your drawtonomy scene as ASAM OpenDRIVE 1.8 (.xodr), OpenSCENARIO 1.3 (.xosc), or as an esmini-ready zip bundle for simulator playback.
+keywords:
+  - free OpenSCENARIO editor
+  - free OpenDRIVE editor browser
+  - OpenSCENARIO authoring online
+  - esmini scenario authoring
+  - ASAM scenario diagram tool
+  - convert drawing to OpenDRIVE
 ---
 
-import Demo from '../../../components/Demo.astro';
-
 drawtonomy can export your scene as ASAM
-[OpenDRIVE](https://www.asam.net/standards/detail/opendrive/) (`.xodr`)
-and [OpenSCENARIO](https://www.asam.net/standards/detail/openscenario/)
+[OpenDRIVE](https://www.asam.net/standards/detail/opendrive/)
+(`.xodr`) and
+[OpenSCENARIO](https://www.asam.net/standards/detail/openscenario/)
 (`.xosc`), or bundle both as a zip ready for
 [esmini](https://github.com/esmini/esmini) playback.
 
-<Demo src="/videos/export-demo.mp4" caption="Same Export menu as image formats — pick OpenDRIVE / OpenSCENARIO / esmini bundle." />
+![A drawtonomy scene played back in esmini after export](/img/asam-esmini.png)
 
 ## Export from the editor
 
 1. Draw your scene (lanes, vehicles, traffic lights…).
 2. Open **File → Export → Export for esmini**.
 3. Enter a base name when prompted.
-4. A `<name>.zip` containing `<name>.xodr` and `<name>.xosc` downloads.
+4. A `<name>.zip` containing `<name>.xodr` and `<name>.xosc`
+   downloads.
 
 ## Play it back
 
@@ -36,8 +43,9 @@ If you only need one of the two:
 
 ## Programmatic export
 
-The exporter is part of `@drawtonomy/sdk` and runs without the editor.
-Use it in CI pipelines, server-side tooling, or browser extensions:
+The exporter is part of `@drawtonomy/sdk` and runs without the
+editor. Use it in CI pipelines, server-side tooling, or browser
+extensions:
 
 ```ts
 import { exporter, createSnapshot } from '@drawtonomy/sdk'
@@ -48,7 +56,7 @@ const { blob, baseName } = exporter.buildEsminiZip(snapshot, {
 })
 ```
 
-For the full API and extension points, see
+For the full API and extension points, see the
 [Exporter SDK reference](/extend/exporter-sdk/).
 
 ## Versions emitted
@@ -60,7 +68,7 @@ For the full API and extension points, see
 
 ## See also
 
-- [Exporter architecture](/explanation/exporter-architecture/) — what
-  the pipeline does between snapshot and file.
-- [Adding a target format](/extend/exporter-sdk/) — wire up CARLA, SUMO,
-  Unity, or anything else.
+- [Exporter architecture](/explanation/exporter-architecture/) —
+  what the pipeline does between snapshot and file.
+- [Adding a target format](/extend/exporter-sdk/) — wire up CARLA,
+  SUMO, Unity, or anything else.
