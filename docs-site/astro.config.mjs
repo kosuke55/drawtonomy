@@ -97,7 +97,9 @@ export default defineConfig({
 				{ label: 'FAQ', slug: 'faq' },
 				{ label: 'Contact', slug: 'contact' },
 			],
-			components: {},
+			components: {
+				Header: './src/components/Header.astro',
+			},
 			head: [
 				{
 					tag: 'meta',
