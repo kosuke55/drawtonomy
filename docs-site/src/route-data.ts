@@ -451,7 +451,7 @@ export const onRequest = defineRouteMiddleware((context) => {
 				inLanguage: lang,
 				isPartOf: {
 					'@type': 'WebSite',
-					name: 'drawtonomy docs',
+					name: 'drawtonomy',
 					url: 'https://docs.drawtonomy.com',
 				},
 				about: {

@@ -8,7 +8,7 @@ export default defineConfig({
 	site: 'https://docs.drawtonomy.com',
 	integrations: [
 		starlight({
-			title: 'drawtonomy docs',
+			title: 'drawtonomy',
 			description:
 				'Documentation for drawtonomy — a free, install-free whiteboard for driving diagrams. Sketch lanes, intersections, vehicles, crosswalks, and traffic scenarios in the browser; export to OpenDRIVE, OpenSCENARIO, and Lanelet2.',
 			customCss: ['./src/styles/custom.css'],
