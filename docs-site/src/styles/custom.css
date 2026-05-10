@@ -84,6 +84,14 @@
 	display: block;
 }
 
+/* On mobile (single-column hero) place the video below the headline +
+   CTA stack. On desktop Starlight already moves it to the right column. */
+@media (max-width: 50rem) {
+	.hero > .hero-html {
+		order: 2;
+	}
+}
+
 /* Cards / link cards — match AttributePanel chrome:
    white panel, 10px radius, hairline indigo border. */
 .card,
