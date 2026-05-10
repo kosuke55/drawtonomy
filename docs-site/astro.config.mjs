@@ -99,6 +99,7 @@ export default defineConfig({
 			],
 			components: {
 				Header: './src/components/Header.astro',
+				Hero: './src/components/Hero.astro',
 			},
 			head: [
 				{
