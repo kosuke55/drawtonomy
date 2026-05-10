@@ -1,2 +1,9 @@
 packages:
   - "packages/*"
+  - "docs-site"
+
+minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+  - astro
+  - "@astrojs/*"
+  - sharp

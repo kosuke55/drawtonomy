@@ -11,6 +11,7 @@
 
 <h4 align="center">
   🌐 <a href="https://drawtonomy.com">Try it now at drawtonomy.com</a> |
+  📖 <a href="https://docs.drawtonomy.com">Docs</a> |
   💬 <a href="https://github.com/kosuke55/drawtonomy/issues">Report issues / Request features</a>
 </h4>
 

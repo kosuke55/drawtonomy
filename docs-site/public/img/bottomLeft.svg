@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 278 116" width="278" height="116">
+	<image href="data:image/png;base64,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" width="278" height="116"/>
+	
+		<rect x="20" y="56" width="108" height="40" rx="6"
+			fill="rgba(99, 102, 241, 0.18)" stroke="#6366f1"
+			stroke-width="3"/>
+		<line x1="47" y1="50"
+					x2="74" y2="76"
+					stroke="#6366f1" stroke-width="2"/>
+		<g transform="translate(24 28)">
+			<rect width="46" height="22" rx="11"
+				fill="#6366f1"/>
+			<text x="23" y="15"
+				text-anchor="middle"
+				font-family="-apple-system, system-ui, sans-serif"
+				font-size="13" font-weight="600" fill="white">Zoom</text>
+		</g>
+		<rect x="124" y="56" width="74" height="40" rx="6"
+			fill="rgba(99, 102, 241, 0.18)" stroke="#6366f1"
+			stroke-width="3"/>
+		<line x1="239" y1="50"
+					x2="161" y2="76"
+					stroke="#6366f1" stroke-width="2"/>
+		<g transform="translate(202 28)">
+			<rect width="74" height="22" rx="11"
+				fill="#6366f1"/>
+			<text x="37" y="15"
+				text-anchor="middle"
+				font-family="-apple-system, system-ui, sans-serif"
+				font-size="13" font-weight="600" fill="white">Rotation</text>
+		</g>
+</svg>

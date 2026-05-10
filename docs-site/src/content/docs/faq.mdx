@@ -1,0 +1,188 @@
+---
+title: FAQ — drawtonomy whiteboard for driving scenarios
+description: Common questions about drawtonomy — the free, browser-based whiteboard for driving scenarios. Autonomous-driving figures, OpenSCENARIO authoring, OpenDRIVE export, Lanelet2 editing, ROS occupancy grid annotation, AI Scene Generator.
+sidebar:
+  label: FAQ
+  order: 99
+keywords:
+  - drawtonomy faq
+  - autonomous driving diagram tool faq
+  - autonomous driving figure for paper
+  - how to draw a driving scenario online
+  - free OpenSCENARIO editor question
+  - is there a Lanelet2 editor in the browser
+  - autonomous driving sketch tool free
+jsonLd:
+  '@context': 'https://schema.org'
+  '@type': FAQPage
+  mainEntity:
+    - '@type': Question
+      name: Can I use drawtonomy to draw figures for an autonomous-driving paper, slide, or document?
+      acceptedAnswer:
+        '@type': Answer
+        text: Yes. That is one of the main use cases. Lanes, intersections, vehicles, and pedestrians are built-in shapes, so a driving-scenario figure that would take half an hour in a generic drawing tool comes together in minutes. Export as drawtonomy.svg, PDF, or EPS for LaTeX, slide decks, and Markdown.
+    - '@type': Question
+      name: Is drawtonomy free to use?
+      acceptedAnswer:
+        '@type': Answer
+        text: Yes. drawtonomy.com runs entirely in your browser. There is no account, no install, and nothing is uploaded. The SDK and extensions are open-source on GitHub.
+    - '@type': Question
+      name: Is drawtonomy a free OpenSCENARIO and OpenDRIVE editor?
+      acceptedAnswer:
+        '@type': Answer
+        text: drawtonomy is a whiteboard that exports to ASAM OpenDRIVE 1.8 and OpenSCENARIO 1.3, including a single zip bundle for esmini playback. You sketch the scene visually and drawtonomy generates the .xodr and .xosc files.
+    - '@type': Question
+      name: Can drawtonomy edit Lanelet2 (.osm) maps in the browser?
+      acceptedAnswer:
+        '@type': Answer
+        text: Yes. drawtonomy can import Lanelet2 OSM files (including Autoware sample maps), edit lane geometry and connections visually, and export back to Lanelet2 OSM. For best performance, keep imports under roughly 500 lanes per scene.
+    - '@type': Question
+      name: Can I import a ROS occupancy grid map?
+      acceptedAnswer:
+        '@type': Answer
+        text: Yes. drawtonomy reads the ROS map_server format (.pgm + .yaml) used by nav2, Cartographer, Gmapping, and similar SLAM tools. The grid renders as a background layer so you can sketch lanes, paths, and obstacles directly on top.
+    - '@type': Question
+      name: How is drawtonomy different from generic drawing tools?
+      acceptedAnswer:
+        '@type': Answer
+        text: Generic drawing tools only know about generic shapes, so a lane is just a rectangle you redraw whenever the road turns. drawtonomy ships lanes, intersections, crosswalks, traffic lights, road markings, vehicles, and pedestrians as built-in shapes, and lanes carry Next / Previous / Left / Right connections. Drag a boundary and connected lanes follow.
+    - '@type': Question
+      name: Do I need to install anything?
+      acceptedAnswer:
+        '@type': Answer
+        text: No. drawtonomy runs in any modern web browser. Open drawtonomy.com and you can start drawing immediately. For extension development there is also an npm dev server (@drawtonomy/dev-server) that hosts the editor locally.
+    - '@type': Question
+      name: Can drawtonomy generate a driving scenario from natural language?
+      acceptedAnswer:
+        '@type': Answer
+        text: Yes. The AI Scene Generator extension reads a natural-language prompt or OpenSCENARIO XML and emits an editable canvas — lanes, vehicles, paths, and pedestrians as regular drawtonomy shapes. It supports Anthropic Claude, OpenAI GPT, and Google Gemini.
+    - '@type': Question
+      name: What file format keeps a drawtonomy scene re-editable?
+      acceptedAnswer:
+        '@type': Answer
+        text: drawtonomy.svg. It is a regular SVG file (so it previews in browsers, GitHub, slide decks, and Markdown renderers) with extra metadata that drawtonomy uses to rebuild every shape, connection, shared point, and overlap relationship when you reopen the file.
+    - '@type': Question
+      name: Can I add my own vehicle or sign templates?
+      acceptedAnswer:
+        '@type': Answer
+        text: Yes. Templates are SVGs registered in templates/manifest.json. Drop yours into the right folder (vehicle, pedestrian, road_marking, sign, other), open a PR, and it ships in the editor's menu next to the built-in templates.
+    - '@type': Question
+      name: Does drawtonomy support large road networks?
+      acceptedAnswer:
+        '@type': Answer
+        text: drawtonomy is tuned for diagrams rather than city-scale maps. For responsive editing, keep a single scene under roughly 500 lanes. For larger areas, split the work across multiple files or import only the region you need.
+    - '@type': Question
+      name: Can I use drawtonomy diagrams in papers, slides, or documentation?
+      acceptedAnswer:
+        '@type': Answer
+        text: Yes. The drawtonomy.svg format is valid SVG, so it embeds in papers, slides, Markdown, and websites without conversion. PDF, PNG, JPG, and EPS are also available for traditional publishing pipelines.
+---
+
+import { LinkCard } from '@astrojs/starlight/components';
+
+## Can I use drawtonomy to draw figures for an autonomous-driving paper, slide, or document?
+
+Yes — it's one of the main use cases. Lanes, intersections,
+vehicles, and pedestrians are built-in shapes, so a
+driving-scenario figure that would take half an hour in a generic
+drawing tool comes together in minutes. Export as
+[`drawtonomy.svg`](/guides/export/), PDF, or EPS for LaTeX, slide
+decks, and Markdown.
+
+## Is drawtonomy free to use?
+
+Yes. [drawtonomy.com](https://drawtonomy.com) runs entirely in your
+browser. There is no account, no install, and nothing is uploaded.
+The SDK and extensions are open-source on
+[GitHub](https://github.com/kosuke55/drawtonomy).
+
+## Is drawtonomy a free OpenSCENARIO and OpenDRIVE editor?
+
+drawtonomy is a whiteboard that **exports to** ASAM OpenDRIVE 1.8 and
+OpenSCENARIO 1.3, including a single zip bundle ready for
+[esmini](https://github.com/esmini/esmini) playback. You sketch the
+scene visually — lanes, intersections, vehicles, paths — and
+drawtonomy generates the `.xodr` and `.xosc` files. See
+[Export to OpenDRIVE / OpenSCENARIO / esmini](/guides/export-asam/).
+
+## Can drawtonomy edit Lanelet2 (.osm) maps in the browser?
+
+Yes. drawtonomy can import [Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2)
+OSM files (including
+[Autoware sample maps](https://autowarefoundation.github.io/autoware-documentation/main/demos/planning-sim/#download-the-sample-map)),
+edit lane geometry and connections visually, and export back to
+Lanelet2 OSM. For best performance, keep imports under roughly 500
+lanes per scene. See [Import a Lanelet2 (.osm) file](/guides/import-lanelet2/).
+
+## Can I import a ROS occupancy grid map?
+
+Yes. drawtonomy reads the ROS `map_server` format (`.pgm` + `.yaml`)
+used by [nav2](https://navigation.ros.org/), Cartographer, Gmapping,
+and similar SLAM tools. The grid renders as a background layer so you
+can sketch lanes, paths, and obstacles directly on top. See
+[Import a ROS OccupancyGrid](/guides/import-ros-map/).
+
+## How is drawtonomy different from generic drawing tools?
+
+Generic drawing tools only know about generic shapes, so a lane is
+just a rectangle you redraw whenever the road turns. drawtonomy
+ships **lanes, intersections, crosswalks, traffic lights, road
+markings, vehicles, and pedestrians as built-in shapes**, and lanes
+carry **Next / Previous / Left / Right** connections. Drag a boundary
+and connected lanes follow. See
+[Why drawtonomy](/explanation/why-drawtonomy/) and the
+[lane connection model](/explanation/lane-model/).
+
+## Do I need to install anything?
+
+No. drawtonomy runs in any modern web browser. Open
+[drawtonomy.com](https://drawtonomy.com) and start drawing.
+Extension developers can also use the local dev server
+([`@drawtonomy/dev-server`](https://www.npmjs.com/package/@drawtonomy/dev-server)),
+which hosts the editor on localhost.
+
+## Can drawtonomy generate a driving scenario from natural language?
+
+Yes. The [AI Scene Generator](/tutorials/ai-scene/) extension reads
+a natural-language prompt or OpenSCENARIO XML and emits an editable
+canvas — lanes, vehicles, paths, and pedestrians as regular
+drawtonomy shapes. It supports Anthropic Claude, OpenAI GPT, and
+Google Gemini.
+
+## What file format keeps a drawtonomy scene re-editable?
+
+`drawtonomy.svg`. It is a regular SVG file — it previews in
+browsers, GitHub, slide decks, and Markdown renderers — with
+metadata that drawtonomy uses to rebuild every shape, connection,
+shared point, and overlap relationship when you reopen the file.
+See [Export your scene](/guides/export/) and the
+[drawtonomy.svg format reference](/reference/drawtonomy-svg/).
+
+## Can I add my own vehicle or sign templates?
+
+Yes. Templates are SVGs registered in `templates/manifest.json`.
+Drop yours into the right folder (`vehicle`, `pedestrian`,
+`road_marking`, `sign`, `other`), open a PR, and it ships in the
+editor's menu next to the built-in templates. See
+[Contributing templates](/extend/templates/).
+
+## Does drawtonomy support large road networks?
+
+drawtonomy is tuned for diagrams rather than city-scale maps. For
+responsive editing, keep a single scene under roughly **500 lanes**.
+For larger areas, split the work across multiple files or import
+only the region you need.
+
+## Can I use drawtonomy diagrams in papers, slides, or documentation?
+
+Yes. The [`drawtonomy.svg`](/guides/export/) format is valid SVG, so
+it embeds in papers, slides, Markdown, and websites without
+conversion. PDF, PNG, JPG, and EPS are also available for
+traditional publishing pipelines.
+
+## Where is the source code?
+
+The SDK, extensions, templates, and this documentation site are on
+[github.com/kosuke55/drawtonomy](https://github.com/kosuke55/drawtonomy).
+The application itself is at
+[drawtonomy.com](https://drawtonomy.com).
