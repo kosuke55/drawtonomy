@@ -71,10 +71,12 @@
 	border-radius: 16px;
 }
 
-/* Hero side video — replaces the static logo on the splash home. Sized
-   to match the slot Starlight reserves for hero images and rounded so
-   it sits cleanly inside the hero panel. */
-.hero .hero-html .hero-video {
+/* Hero video — replaces the static logo on the splash home. Sized to
+   match the slot Starlight reserves for hero images, and rounded so it
+   sits cleanly inside the hero panel. The same CSS applies whether the
+   video is rendered in the side slot (desktop) or under the headline
+   (mobile, via the local Hero.astro override). */
+.hero .hero-video {
 	width: 100%;
 	max-width: 36rem;
 	height: auto;
@@ -82,14 +84,6 @@
 	border-radius: 12px;
 	box-shadow: 0 6px 24px rgba(99, 102, 241, 0.18);
 	display: block;
-}
-
-/* On mobile (single-column hero) place the video below the headline +
-   CTA stack. On desktop Starlight already moves it to the right column. */
-@media (max-width: 50rem) {
-	.hero > .hero-html {
-		order: 2;
-	}
 }
 
 /* Cards / link cards — match AttributePanel chrome:
