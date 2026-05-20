@@ -5,8 +5,8 @@
 </h3>
 
 <p align="center">
-  Intuitively place lanes, vehicles, pedestrians, and traffic lights.<br />
-  Browser-based. For autonomous driving development, traffic planning, and driving education.
+  Intuitively place lanes, intersections, vehicles, pedestrians, and traffic lights in the browser.<br />
+  For autonomous driving development, traffic planning, and driving education.
 </p>
 
 <h4 align="center">
