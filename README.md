@@ -1,12 +1,13 @@
 # <img src="./docs/images/logo.png" width="32" height="32" align="center" /> drawtonomy
 
 <h3 align="center">
-  Whiteboard for Driving Diagrams 🚗
+  Whiteboard for driving scenarios
 </h3>
 
 <p align="center">
-  Intuitively place lanes, vehicles, pedestrians, and traffic lights.<br />
-  Browser-based. For autonomous driving development, traffic planning, and driving education.
+  Place lanes, intersections, vehicles, pedestrians, and traffic lights in the browser.<br />
+  For autonomous driving development, traffic planning, and driving education.<br />
+  Saves are re-editable; scenes can also be exported to OpenSCENARIO, OpenDRIVE, and Lanelet2.
 </p>
 
 <h4 align="center">
