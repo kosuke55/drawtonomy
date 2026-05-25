@@ -5,8 +5,8 @@
 </h3>
 
 <p align="center">
-  Intuitively place lanes, intersections, vehicles, pedestrians, and traffic lights in the browser.<br />
-  For autonomous driving development, traffic planning, and driving education.
+  Intuitively place lanes, vehicles, pedestrians, and traffic lights.<br />
+  Browser-based. For autonomous driving development, traffic planning, and driving education.
 </p>
 
 <h4 align="center">
@@ -31,6 +31,7 @@
 - 🔗 **Point Sharing** - Connect shapes by sharing existing points
 - 👣 **Path Footprint** - Auto-place footprints on paths with synced style, size, and orientation
 - 🎨 **Style Customization** - Set color, opacity, width, and style individually
+- 🧮 **Math Tool (LaTeX)** - Place typeset LaTeX equations on the canvas, re-editable anytime (KaTeX)
 - 💾 **Editable Save Format** - Re-edit while preserving lane connection info
 - 🗺️ **[Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2) Support** - Import OSM format maps
 - 🤖 **ROS Map Support** - Import OccupancyGrid maps (.pgm + .yaml) from SLAM
@@ -123,6 +124,14 @@ Double-click Linestring, Lane, or Polygon to select and edit segments (between t
 Generate footprints on a Path with the Generate button. Rectangle or any vehicle template (Sedan, Bus, Truck, etc.) can be set as footprints. Changing the style of one footprint syncs to all — color, template, opacity, and size changes are applied to every footprint simultaneously while maintaining equal intervals. Footprint orientation is automatically calculated from the Path direction, including smooth curves. The Anchor Offset slider lets you shift the reference point along the travel direction — for example, aligning to the base link or front bumper position instead of the center.
 
 <video src="https://github.com/user-attachments/assets/c6633f7d-f596-4a25-9858-93e6324835ff" width="80%" controls></video>
+
+### 🧮 Math Tool (LaTeX)
+
+Place typeset LaTeX equations anywhere on the canvas with the `fx` tool. The source stays editable and renders with KaTeX, so you can write anything from a simple formula to full multi-line systems.
+
+<p align="center">
+  <img src="./docs/images/math-equation.png" width="80%" />
+</p>
 
 ### 📦 Export/Import
 
