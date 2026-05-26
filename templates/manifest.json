@@ -1604,6 +1604,78 @@
   ],
   "other": [
     {
+      "id": "axis_z_up",
+      "name": "Axis Z toward viewer",
+      "svg": "other/axis_z_up.svg",
+      "w": 60,
+      "h": 60,
+      "viewBox": [
+        200,
+        200
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "axis_z_depth",
+      "name": "Axis Z into screen",
+      "svg": "other/axis_z_depth.svg",
+      "w": 60,
+      "h": 60,
+      "viewBox": [
+        200,
+        200
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "axis_x_up",
+      "name": "Axis X toward viewer",
+      "svg": "other/axis_x_up.svg",
+      "w": 60,
+      "h": 60,
+      "viewBox": [
+        200,
+        200
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "axis_x_depth",
+      "name": "Axis X into screen",
+      "svg": "other/axis_x_depth.svg",
+      "w": 60,
+      "h": 60,
+      "viewBox": [
+        200,
+        200
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "axis_y_up",
+      "name": "Axis Y toward viewer",
+      "svg": "other/axis_y_up.svg",
+      "w": 60,
+      "h": 60,
+      "viewBox": [
+        200,
+        200
+      ],
+      "defaultColor": "transparent"
+    },
+    {
+      "id": "axis_y_depth",
+      "name": "Axis Y into screen",
+      "svg": "other/axis_y_depth.svg",
+      "w": 60,
+      "h": 60,
+      "viewBox": [
+        200,
+        200
+      ],
+      "defaultColor": "transparent"
+    },
+    {
       "id": "building",
       "name": "Building",
       "svg": "other/building.svg",
@@ -2043,7 +2115,10 @@
       "svg": "road_marking/marking_arrow_straight.svg",
       "w": 24,
       "h": 60,
-      "viewBox": [200, 500],
+      "viewBox": [
+        200,
+        500
+      ],
       "replaceColor": "#000000",
       "defaultColor": "white"
     },
@@ -2053,7 +2128,10 @@
       "svg": "road_marking/marking_arrow_left.svg",
       "w": 24,
       "h": 60,
-      "viewBox": [200, 500],
+      "viewBox": [
+        200,
+        500
+      ],
       "replaceColor": "#000000",
       "defaultColor": "white"
     },
@@ -2063,7 +2141,10 @@
       "svg": "road_marking/marking_arrow_right.svg",
       "w": 24,
       "h": 60,
-      "viewBox": [200, 500],
+      "viewBox": [
+        200,
+        500
+      ],
       "replaceColor": "#000000",
       "defaultColor": "white"
     },
@@ -2073,7 +2154,10 @@
       "svg": "road_marking/marking_arrow_straight_left.svg",
       "w": 24,
       "h": 60,
-      "viewBox": [200, 500],
+      "viewBox": [
+        200,
+        500
+      ],
       "replaceColor": "#000000",
       "defaultColor": "white"
     },
@@ -2083,7 +2167,10 @@
       "svg": "road_marking/marking_arrow_straight_right.svg",
       "w": 24,
       "h": 60,
-      "viewBox": [200, 500],
+      "viewBox": [
+        200,
+        500
+      ],
       "replaceColor": "#000000",
       "defaultColor": "white"
     },
@@ -2093,7 +2180,10 @@
       "svg": "road_marking/marking_arrow_left_right.svg",
       "w": 24,
       "h": 60,
-      "viewBox": [200, 500],
+      "viewBox": [
+        200,
+        500
+      ],
       "replaceColor": "#000000",
       "defaultColor": "white"
     },
@@ -2103,7 +2193,10 @@
       "svg": "road_marking/marking_arrow_uturn.svg",
       "w": 24,
       "h": 60,
-      "viewBox": [200, 500],
+      "viewBox": [
+        200,
+        500
+      ],
       "replaceColor": "#000000",
       "defaultColor": "white"
     },
@@ -2113,7 +2206,10 @@
       "svg": "road_marking/marking_no_uturn.svg",
       "w": 24,
       "h": 60,
-      "viewBox": [200, 500],
+      "viewBox": [
+        200,
+        500
+      ],
       "replaceColor": "#000000",
       "defaultColor": "white"
     },
@@ -2123,7 +2219,10 @@
       "svg": "road_marking/marking_speed_limit.svg",
       "w": 30,
       "h": 22,
-      "viewBox": [200, 140],
+      "viewBox": [
+        200,
+        140
+      ],
       "replaceColor": "#000000",
       "defaultColor": "white"
     },
@@ -2133,7 +2232,10 @@
       "svg": "road_marking/marking_diamond.svg",
       "w": 24,
       "h": 60,
-      "viewBox": [200, 500],
+      "viewBox": [
+        200,
+        500
+      ],
       "replaceColor": "#000000",
       "defaultColor": "white"
     }
