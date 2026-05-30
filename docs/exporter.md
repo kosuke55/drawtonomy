@@ -1,8 +1,10 @@
 # drawtonomy Exporter
 
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/4185a3c7-7662-4d01-a3b2-73e17897c27a" width="80%" />
-</p>
+<video src="https://github.com/user-attachments/assets/1a32b360-5ffc-4967-9c28-e424c1f47aaf" width="80%" controls></video>
+
+_Draw an intersection and a path, generate footprints, export the esmini zip,
+then replay the exported `.xosc` in esmini — the vehicle follows the trajectory
+built from the path._
 
 [日本語版はこちら](exporter.ja.md)
 
@@ -20,6 +22,7 @@ animation features, or entirely new target formats (CARLA, Unity, SUMO, …).
 ## Table of Contents
 
 - [Quick Start (User)](#quick-start-user)
+- [What gets converted (and what doesn't)](#what-gets-converted-and-what-doesnt)
 - [Quick Start (Developer)](#quick-start-developer)
 - [Local Development](#local-development)
 - [Architecture](#architecture)
@@ -41,6 +44,111 @@ animation features, or entirely new target formats (CARLA, Unity, SUMO, …).
    unzip <name>.zip
    esmini --osc <name>/<name>.xosc --window 60 60 1024 768
    ```
+
+The vehicle drives along the path you drew — that line *is* the
+`<FollowTrajectoryAction>` generated from it.
+
+---
+
+## What gets converted (and what doesn't)
+
+The conversion is intentionally **basic**: it covers the few shapes that map
+cleanly onto the ASAM data model and leaves everything else out. Knowing the
+exact scope keeps the output honest — here is precisely what is emitted.
+
+### Into OpenDRIVE (`.xodr`)
+
+| drawtonomy shape | OpenDRIVE element | Notes |
+| --- | --- | --- |
+| **Lane** | one `<road>` | 1 lane = 1 independent road |
+| **TrafficLight** | `<signal>` on the nearest road | vehicle / pedestrian type only |
+| **Crosswalk** | `<object type="crosswalk">` | placed perpendicular to the road |
+| **Polygon** (≥3 points) | `<object type="patch">` + `<outline>` | fills intersection / area visuals |
+
+Everything else — vehicles, pedestrians, standalone points, free linestrings,
+text, images — is **not** written to the `.xodr`.
+
+How far each road goes:
+
+- **Straight-line geometry only.** The reference line is sampled from the
+  lane's left/right boundaries and emitted as `<line>` segments. No `arc`,
+  `spiral`, or `poly3`.
+- **Fixed lane layout.** Every road gets one left lane (`id=1`), one center
+  lane (`id=0`), and one right lane (`id=-1`), all `type="driving"`.
+  Multi-lane roads and multiple lane sections are not represented.
+- **Road marks** are hard-coded to a `solid white 0.13 m` line.
+- **No junctions.** Every road carries `junction="-1"` and **no `<junction>`
+  element is generated.** Intersections are conveyed only by the polygon patch
+  and by predecessor/successor links derived from the lane's `next` / `prev`
+  connections (first entry only).
+- **No elevation / superelevation** — `elevationProfile` and `lateralProfile`
+  are emitted empty (flat, planar roads).
+- Scale is fixed at **16.67 px/m**; the geographic origin is `0`.
+
+### Into OpenSCENARIO (`.xosc`)
+
+| drawtonomy shape | OpenSCENARIO element |
+| --- | --- |
+| **Vehicle** | a `<ScenarioObject>` (`<Vehicle>` or `<Pedestrian>`) |
+| **Path footprint** (head vehicle) | a `<FollowTrajectoryAction>` |
+
+A "pedestrian" is just a vehicle shape whose `templateId` matches a
+pedestrian/walk pattern — it is emitted as `<Pedestrian>` instead of
+`<Vehicle>`. Lanes, crosswalks, traffic lights, and free linestrings are
+**not** emitted into the `.xosc`.
+
+The scenario is deliberately minimal:
+
+- The only dynamic behavior is **`FollowTrajectoryAction`** — a time-stamped
+  polyline. There are no speed actions, lane changes, traffic-light responses,
+  collision avoidance, or interaction conditions.
+- Each moving entity starts at `SimulationTime ≥ 0` and the scenario has a hard
+  **`StopTrigger` at 60 s**.
+
+### How a path footprint becomes vehicle motion
+
+A **path** is a linestring you draw; **footprints** are ghost copies of a
+vehicle laid out along it (the trail visible in the editor). On export:
+
+1. Only the **leading footprint** becomes a moving `<ScenarioObject>`. The
+   trailing ghosts are a canvas-side preview and are dropped — you get **one**
+   vehicle that drives the whole path, not a queue.
+2. The path's control points become the trajectory vertices, in world (ENU)
+   meters.
+3. Each vertex gets a `time`, written as a `<Trajectory>` → `<Polyline>` of
+   `<Vertex time="…">` inside a `<FollowTrajectoryAction>`.
+
+**Speed is fixed.** The trajectory is timed at a hard-coded **10 m/s
+(≈ 36 km/h)** — `DEFAULT_PATH_SPEED_MPS`. There is no speed field in the UI,
+and the editor never passes `speedMps` to `buildPathTrajectory`, so esmini
+reports ~36 km/h regardless of what you drew. You shape *timing*, not speed,
+through the footprint layout:
+
+- **Uniform** (path's *Variable positioning* toggle OFF) — footprints sit at
+  equal arc-length intervals and time is `distance / 10 m/s`: constant speed.
+  Changing the interval only changes how many vertices are written; the path
+  shape and total duration are unchanged.
+- **Variable** (toggle ON) — each footprint is pinned to a position along the
+  path and the total duration is split into equal time slices between
+  footprints. Packing footprints close together makes that leg slow; spreading
+  them out makes it fast. This is the only way to vary the effective speed
+  along the route.
+
+So: dragging a footprint partway along the path in **Variable** mode re-times
+that segment and **changes the exported speed plan**. Dragging in Uniform
+mode, or changing the footprint *Anchor* offset, does not.
+
+### Values that are hard-coded
+
+For honesty about scope, these come from fixed maps or constants, not from
+anything editable: vehicle category / performance presets, bundled 3D model
+paths, vehicle height by category, axle geometry (derived from size), following
+mode (`position`), the 60 s stop trigger, and — most importantly — the 10 m/s
+trajectory speed.
+
+> Want any of these to become editable, or a new dynamic action emitted? That
+> is exactly what the [Extending the Exporter](#extending-the-exporter) and
+> [Roadmap](#roadmap) sections are for.
 
 ---
 
