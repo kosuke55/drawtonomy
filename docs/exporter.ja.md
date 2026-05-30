@@ -17,6 +17,11 @@ OSM XML をエディタが扱える形式（point / linestring / lane）に戻�
 新しいシェイプ対応、アニメーション仕様の拡張、別フォーマットアダプタ
 (CARLA / Unity / SUMO 等) を追加する際の主要な拡張ポイントです。
 
+> 📖 エディタからのエクスポート方法や esmini での再生など、利用者向けの
+> ガイドをお探しの場合は、ドキュメントサイトの
+> **[OpenDRIVE / OpenSCENARIO / esmini へエクスポート](https://docs.drawtonomy.com/ja/guides/export-asam/)**
+> を参照してください。
+
 ## 目次
 
 - [Quick Start (ユーザー向け)](#quick-start-ユーザー向け)
