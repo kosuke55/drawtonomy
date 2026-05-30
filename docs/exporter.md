@@ -19,6 +19,11 @@ round-trip workflows.
 This is the main extension point for adding support for new shapes,
 animation features, or entirely new target formats (CARLA, Unity, SUMO, …).
 
+> 📖 Looking for the user-facing guide (exporting from the editor and playing
+> back in esmini)? See
+> **[Export to OpenDRIVE / OpenSCENARIO / esmini](https://docs.drawtonomy.com/guides/export-asam/)**
+> on the docs site.
+
 ## Table of Contents
 
 - [Quick Start (User)](#quick-start-user)
