@@ -188,9 +188,11 @@ The exporter is implemented in `@drawtonomy/sdk` and is the main extension
 point for adding new shapes, animation features, or entirely new target
 formats (CARLA, Unity, SUMO, …).
 
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/4185a3c7-7662-4d01-a3b2-73e17897c27a" width="80%" />
-</p>
+The clip below is a single round-trip: draw an intersection, draw a path,
+generate footprints, export the esmini zip, then play the exported `.xosc`
+back in esmini — the vehicle follows the trajectory built from the path.
+
+<video src="https://github.com/user-attachments/assets/1a32b360-5ffc-4967-9c28-e424c1f47aaf" width="80%" controls></video>
 
 📖 **[Exporter Developer Guide](docs/exporter.md)** | [日本語](docs/exporter.ja.md) | 🧪 **[Exporter Playground extension](extensions/exporter-playground/)** for canvas-driven verification
 
