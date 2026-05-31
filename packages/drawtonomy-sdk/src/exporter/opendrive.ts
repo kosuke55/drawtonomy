@@ -19,6 +19,7 @@ import type {
   TrafficLightProps,
 } from '../types'
 import { computeCenterlineWithWidth, type Point2D, type CenterlineSample } from './laneCenterline'
+import { originToProjString } from './projection'
 import { escapeXml, fmt, pxToEnuX, pxToEnuY, pxToMeter } from './units'
 
 type LaneShape = BaseShape<'lane', LaneProps>
@@ -639,12 +640,23 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot): string {
   lanes.forEach((lane, i) => laneIdToRoadId.set(lane.id, i + 1))
 
   const dateStr = new Date().toISOString()
+  const bbox = computeEnuBoundingBox(shapeMap)
+  const geoRefProj = originToProjString(snapshot.origin)
   const lines: string[] = []
   lines.push(`<?xml version="1.0" encoding="UTF-8"?>`)
   lines.push(`<OpenDRIVE>`)
+  // OpenDRIVE 1.8 expects <geoReference> inside <header>. We always emit one —
+  // tmerc-at-origin when snapshot.origin is set, WGS84 longlat as a fallback —
+  // so downstream tools (esmini, RoadRunner, asam-qc-opendrive) see a defined
+  // coordinate reference system rather than nothing. The N/S/E/W attributes
+  // are populated from the actual point cloud so the header bbox reflects the
+  // map extent in ENU metres.
   lines.push(
-    `  <header revMajor="1" revMinor="8" name="drawtonomy" version="1.0" date="${dateStr}" north="0" south="0" east="0" west="0" vendor="drawtonomy"/>`
+    `  <header revMajor="1" revMinor="8" name="drawtonomy" version="1.0" date="${dateStr}" ` +
+      `north="${fmt(bbox.north)}" south="${fmt(bbox.south)}" east="${fmt(bbox.east)}" west="${fmt(bbox.west)}" vendor="drawtonomy">`
   )
+  lines.push(`    <geoReference><![CDATA[${escapeCdata(geoRefProj)}]]></geoReference>`)
+  lines.push(`  </header>`)
 
   const pointOverrides = buildBoundaryAlignmentOverrides(shapeMap, lanes)
 
@@ -672,4 +684,47 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot): string {
 
   lines.push(`</OpenDRIVE>`)
   return lines.join('\n')
+}
+
+/**
+ * Compute the axis-aligned bounding box of all point shapes in ENU metres.
+ * Used to populate OpenDRIVE <header> north/south/east/west attributes.
+ * Returns zeros when the snapshot has no points.
+ */
+function computeEnuBoundingBox(shapeMap: Map<string, BaseShape>): {
+  north: number
+  south: number
+  east: number
+  west: number
+} {
+  let minX = Infinity
+  let maxX = -Infinity
+  let minY = Infinity
+  let maxY = -Infinity
+  for (const s of shapeMap.values()) {
+    if (s.type !== 'point') continue
+    if (s.x < minX) minX = s.x
+    if (s.x > maxX) maxX = s.x
+    if (s.y < minY) minY = s.y
+    if (s.y > maxY) maxY = s.y
+  }
+  if (!Number.isFinite(minX)) {
+    return { north: 0, south: 0, east: 0, west: 0 }
+  }
+  // Canvas y points down, ENU y points up — flip when reporting bounds.
+  return {
+    west: pxToEnuX(minX),
+    east: pxToEnuX(maxX),
+    south: pxToEnuY(maxY),
+    north: pxToEnuY(minY),
+  }
+}
+
+/**
+ * Escape a string so it can appear safely inside an XML CDATA section. The
+ * only character sequence that ends a CDATA section is `]]>`, so we split it
+ * across two CDATA sections.
+ */
+function escapeCdata(s: string): string {
+  return s.replace(/]]>/g, ']]]]><![CDATA[>')
 }
