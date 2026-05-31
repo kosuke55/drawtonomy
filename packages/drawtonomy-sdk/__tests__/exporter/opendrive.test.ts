@@ -2,8 +2,13 @@ import { describe, it, expect } from 'vitest'
 import { exportToOpenDrive } from '../../src/exporter/opendrive'
 import type { DrawtonomySnapshot } from '../../src/types'
 
-function snapshot(shapes: any[]): DrawtonomySnapshot {
-  return { version: '1.1', timestamp: new Date().toISOString(), shapes }
+function snapshot(
+  shapes: any[],
+  origin?: DrawtonomySnapshot['origin']
+): DrawtonomySnapshot {
+  const s: DrawtonomySnapshot = { version: '1.1', timestamp: new Date().toISOString(), shapes }
+  if (origin) s.origin = origin
+  return s
 }
 
 function point(id: string, x: number, y: number) {
@@ -223,5 +228,66 @@ describe('exportToOpenDrive', () => {
     const xml = exportToOpenDrive(snapshot(shapes))
     expect(xml).not.toContain(`<road `)
     expect(xml).toContain(`</OpenDRIVE>`)
+  })
+
+  describe('<header><geoReference>', () => {
+    it('emits a <geoReference> child of <header>', () => {
+      const xml = exportToOpenDrive(snapshot([]))
+      expect(xml).toMatch(/<header\b[^>]*>[\s\S]*<\/header>/)
+      expect(xml).toContain(`<geoReference>`)
+      expect(xml).toContain(`</geoReference>`)
+    })
+
+    it('embeds tmerc PROJ.4 when snapshot.origin is provided', () => {
+      const xml = exportToOpenDrive(
+        snapshot([], { lat: 35.6280, lon: 139.7400 })
+      )
+      expect(xml).toContain(`+proj=tmerc`)
+      expect(xml).toContain(`+lat_0=35.62800000`)
+      expect(xml).toContain(`+lon_0=139.74000000`)
+      expect(xml).toContain(`+datum=WGS84`)
+    })
+
+    it('falls back to longlat WGS84 when origin is absent', () => {
+      const xml = exportToOpenDrive(snapshot([]))
+      expect(xml).toContain(`+proj=longlat`)
+      expect(xml).toContain(`+datum=WGS84`)
+    })
+
+    it('wraps the PROJ string in CDATA so + characters are preserved', () => {
+      const xml = exportToOpenDrive(
+        snapshot([], { lat: 0, lon: 0 })
+      )
+      expect(xml).toMatch(/<geoReference><!\[CDATA\[\+proj=/)
+    })
+  })
+
+  describe('<header> bbox attributes', () => {
+    it('populates north/south/east/west from point shapes in ENU metres', () => {
+      const shapes = [
+        point('p1', 0, 0),
+        point('p2', 167, 0), // 167 px ≈ 10 m east
+        point('p3', 0, 167), // 167 px down in canvas ≈ 10 m south in ENU
+      ]
+      const xml = exportToOpenDrive(snapshot(shapes))
+      // west = 0, east ≈ 10 (167 / 16.67 = 10.018),
+      // north = 0 (smallest y in canvas = highest in ENU),
+      // south ≈ -10 (largest y in canvas = lowest in ENU)
+      expect(xml).toMatch(/west="0(?:\.0+)?"/)
+      expect(xml).toMatch(/east="10\.0\d+"/)
+      expect(xml).toMatch(/north="0(?:\.0+)?"/)
+      expect(xml).toMatch(/south="-10\.0\d+"/)
+    })
+
+    it('emits zero bbox when there are no point shapes', () => {
+      const xml = exportToOpenDrive(snapshot([]))
+      // bbox values are formatted by the same `fmt()` helper as other floats,
+      // so they appear as "0" / "0.000000" depending on the formatter. The
+      // important property is that all four values are numerically zero.
+      expect(xml).toMatch(/north="0(?:\.0+)?"/)
+      expect(xml).toMatch(/south="0(?:\.0+)?"/)
+      expect(xml).toMatch(/east="0(?:\.0+)?"/)
+      expect(xml).toMatch(/west="0(?:\.0+)?"/)
+    })
   })
 })

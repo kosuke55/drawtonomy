@@ -177,6 +177,17 @@ export interface DrawtonomySnapshot {
   timestamp: string
   shapes: BaseShape[]
   camera?: { x: number; y: number; z: number }
+  /**
+   * Optional geographic anchor for the scene, expressed as WGS84 lat/lon plus
+   * an optional heading of the page +x axis clockwise from north (radians).
+   * When present, the OpenDRIVE exporter uses this to populate
+   * <header><geoReference> with a PROJ.4 string.
+   */
+  origin?: {
+    lat: number
+    lon: number
+    headingRad?: number
+  }
 }
 
 // Extension Capability
