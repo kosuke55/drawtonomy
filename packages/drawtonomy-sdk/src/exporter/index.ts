@@ -9,6 +9,13 @@
 
 export { exportToOpenDrive } from './opendrive'
 export {
+  latLonToTmercProj,
+  latLonToUtmProj,
+  originToProjString,
+  FALLBACK_GEO_REFERENCE,
+  type GeoOrigin,
+} from './projection'
+export {
   exportToOpenScenario,
   templateIdToVehicleCategory,
   type OpenScenarioExportOptions,
