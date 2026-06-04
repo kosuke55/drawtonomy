@@ -33,7 +33,7 @@
 - 🎨 **Style Customization** - Set color, opacity, width, and style individually
 - 🧮 **Math Tool (LaTeX)** - Place typeset LaTeX equations on the canvas, re-editable anytime (KaTeX)
 - 💾 **Editable Save Format** - Re-edit while preserving lane connection info
-- 🗺️ **[Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2) Support** - Import OSM format maps
+- 🗺️ **[Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2) Support** - Import and export OSM format maps
 - 🤖 **ROS Map Support** - Import OccupancyGrid maps (.pgm + .yaml) from SLAM
 - 🚗 **[ASAM Export](docs/exporter.md)** - Export OpenDRIVE / OpenSCENARIO and esmini-ready zip bundles
 - 🤖 **[AI Scene Generator](extensions/ai-scene-generator/)** - Generate editable scenes from natural language, OpenSCENARIO XML, or DSL
@@ -76,13 +76,15 @@ Drawing tools and shape templates for easily expressing autonomous driving scena
 
 - Linestring (continuous lines for lane boundaries, etc.)
 - Lane
-- Vehicle (Sedan, Bus, Truck, Motorcycle templates)
-- Pedestrian (Walking, Simple templates)
+- Participants — Vehicle (Sedan, Bus, Truck, Motorcycle templates) and Pedestrian (Walking, Simple templates)
 - Path (Arrow style, Band style)
 - Polygon
 - Crosswalk
 - TrafficLight (vehicle and pedestrian signals)
+- TrafficSign
+- RoadMarking
 - Intersection
+- Others (additional road/scene templates)
 
 **✏️ Basic Shapes:**
 
@@ -145,7 +147,7 @@ Place typeset LaTeX equations anywhere on the canvas with the `fx` tool. The sou
 | **PDF**            | ✓      |        |                       |
 | **EPS**            | ✓      |        | No transparency       |
 | **drawtonomy.svg** | ✓      | ✓      | Re-editable           |
-| **OSM (Lanelet2)** |        | ✓      |                       |
+| **OSM (Lanelet2)** | ✓      | ✓      | Export lanes as a Lanelet2 map |
 | **PGM+YAML (ROS)** |        | ✓      | OccupancyGrid map     |
 | **OpenDRIVE (.xodr)** | ✓   |        | ASAM 1.8              |
 | **OpenSCENARIO (.xosc)** | ✓ |       | ASAM 1.3              |
@@ -164,6 +166,10 @@ Import Lanelet2 OSM format maps for editing. Sample maps: [Autoware Documentatio
 You can also select and import only specific lanes. For optimal performance, we recommend keeping the number of lanes under 500.
 
 <video src="https://github.com/user-attachments/assets/652af370-8bb6-4da4-8a5b-a798b59cf7f5" width="80%" controls></video>
+
+#### [Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2) Export
+
+Export the lanes you draw back out as a Lanelet2 OSM map via the **`.osm (Lanelet2)`** menu item. Lane boundaries become `way` linestrings and each lane becomes a `relation type=lanelet` referencing its left/right boundary ways, so the result round-trips back into drawtonomy (or any Lanelet2-aware tool). Maps imported from OSM preserve their original IDs and tags on re-export. The exporter is implemented in `@drawtonomy/sdk` — see the [Exporter Developer Guide](docs/exporter.md).
 
 #### ROS OccupancyGrid Map Import
 
@@ -231,6 +237,9 @@ Generated from [ASAM OpenSCENARIO DSL - Euro NCAP scenario example](https://publ
 | H    | Create Path                        |
 | G    | Create Polygon                     |
 | X    | Create Crosswalk                   |
+| Y    | Create Traffic Sign                |
+| R    | Create Road Marking                |
+| O    | Create Others (road/scene templates) |
 | I    | Create Intersection                |
 | W    | Create LineArrow                   |
 | T    | Create Text                        |
