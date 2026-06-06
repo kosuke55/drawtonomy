@@ -122,6 +122,215 @@
       ]
     },
     {
+      "id": "taxi",
+      "name": "Taxi",
+      "svg": "vehicle/taxi.svg",
+      "w": 30,
+      "h": 61,
+      "viewBox": [
+        554,
+        1132
+      ]
+    },
+    {
+      "id": "minivan",
+      "name": "Minivan",
+      "svg": "vehicle/minivan.svg",
+      "w": 30,
+      "h": 64,
+      "viewBox": [
+        528,
+        1120
+      ]
+    },
+    {
+      "id": "coupe",
+      "name": "Coupe",
+      "svg": "vehicle/coupe.svg",
+      "w": 30,
+      "h": 62,
+      "viewBox": [
+        512,
+        1052
+      ]
+    },
+    {
+      "id": "suv",
+      "name": "SUV",
+      "svg": "vehicle/suv.svg",
+      "w": 30,
+      "h": 57,
+      "viewBox": [
+        614,
+        1169
+      ]
+    },
+    {
+      "id": "wagon",
+      "name": "Station Wagon",
+      "svg": "vehicle/wagon.svg",
+      "w": 30,
+      "h": 67,
+      "viewBox": [
+        526,
+        1172
+      ]
+    },
+    {
+      "id": "pickup",
+      "name": "Pickup Truck",
+      "svg": "vehicle/pickup.svg",
+      "w": 30,
+      "h": 58,
+      "viewBox": [
+        588,
+        1139
+      ]
+    },
+    {
+      "id": "van",
+      "name": "Van",
+      "svg": "vehicle/van.svg",
+      "w": 30,
+      "h": 65,
+      "viewBox": [
+        530,
+        1143
+      ]
+    },
+    {
+      "id": "ambulance",
+      "name": "Ambulance",
+      "svg": "vehicle/ambulance.svg",
+      "w": 30,
+      "h": 68,
+      "viewBox": [
+        506,
+        1146
+      ]
+    },
+    {
+      "id": "police",
+      "name": "Police",
+      "svg": "vehicle/police.svg",
+      "w": 30,
+      "h": 60,
+      "viewBox": [
+        566,
+        1130
+      ]
+    },
+    {
+      "id": "firetruck",
+      "name": "Fire Truck",
+      "svg": "vehicle/firetruck.svg",
+      "w": 30,
+      "h": 75,
+      "viewBox": [
+        429,
+        1069
+      ]
+    },
+    {
+      "id": "schoolbus",
+      "name": "School Bus",
+      "svg": "vehicle/schoolbus.svg",
+      "w": 30,
+      "h": 91,
+      "viewBox": [
+        382,
+        1160
+      ]
+    },
+    {
+      "id": "delivery",
+      "name": "Delivery Truck",
+      "svg": "vehicle/delivery.svg",
+      "w": 30,
+      "h": 59,
+      "viewBox": [
+        566,
+        1116
+      ]
+    },
+    {
+      "id": "trailer",
+      "name": "Semi Trailer",
+      "svg": "vehicle/trailer.svg",
+      "w": 30,
+      "h": 140,
+      "viewBox": [
+        246,
+        1151
+      ]
+    },
+    {
+      "id": "scooter",
+      "name": "Scooter",
+      "svg": "vehicle/scooter.svg",
+      "w": 30,
+      "h": 81,
+      "viewBox": [
+        411,
+        1106
+      ]
+    },
+    {
+      "id": "tricycle",
+      "name": "Cargo Trike",
+      "svg": "vehicle/tricycle.svg",
+      "w": 30,
+      "h": 74,
+      "viewBox": [
+        449,
+        1111
+      ]
+    },
+    {
+      "id": "moped",
+      "name": "Moped",
+      "svg": "vehicle/moped.svg",
+      "w": 30,
+      "h": 70,
+      "viewBox": [
+        502,
+        1170
+      ]
+    },
+    {
+      "id": "citybus",
+      "name": "City Bus",
+      "svg": "vehicle/citybus.svg",
+      "w": 30,
+      "h": 83,
+      "viewBox": [
+        399,
+        1104
+      ]
+    },
+    {
+      "id": "artibus",
+      "name": "Articulated Bus",
+      "svg": "vehicle/artibus.svg",
+      "w": 30,
+      "h": 133,
+      "viewBox": [
+        263,
+        1169
+      ]
+    },
+    {
+      "id": "coach",
+      "name": "Coach Bus",
+      "svg": "vehicle/coach.svg",
+      "w": 30,
+      "h": 90,
+      "viewBox": [
+        386,
+        1154
+      ]
+    },
+    {
       "id": "rectangle",
       "name": "Rectangle",
       "svg": "",
