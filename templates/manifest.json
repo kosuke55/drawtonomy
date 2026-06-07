@@ -12,6 +12,138 @@
       ]
     },
     {
+      "id": "vw_beetle",
+      "name": "VW Beetle",
+      "svg": "vehicle/vw_beetle.svg",
+      "w": 30,
+      "h": 56,
+      "viewBox": [
+        620,
+        1159
+      ]
+    },
+    {
+      "id": "coupe",
+      "name": "Coupe",
+      "svg": "vehicle/coupe.svg",
+      "w": 30,
+      "h": 56,
+      "viewBox": [
+        512,
+        1052
+      ]
+    },
+    {
+      "id": "taxi",
+      "name": "Taxi",
+      "svg": "vehicle/taxi.svg",
+      "w": 30,
+      "h": 56,
+      "viewBox": [
+        554,
+        1132
+      ]
+    },
+    {
+      "id": "sportscar",
+      "name": "Sports Car",
+      "svg": "vehicle/sportscar.svg",
+      "w": 30,
+      "h": 56,
+      "viewBox": [
+        588,
+        1162
+      ]
+    },
+    {
+      "id": "jeep",
+      "name": "Jeep",
+      "svg": "vehicle/jeep.svg",
+      "w": 30,
+      "h": 56,
+      "viewBox": [
+        638,
+        1165
+      ]
+    },
+    {
+      "id": "pickup",
+      "name": "Pickup Truck",
+      "svg": "vehicle/pickup.svg",
+      "w": 30,
+      "h": 56,
+      "viewBox": [
+        588,
+        1139
+      ]
+    },
+    {
+      "id": "monster_truck",
+      "name": "Monster Truck",
+      "svg": "vehicle/monster_truck.svg",
+      "w": 30,
+      "h": 56,
+      "viewBox": [
+        753,
+        1144
+      ]
+    },
+    {
+      "id": "van",
+      "name": "Van",
+      "svg": "vehicle/van.svg",
+      "w": 30,
+      "h": 56,
+      "viewBox": [
+        530,
+        1143
+      ]
+    },
+    {
+      "id": "delivery",
+      "name": "Delivery Truck",
+      "svg": "vehicle/delivery.svg",
+      "w": 30,
+      "h": 56,
+      "viewBox": [
+        566,
+        1116
+      ]
+    },
+    {
+      "id": "ambulance",
+      "name": "Ambulance",
+      "svg": "vehicle/ambulance.svg",
+      "w": 30,
+      "h": 56,
+      "viewBox": [
+        506,
+        1146
+      ]
+    },
+    {
+      "id": "police",
+      "name": "Police",
+      "svg": "vehicle/police.svg",
+      "w": 30,
+      "h": 56,
+      "viewBox": [
+        566,
+        1130
+      ]
+    },
+    {
+      "id": "firetruck",
+      "name": "Fire Truck",
+      "svg": "vehicle/firetruck.svg",
+      "w": 37,
+      "h": 92,
+      "viewBox": [
+        429,
+        1069
+      ]
+    },
+    {
       "id": "bus",
       "name": "Bus",
       "svg": "vehicle/bus.svg",
@@ -20,6 +152,50 @@
       "viewBox": [
         341,
         850
+      ]
+    },
+    {
+      "id": "shuttle",
+      "name": "Shuttle Bus",
+      "svg": "vehicle/shuttle.svg",
+      "w": 30,
+      "h": 56,
+      "viewBox": [
+        581,
+        1158
+      ]
+    },
+    {
+      "id": "minibus",
+      "name": "Minibus",
+      "svg": "vehicle/minibus.svg",
+      "w": 33,
+      "h": 70,
+      "viewBox": [
+        518,
+        1197
+      ]
+    },
+    {
+      "id": "minibus2",
+      "name": "Minibus 2",
+      "svg": "vehicle/minibus2.svg",
+      "w": 33,
+      "h": 70,
+      "viewBox": [
+        592,
+        1130
+      ]
+    },
+    {
+      "id": "bus2",
+      "name": "Bus 2",
+      "svg": "vehicle/bus2.svg",
+      "w": 37,
+      "h": 92,
+      "viewBox": [
+        654,
+        1202
       ]
     },
     {
@@ -34,6 +210,116 @@
       ]
     },
     {
+      "id": "dump_truck",
+      "name": "Dump Truck",
+      "svg": "vehicle/dump_truck.svg",
+      "w": 43,
+      "h": 147,
+      "viewBox": [
+        464,
+        1128
+      ]
+    },
+    {
+      "id": "cement",
+      "name": "Cement Mixer",
+      "svg": "vehicle/cement.svg",
+      "w": 43,
+      "h": 147,
+      "viewBox": [
+        498,
+        1211
+      ]
+    },
+    {
+      "id": "logging_truck",
+      "name": "Logging Truck",
+      "svg": "vehicle/logging_truck.svg",
+      "w": 43,
+      "h": 147,
+      "viewBox": [
+        319,
+        1186
+      ]
+    },
+    {
+      "id": "crane_truck",
+      "name": "Crane Truck",
+      "svg": "vehicle/crane_truck.svg",
+      "w": 43,
+      "h": 147,
+      "viewBox": [
+        349,
+        1182
+      ]
+    },
+    {
+      "id": "car_carrier",
+      "name": "Car Carrier",
+      "svg": "vehicle/car_carrier.svg",
+      "w": 43,
+      "h": 147,
+      "viewBox": [
+        245,
+        1210
+      ]
+    },
+    {
+      "id": "skidsteer",
+      "name": "Skid Steer",
+      "svg": "vehicle/skidsteer.svg",
+      "w": 30,
+      "h": 56,
+      "viewBox": [
+        549,
+        1028
+      ]
+    },
+    {
+      "id": "bulldozer",
+      "name": "Bulldozer",
+      "svg": "vehicle/bulldozer.svg",
+      "w": 37,
+      "h": 92,
+      "viewBox": [
+        697,
+        1114
+      ]
+    },
+    {
+      "id": "loader",
+      "name": "Wheel Loader",
+      "svg": "vehicle/loader.svg",
+      "w": 37,
+      "h": 92,
+      "viewBox": [
+        467,
+        1177
+      ]
+    },
+    {
+      "id": "grader",
+      "name": "Motor Grader",
+      "svg": "vehicle/grader.svg",
+      "w": 43,
+      "h": 147,
+      "viewBox": [
+        535,
+        1158
+      ]
+    },
+    {
+      "id": "combine",
+      "name": "Combine Harvester",
+      "svg": "vehicle/combine.svg",
+      "w": 130,
+      "h": 111,
+      "viewBox": [
+        1036,
+        1093
+      ]
+    },
+    {
       "id": "golf_cart",
       "name": "Golf Cart",
       "svg": "vehicle/golf_cart.svg",
@@ -42,6 +328,127 @@
       "viewBox": [
         335,
         613
+      ]
+    },
+    {
+      "id": "motorcycle",
+      "name": "Motorcycle",
+      "svg": "vehicle/motorcycle.svg",
+      "w": 18,
+      "h": 36,
+      "viewBox": [
+        410,
+        830
+      ]
+    },
+    {
+      "id": "motorcycle2",
+      "name": "Motorcycle 2",
+      "svg": "vehicle/motorcycle2.svg",
+      "w": 22,
+      "h": 43,
+      "viewBox": [
+        542,
+        921
+      ]
+    },
+    {
+      "id": "touring_bike",
+      "name": "Touring Bike",
+      "svg": "vehicle/touring_bike.svg",
+      "w": 22,
+      "h": 43,
+      "viewBox": [
+        568,
+        1153
+      ]
+    },
+    {
+      "id": "electric_motorcycle",
+      "name": "E-Motorcycle",
+      "svg": "vehicle/electric_motorcycle.svg",
+      "w": 18,
+      "h": 36,
+      "viewBox": [
+        524,
+        1191
+      ]
+    },
+    {
+      "id": "cargo_motorcycle",
+      "name": "Cargo Motorcycle",
+      "svg": "vehicle/cargo_motorcycle.svg",
+      "w": 22,
+      "h": 43,
+      "viewBox": [
+        504,
+        1107
+      ]
+    },
+    {
+      "id": "bicycle",
+      "name": "Bicycle",
+      "svg": "vehicle/bicycle.svg",
+      "w": 18,
+      "h": 36,
+      "viewBox": [
+        619,
+        1212
+      ]
+    },
+    {
+      "id": "bicycle2",
+      "name": "Bicycle 2",
+      "svg": "vehicle/bicycle2.svg",
+      "w": 17,
+      "h": 42,
+      "viewBox": [
+        497,
+        1224
+      ]
+    },
+    {
+      "id": "electric_unicycle",
+      "name": "Electric Unicycle",
+      "svg": "vehicle/electric_unicycle.svg",
+      "w": 18,
+      "h": 36,
+      "viewBox": [
+        388,
+        1121
+      ]
+    },
+    {
+      "id": "stroller",
+      "name": "Stroller",
+      "svg": "vehicle/stroller.svg",
+      "w": 11,
+      "h": 16,
+      "viewBox": [
+        580,
+        1099
+      ]
+    },
+    {
+      "id": "rectangle",
+      "name": "Rectangle",
+      "svg": "",
+      "w": 30,
+      "h": 56,
+      "viewBox": [
+        30,
+        56
+      ]
+    },
+    {
+      "id": "default",
+      "name": "Simple",
+      "svg": "",
+      "w": 30,
+      "h": 56,
+      "viewBox": [
+        30,
+        56
       ]
     },
     {
@@ -75,281 +482,6 @@
       "viewBox": [
         678,
         665
-      ]
-    },
-    {
-      "id": "motorcycle",
-      "name": "Motorcycle",
-      "svg": "vehicle/motorcycle.svg",
-      "w": 18,
-      "h": 36,
-      "viewBox": [
-        410,
-        830
-      ]
-    },
-    {
-      "id": "motorcycle2",
-      "name": "Motorcycle 2",
-      "svg": "vehicle/motorcycle2.svg",
-      "w": 22,
-      "h": 43,
-      "viewBox": [
-        542,
-        921
-      ]
-    },
-    {
-      "id": "bicycle",
-      "name": "Bicycle",
-      "svg": "vehicle/bicycle.svg",
-      "w": 18,
-      "h": 36,
-      "viewBox": [
-        619,
-        1212
-      ]
-    },
-    {
-      "id": "bicycle2",
-      "name": "Bicycle 2",
-      "svg": "vehicle/bicycle2.svg",
-      "w": 17,
-      "h": 42,
-      "viewBox": [
-        497,
-        1224
-      ]
-    },
-    {
-      "id": "taxi",
-      "name": "Taxi",
-      "svg": "vehicle/taxi.svg",
-      "w": 30,
-      "h": 61,
-      "viewBox": [
-        554,
-        1132
-      ]
-    },
-    {
-      "id": "minivan",
-      "name": "Minivan",
-      "svg": "vehicle/minivan.svg",
-      "w": 30,
-      "h": 64,
-      "viewBox": [
-        528,
-        1120
-      ]
-    },
-    {
-      "id": "coupe",
-      "name": "Coupe",
-      "svg": "vehicle/coupe.svg",
-      "w": 30,
-      "h": 62,
-      "viewBox": [
-        512,
-        1052
-      ]
-    },
-    {
-      "id": "suv",
-      "name": "SUV",
-      "svg": "vehicle/suv.svg",
-      "w": 30,
-      "h": 57,
-      "viewBox": [
-        614,
-        1169
-      ]
-    },
-    {
-      "id": "wagon",
-      "name": "Station Wagon",
-      "svg": "vehicle/wagon.svg",
-      "w": 30,
-      "h": 67,
-      "viewBox": [
-        526,
-        1172
-      ]
-    },
-    {
-      "id": "pickup",
-      "name": "Pickup Truck",
-      "svg": "vehicle/pickup.svg",
-      "w": 30,
-      "h": 58,
-      "viewBox": [
-        588,
-        1139
-      ]
-    },
-    {
-      "id": "van",
-      "name": "Van",
-      "svg": "vehicle/van.svg",
-      "w": 30,
-      "h": 65,
-      "viewBox": [
-        530,
-        1143
-      ]
-    },
-    {
-      "id": "ambulance",
-      "name": "Ambulance",
-      "svg": "vehicle/ambulance.svg",
-      "w": 30,
-      "h": 68,
-      "viewBox": [
-        506,
-        1146
-      ]
-    },
-    {
-      "id": "police",
-      "name": "Police",
-      "svg": "vehicle/police.svg",
-      "w": 30,
-      "h": 60,
-      "viewBox": [
-        566,
-        1130
-      ]
-    },
-    {
-      "id": "firetruck",
-      "name": "Fire Truck",
-      "svg": "vehicle/firetruck.svg",
-      "w": 30,
-      "h": 75,
-      "viewBox": [
-        429,
-        1069
-      ]
-    },
-    {
-      "id": "schoolbus",
-      "name": "School Bus",
-      "svg": "vehicle/schoolbus.svg",
-      "w": 30,
-      "h": 91,
-      "viewBox": [
-        382,
-        1160
-      ]
-    },
-    {
-      "id": "delivery",
-      "name": "Delivery Truck",
-      "svg": "vehicle/delivery.svg",
-      "w": 30,
-      "h": 59,
-      "viewBox": [
-        566,
-        1116
-      ]
-    },
-    {
-      "id": "trailer",
-      "name": "Semi Trailer",
-      "svg": "vehicle/trailer.svg",
-      "w": 30,
-      "h": 140,
-      "viewBox": [
-        246,
-        1151
-      ]
-    },
-    {
-      "id": "scooter",
-      "name": "Scooter",
-      "svg": "vehicle/scooter.svg",
-      "w": 30,
-      "h": 81,
-      "viewBox": [
-        411,
-        1106
-      ]
-    },
-    {
-      "id": "tricycle",
-      "name": "Cargo Trike",
-      "svg": "vehicle/tricycle.svg",
-      "w": 30,
-      "h": 74,
-      "viewBox": [
-        449,
-        1111
-      ]
-    },
-    {
-      "id": "moped",
-      "name": "Moped",
-      "svg": "vehicle/moped.svg",
-      "w": 30,
-      "h": 70,
-      "viewBox": [
-        502,
-        1170
-      ]
-    },
-    {
-      "id": "citybus",
-      "name": "City Bus",
-      "svg": "vehicle/citybus.svg",
-      "w": 30,
-      "h": 83,
-      "viewBox": [
-        399,
-        1104
-      ]
-    },
-    {
-      "id": "artibus",
-      "name": "Articulated Bus",
-      "svg": "vehicle/artibus.svg",
-      "w": 30,
-      "h": 133,
-      "viewBox": [
-        263,
-        1169
-      ]
-    },
-    {
-      "id": "coach",
-      "name": "Coach Bus",
-      "svg": "vehicle/coach.svg",
-      "w": 30,
-      "h": 90,
-      "viewBox": [
-        386,
-        1154
-      ]
-    },
-    {
-      "id": "rectangle",
-      "name": "Rectangle",
-      "svg": "",
-      "w": 30,
-      "h": 56,
-      "viewBox": [
-        30,
-        56
-      ]
-    },
-    {
-      "id": "default",
-      "name": "Simple",
-      "svg": "",
-      "w": 30,
-      "h": 56,
-      "viewBox": [
-        30,
-        56
       ]
     }
   ],
