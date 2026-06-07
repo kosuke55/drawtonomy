@@ -45,6 +45,17 @@
       ]
     },
     {
+      "id": "police",
+      "name": "Police",
+      "svg": "vehicle/police.svg",
+      "w": 30,
+      "h": 56,
+      "viewBox": [
+        566,
+        1130
+      ]
+    },
+    {
       "id": "sportscar",
       "name": "Sports Car",
       "svg": "vehicle/sportscar.svg",
@@ -119,17 +130,6 @@
       "viewBox": [
         506,
         1146
-      ]
-    },
-    {
-      "id": "police",
-      "name": "Police",
-      "svg": "vehicle/police.svg",
-      "w": 30,
-      "h": 56,
-      "viewBox": [
-        566,
-        1130
       ]
     },
     {
