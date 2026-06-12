@@ -149,7 +149,7 @@ Place typeset LaTeX equations anywhere on the canvas with the `fx` tool. The sou
 | **drawtonomy.svg** | ✓      | ✓      | Re-editable           |
 | **OSM (Lanelet2)** | ✓      | ✓      | Export lanes as a Lanelet2 map |
 | **PGM+YAML (ROS)** |        | ✓      | OccupancyGrid map     |
-| **OpenDRIVE (.xodr)** | ✓   |        | ASAM 1.8              |
+| **OpenDRIVE (.xodr)** | ✓   | ✓      | ASAM 1.8              |
 | **OpenSCENARIO (.xosc)** | ✓ |       | ASAM 1.3              |
 | **esmini bundle (.zip)** | ✓ |       | .xodr + .xosc together |
 
@@ -166,6 +166,12 @@ Import Lanelet2 OSM format maps for editing. Sample maps: [Autoware Documentatio
 You can also select and import only specific lanes. For optimal performance, we recommend keeping the number of lanes under 500.
 
 <video src="https://github.com/user-attachments/assets/652af370-8bb6-4da4-8a5b-a798b59cf7f5" width="80%" controls></video>
+
+#### OpenDRIVE (.xodr) Import / Export
+
+Import ASAM OpenDRIVE maps for editing and export them back out. The dependency-free parser evaluates plan-view geometry analytically (line / arc / clothoid via Fresnel integrals / paramPoly3 / poly3) with adaptive chord-error sampling, and the importer reconstructs shared lane boundaries, lane and junction connectivity. On export, lane types, road marks, and synthesized `<junction>` elements are preserved, and a sidecar captured at import time enables high-fidelity round-trips (verified by loading the output in esmini 3.3.0). Lane attributes with no OpenDRIVE vocabulary carry through `<userData>`, so maps survive both OpenDRIVE and Lanelet2 round-trips. The converter is implemented in `@drawtonomy/sdk` — see the [Exporter Developer Guide](docs/exporter.md).
+
+<video src="https://github.com/user-attachments/assets/c8a8f59a-a7ff-4c3b-ba47-f93b2400738e" width="80%" controls></video>
 
 #### [Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2) Export
 
