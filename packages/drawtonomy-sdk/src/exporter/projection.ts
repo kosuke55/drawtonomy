@@ -24,7 +24,7 @@ export interface GeoOrigin {
  * declares WGS84 explicitly so downstream tools see a defined CRS rather than
  * an empty <geoReference>.
  */
-export const FALLBACK_GEO_REFERENCE = '+proj=longlat +datum=WGS84 +no_defs'
+export const FALLBACK_GEO_REFERENCE = '+proj=longlat +datum=WGS84'
 
 /**
  * Build a Transverse Mercator (tmerc) PROJ.4 string anchored at the given
@@ -41,7 +41,6 @@ export function latLonToTmercProj(lat: number, lon: number): string {
     '+y_0=0',
     '+datum=WGS84',
     '+units=m',
-    '+no_defs',
   ].join(' ')
 }
 
@@ -54,7 +53,7 @@ export function latLonToUtmProj(lat: number, lon: number): string {
   const zone = Math.floor((lon + 180) / 6) + 1
   const parts = ['+proj=utm', `+zone=${zone}`]
   if (lat < 0) parts.push('+south')
-  parts.push('+datum=WGS84', '+units=m', '+no_defs')
+  parts.push('+datum=WGS84', '+units=m')
   return parts.join(' ')
 }
 
