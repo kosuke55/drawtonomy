@@ -1,5 +1,7 @@
 // Convert parsed Lanelet2 OSM data into the shape primitives that the
-// drawtonomy editor consumes (points, linestrings, lanes).
+// drawtonomy editor consumes (points, linestrings, lanes, traffic lights,
+// crosswalks). right_of_way regulatory elements are restored as lane-level
+// `yieldLaneIds` props rather than standalone shapes.
 //
 // The output is the intermediate `ImportedShapes` structure used by the
 // editor's import flow — not a full DrawtonomySnapshot — because the editor
@@ -16,12 +18,12 @@ import { latLonToCanvas, type OsmData } from './osmParser'
  * a custom allocator to coordinate IDs with their own counters.
  */
 export interface ShapeIdAllocator {
-  next(kind: 'point' | 'linestring' | 'lane'): ShapeId
+  next(kind: 'point' | 'linestring' | 'lane' | 'traffic_light' | 'crosswalk'): ShapeId
 }
 
 /** Default allocator: monotonic counter per shape kind. */
 export function createShapeIdAllocator(): ShapeIdAllocator {
-  const counters: Record<string, number> = { point: 0, linestring: 0, lane: 0 }
+  const counters: Record<string, number> = { point: 0, linestring: 0, lane: 0, traffic_light: 0, crosswalk: 0 }
   return {
     next(kind) {
       const id = `shape:${kind}_${counters[kind]}` as ShapeId
@@ -65,6 +67,51 @@ export interface ImportedLane {
   attributes: Record<string, string>
   next: string[]
   prev: string[]
+  /**
+   * Imported lane shape ids that must yield to this lane, restored from a
+   * `right_of_way` regulatory element where this lane plays the
+   * "right_of_way" role.
+   */
+  yieldLaneIds?: string[]
+}
+
+export interface ImportedTrafficLight {
+  id: ShapeId
+  /** Canvas position (midpoint of the "refers" way). */
+  x: number
+  y: number
+  /** Signal width in canvas pixels (span of the "refers" way). */
+  w: number
+  /** Signal height in canvas pixels (not encoded in the source; 2:1 aspect default). */
+  h: number
+  /** OSM id of the regulatory_element relation ('' for non-OSM sources). */
+  osmId: string
+  /** Imported lane shape ids whose lanelet relations reference this regulatory element. */
+  affectedLaneIds: string[]
+  /** Imported linestring shape id of the "ref_line" stop line, or null. */
+  stopLineId: string | null
+  attributes: Record<string, string>
+}
+
+export interface ImportedCrosswalk {
+  id: ShapeId
+  /** Canvas position (midpoint of the crosswalk axis). */
+  x: number
+  y: number
+  /** Crosswalk axis start/end in shape-local coordinates (rotation 0). */
+  startX: number
+  startY: number
+  endX: number
+  endY: number
+  /** Stripe band thickness across the road (canvas pixels). */
+  crosswalkWidth: number
+  /** OSM id of the regulatory_element relation ('' for non-OSM sources). */
+  osmId: string
+  /** Imported lane shape ids whose lanelet relations reference this regulatory element. */
+  affectedLaneIds: string[]
+  /** Imported linestring shape id of the "ref_line" stop line, or null. */
+  stopLineId: string | null
+  attributes: Record<string, string>
 }
 
 export interface ImportBounds {
@@ -82,6 +129,10 @@ export interface ImportedShapes {
   points: ImportedPoint[]
   linestrings: ImportedLinestring[]
   lanes: ImportedLane[]
+  /** Traffic lights promoted from regulatory elements / signals. */
+  trafficLights: ImportedTrafficLight[]
+  /** Crosswalks promoted from `crosswalk` regulatory elements / objects. */
+  crosswalks: ImportedCrosswalk[]
   bounds: ImportBounds
   /**
    * Geographic center used as the canvas origin during projection. The host
@@ -96,8 +147,10 @@ export interface OsmToShapesOptions {
   idAllocator?: ShapeIdAllocator
   /**
    * Restrict conversion to the given lanelet relation IDs. When omitted, all
-   * `type=lanelet` relations are converted (regulatory_element etc. are
-   * always skipped here; they are preserved separately via the OSM sidecar).
+   * `type=lanelet` relations are converted. Traffic light / crosswalk /
+   * right_of_way regulatory elements are promoted to editable shapes or lane
+   * props (restricted to the selected lanelets when a selection is given);
+   * other relation types are preserved via the sidecar.
    */
   selectedLaneIds?: readonly string[]
 }
@@ -303,6 +356,8 @@ export function osmToShapes(osmData: OsmData, options: OsmToShapesOptions = {}):
     points: [],
     linestrings: [],
     lanes: [],
+    trafficLights: [],
+    crosswalks: [],
     bounds: emptyBounds(),
   }
 
@@ -327,14 +382,55 @@ export function osmToShapes(osmData: OsmData, options: OsmToShapesOptions = {}):
   const pointIdToPoint = new Map<string, ImportedPoint>()
   const linestringIdToLinestring = new Map<string, ImportedLinestring>()
 
-  // Only `type=lanelet` relations become lanes. Other relation types
-  // (regulatory_element, multipolygon, etc.) are preserved verbatim via the
-  // OSM sidecar.
+  // Only `type=lanelet` relations become lanes. Traffic light regulatory
+  // elements are promoted to traffic light shapes below; other relation types
+  // (multipolygon, other regulatory elements, etc.) are preserved verbatim
+  // via the OSM sidecar.
   let laneletRelations = osmData.relations.filter(r => r.tags.type === 'lanelet')
   if (options.selectedLaneIds) {
     const selected = new Set(options.selectedLaneIds)
     laneletRelations = laneletRelations.filter(r => selected.has(r.id))
   }
+
+  // Traffic light / crosswalk / right_of_way regulatory elements to promote.
+  // When a lanelet selection is active, only the elements referenced by the
+  // selected lanelets come along.
+  let trafficLightRelations = osmData.relations.filter(
+    r => r.tags.type === 'regulatory_element' && r.tags.subtype === 'traffic_light'
+  )
+  let crosswalkRelations = osmData.relations.filter(
+    r => r.tags.type === 'regulatory_element' && r.tags.subtype === 'crosswalk'
+  )
+  let rightOfWayRelations = osmData.relations.filter(
+    r => r.tags.type === 'regulatory_element' && r.tags.subtype === 'right_of_way'
+  )
+  if (options.selectedLaneIds) {
+    const referencedReIds = new Set<string>()
+    for (const relation of laneletRelations) {
+      for (const member of relation.members) {
+        if (member.type === 'relation' && member.role === 'regulatory_element') {
+          referencedReIds.add(member.ref)
+        }
+      }
+    }
+    trafficLightRelations = trafficLightRelations.filter(r => referencedReIds.has(r.id))
+    crosswalkRelations = crosswalkRelations.filter(r => referencedReIds.has(r.id))
+    rightOfWayRelations = rightOfWayRelations.filter(r => referencedReIds.has(r.id))
+  }
+
+  // A `subtype=crosswalk` lanelet that is the "refers" of a promoted crosswalk
+  // regulatory element is consumed into the crosswalk shape — it must not also
+  // materialize as a lane (no duplication).
+  const crosswalkLaneletIds = new Set<string>()
+  for (const re of crosswalkRelations) {
+    for (const member of re.members) {
+      if (member.type === 'relation' && member.role === 'refers') {
+        const lanelet = osmData.relations.find(r => r.id === member.ref)
+        if (lanelet && lanelet.tags.type === 'lanelet') crosswalkLaneletIds.add(member.ref)
+      }
+    }
+  }
+  laneletRelations = laneletRelations.filter(r => !crosswalkLaneletIds.has(r.id))
 
   // Collect ways and nodes referenced by the chosen lanelets.
   const usedWayIds = new Set<string>()
@@ -342,6 +438,18 @@ export function osmToShapes(osmData: OsmData, options: OsmToShapesOptions = {}):
   for (const relation of laneletRelations) {
     for (const member of relation.members) {
       if (member.type === 'way') usedWayIds.add(member.ref)
+    }
+  }
+  // Stop line ("ref_line") ways become linestrings too even though they are
+  // not lane boundaries; "refers" ways are consumed into the traffic light
+  // shape itself and stay sidecar-only.
+  const refLineWayIds = new Set<string>()
+  for (const re of [...trafficLightRelations, ...crosswalkRelations]) {
+    for (const member of re.members) {
+      if (member.type === 'way' && member.role === 'ref_line' && osmData.ways.has(member.ref)) {
+        refLineWayIds.add(member.ref)
+        usedWayIds.add(member.ref)
+      }
     }
   }
   for (const wayId of usedWayIds) {
@@ -394,8 +502,17 @@ export function osmToShapes(osmData: OsmData, options: OsmToShapesOptions = {}):
     linestringIdToLinestring.set(linestringId, data)
   }
 
+  // Stop line ways keep (or gain) the stop_line type so re-exports and the
+  // editor recognize them; third-party files may leave the tag off.
+  for (const wayId of refLineWayIds) {
+    const lsId = osmWayToLinestringId.get(wayId)
+    const ls = lsId ? linestringIdToLinestring.get(lsId) : undefined
+    if (ls && ls.attributes.type !== 'stop_line') ls.attributes.type = 'stop_line'
+  }
+
   // Materialize lanes and collect info for connectivity detection.
   const laneInfos: LaneInfo[] = []
+  const laneShapeIdsByRegElem = new Map<string, string[]>()
   for (const relation of laneletRelations) {
     let leftWayId: string | null = null
     let rightWayId: string | null = null
@@ -433,6 +550,13 @@ export function osmToShapes(osmData: OsmData, options: OsmToShapesOptions = {}):
     )
 
     const laneId = idAllocator.next('lane')
+    for (const member of relation.members) {
+      if (member.type === 'relation' && member.role === 'regulatory_element') {
+        const list = laneShapeIdsByRegElem.get(member.ref) ?? []
+        list.push(laneId)
+        laneShapeIdsByRegElem.set(member.ref, list)
+      }
+    }
     laneInfos.push({
       osmId: relation.id,
       laneId,
@@ -456,6 +580,10 @@ export function osmToShapes(osmData: OsmData, options: OsmToShapesOptions = {}):
       invertRight,
       osmId: relation.id,
       attributes: {
+        // Unknown tags (e.g. odr_* source metadata) pass through verbatim so
+        // they survive a Lanelet2 round-trip; the known keys keep their
+        // defaults when absent.
+        ...relation.tags,
         type: 'lanelet',
         subtype: relation.tags.subtype || 'road',
         location: relation.tags.location || 'urban',
@@ -474,6 +602,131 @@ export function osmToShapes(osmData: OsmData, options: OsmToShapesOptions = {}):
     if (conn) {
       lane.next = conn.next
       lane.prev = conn.prev
+    }
+  }
+
+  // Materialize traffic lights from regulatory elements. The shape sits at
+  // the midpoint of the "refers" way and spans its width; the way's OSM id is
+  // kept in `refers_osm_id` so re-exports override the sidecar copy in place.
+  for (const re of trafficLightRelations) {
+    const refersMember = re.members.find(m => m.type === 'way' && m.role === 'refers')
+    const refersWay = refersMember ? osmData.ways.get(refersMember.ref) : undefined
+    if (!refersWay || refersWay.nodeRefs.length === 0) continue
+    const coords: Point2d[] = []
+    for (const ref of refersWay.nodeRefs) {
+      const node = osmData.nodes.get(ref)
+      if (node) coords.push(latLonToCanvas(node.lat, node.lon, centerLat, centerLon))
+    }
+    if (coords.length === 0) continue
+    const first = coords[0]
+    const last = coords[coords.length - 1]
+    const span = Math.hypot(last.x - first.x, last.y - first.y)
+    // The OSM encoding carries only the signal width; height keeps the
+    // editor's default 1:2 aspect. Degenerate ways fall back to 30 px.
+    const w = span > 1e-6 ? span : 30
+    const refLineMember = re.members.find(m => m.type === 'way' && m.role === 'ref_line')
+    const stopLineId = refLineMember ? osmWayToLinestringId.get(refLineMember.ref) ?? null : null
+    result.trafficLights.push({
+      id: idAllocator.next('traffic_light'),
+      x: (first.x + last.x) / 2,
+      y: (first.y + last.y) / 2,
+      w,
+      h: w * 2,
+      osmId: re.id,
+      affectedLaneIds: laneShapeIdsByRegElem.get(re.id) ?? [],
+      stopLineId,
+      attributes: { ...re.tags, refers_osm_id: refersWay.id },
+    })
+  }
+
+  // Materialize crosswalks from regulatory elements. The shape geometry is
+  // rebuilt from the "refers" crosswalk lanelet's left/right ways (axis along
+  // the walking direction, band width = boundary separation); the consumed
+  // lanelet / polygon / boundary way ids are kept in the attributes so
+  // re-exports override the sidecar copies in place.
+  const toCanvas = (nodeId: string): Point2d | null => {
+    const node = osmData.nodes.get(nodeId)
+    return node ? latLonToCanvas(node.lat, node.lon, centerLat, centerLon) : null
+  }
+  for (const re of crosswalkRelations) {
+    const refersMember = re.members.find(m => m.type === 'relation' && m.role === 'refers')
+    const lanelet = refersMember
+      ? osmData.relations.find(r => r.id === refersMember.ref && r.tags.type === 'lanelet')
+      : undefined
+    if (!lanelet) continue
+    const leftWayId = lanelet.members.find(m => m.type === 'way' && m.role === 'left')?.ref
+    const rightWayId = lanelet.members.find(m => m.type === 'way' && m.role === 'right')?.ref
+    const leftWay = leftWayId ? osmData.ways.get(leftWayId) : undefined
+    const rightWay = rightWayId ? osmData.ways.get(rightWayId) : undefined
+    if (!leftWay || !rightWay || leftWay.nodeRefs.length < 2 || rightWay.nodeRefs.length < 2) continue
+
+    const l0 = toCanvas(leftWay.nodeRefs[0])
+    const l1 = toCanvas(leftWay.nodeRefs[leftWay.nodeRefs.length - 1])
+    let r0 = toCanvas(rightWay.nodeRefs[0])
+    let r1 = toCanvas(rightWay.nodeRefs[rightWay.nodeRefs.length - 1])
+    if (!l0 || !l1 || !r0 || !r1) continue
+    // Pair the boundary endpoints so left/right run parallel (the right way
+    // may be stored reversed).
+    const dist = (a: Point2d, b: Point2d) => Math.hypot(a.x - b.x, a.y - b.y)
+    if (dist(l0, r0) + dist(l1, r1) > dist(l0, r1) + dist(l1, r0)) {
+      ;[r0, r1] = [r1, r0]
+    }
+    const start = { x: (l0.x + r0.x) / 2, y: (l0.y + r0.y) / 2 }
+    const end = { x: (l1.x + r1.x) / 2, y: (l1.y + r1.y) / 2 }
+    const width = (dist(l0, r0) + dist(l1, r1)) / 2
+    const cx = (start.x + end.x) / 2
+    const cy = (start.y + end.y) / 2
+
+    const refLineMember = re.members.find(m => m.type === 'way' && m.role === 'ref_line')
+    const stopLineId = refLineMember ? osmWayToLinestringId.get(refLineMember.ref) ?? null : null
+    const polygonMember = re.members.find(m => m.type === 'way' && m.role === 'crosswalk_polygon')
+
+    const attributes: Record<string, string> = {
+      ...re.tags,
+      crosswalk_lanelet_osm_id: lanelet.id,
+      crosswalk_left_osm_id: leftWay.id,
+      crosswalk_right_osm_id: rightWay.id,
+    }
+    if (polygonMember) attributes.crosswalk_polygon_osm_id = polygonMember.ref
+
+    result.crosswalks.push({
+      id: idAllocator.next('crosswalk'),
+      x: cx,
+      y: cy,
+      startX: start.x - cx,
+      startY: start.y - cy,
+      endX: end.x - cx,
+      endY: end.y - cy,
+      crosswalkWidth: width,
+      osmId: re.id,
+      affectedLaneIds: laneShapeIdsByRegElem.get(re.id) ?? [],
+      stopLineId,
+      attributes,
+    })
+  }
+
+  // Restore yieldLaneIds from right_of_way regulatory elements: each lanelet
+  // playing the "right_of_way" role gains the materialized "yield" lanelets.
+  const laneByOsmId = new Map<string, ImportedLane>()
+  for (const lane of result.lanes) laneByOsmId.set(lane.osmId, lane)
+  for (const re of rightOfWayRelations) {
+    const yieldLaneIds: string[] = []
+    for (const member of re.members) {
+      if (member.type !== 'relation' || member.role !== 'yield') continue
+      const yieldLane = laneByOsmId.get(member.ref)
+      if (yieldLane && !yieldLaneIds.includes(yieldLane.id)) yieldLaneIds.push(yieldLane.id)
+    }
+    if (yieldLaneIds.length === 0) continue
+    for (const member of re.members) {
+      if (member.type !== 'relation' || member.role !== 'right_of_way') continue
+      const rowLane = laneByOsmId.get(member.ref)
+      if (!rowLane) continue
+      // 同じ lanelet が複数の right_of_way RE に属する場合があるため union する
+      const merged = rowLane.yieldLaneIds ?? []
+      for (const id of yieldLaneIds) {
+        if (!merged.includes(id)) merged.push(id)
+      }
+      rowLane.yieldLaneIds = merged
     }
   }
 

@@ -6,6 +6,19 @@
 // - Each LinestringShape becomes a `<way>` referencing its point nodes
 // - Each LaneShape becomes a `<relation type=lanelet>` referencing its
 //   left/right way as members
+// - Each TrafficLightShape carrying `affectedLaneIds` becomes a
+//   `<relation type=regulatory_element subtype=traffic_light>` whose "refers"
+//   member is a synthesized 2-node way at the signal position and whose
+//   "ref_line" member is the stop line way; affected lanelet relations gain a
+//   `role=regulatory_element` member pointing back at it
+// - Each LaneShape carrying `yieldLaneIds` additionally emits a
+//   `<relation type=regulatory_element subtype=right_of_way>` whose
+//   "right_of_way" member is the lane's lanelet and whose "yield" members are
+//   the yielding lanelets
+// - Each CrosswalkShape carrying `affectedLaneIds` emits a synthesized
+//   crosswalk lanelet (subtype=crosswalk), a crosswalk_polygon way, and a
+//   `<relation type=regulatory_element subtype=crosswalk>` referenced back by
+//   the affected lanelets
 // - When a sidecar (the original OSM XML captured at import time) is supplied,
 //   tags / `ele` / unrelated relations (regulatory_element etc.) are
 //   round-tripped: shape-derived entries override the sidecar copies for the
@@ -17,16 +30,20 @@
 
 import type {
   BaseShape,
+  CrosswalkProps,
   DrawtonomySnapshot,
   LaneProps,
   LinestringProps,
   PointProps,
+  TrafficLightProps,
 } from '../types'
 import { canvasToLatLon, parseOsmXml, type OsmData } from './osmParser'
 
 type LaneShape = BaseShape<'lane', LaneProps>
 type LinestringShape = BaseShape<'linestring', LinestringProps>
 type PointShape = BaseShape<'point', PointProps>
+type TrafficLightShape = BaseShape<'traffic_light', TrafficLightProps>
+type CrosswalkShape = BaseShape<'crosswalk', CrosswalkProps>
 
 /** Sidecar captured at OSM import time. Used to round-trip tags / `ele`. */
 export interface OsmSidecar {
@@ -116,10 +133,14 @@ function buildFromShapes(
   const points: PointShape[] = []
   const linestrings: LinestringShape[] = []
   const lanes: LaneShape[] = []
+  const trafficLights: TrafficLightShape[] = []
+  const crosswalks: CrosswalkShape[] = []
   for (const s of shapes) {
     if (s.type === 'point') points.push(s as unknown as PointShape)
     else if (s.type === 'linestring') linestrings.push(s as unknown as LinestringShape)
     else if (s.type === 'lane') lanes.push(s as unknown as LaneShape)
+    else if (s.type === 'traffic_light') trafficLights.push(s as unknown as TrafficLightShape)
+    else if (s.type === 'crosswalk') crosswalks.push(s as unknown as CrosswalkShape)
   }
 
   const nodesOut = new Map<string, NodeOut>()
@@ -150,7 +171,9 @@ function buildFromShapes(
     const { lat, lon } = canvasToLatLon(p.x, p.y, originLat, originLon)
     const original = sidecarData?.nodes.get(osmId)
     const tags = original ? { ...original.tags } : {}
-    const ele = original?.ele
+    // Downstream consumers (e.g. Autoware) require an elevation tag on every
+    // node; default to 0 for nodes drawn on the 2D canvas.
+    const ele = original?.ele ?? 0
     nodesOut.set(osmId, { id: osmId, lat, lon, ele, tags })
   }
 
@@ -176,6 +199,7 @@ function buildFromShapes(
   }
 
   // Lanes -> relations (type=lanelet).
+  const laneRelationByShapeId = new Map<string, RelationOut>()
   for (const lane of lanes) {
     const osmId = resolveOsmId(lane.id, lane.props.osmId)
     shapeRelationOsmIds.add(osmId)
@@ -217,7 +241,437 @@ function buildFromShapes(
       }
     }
     if (!tags.type) tags.type = 'lanelet'
-    relationsOut.push({ id: osmId, members, tags })
+    const relationOut: RelationOut = { id: osmId, members, tags }
+    relationsOut.push(relationOut)
+    laneRelationByShapeId.set(lane.id, relationOut)
+  }
+
+  // Traffic lights with affected lanes -> relations (type=regulatory_element,
+  // subtype=traffic_light). The signal itself is represented as a 2-node
+  // "refers" way spanning the shape's width; the stop line (when present)
+  // joins as the "ref_line" way, and each affected lanelet references the
+  // regulatory element back.
+  const linkAffectedLanelets = (reOsmId: string, affected: readonly string[]): void => {
+    // Reference the regulatory element from each affected lanelet (sidecar
+    // relations may already carry the member; avoid duplicating it).
+    for (const laneShapeId of affected) {
+      const laneRel = laneRelationByShapeId.get(laneShapeId)
+      if (!laneRel) continue
+      const exists = laneRel.members.some(
+        m => m.type === 'relation' && m.role === 'regulatory_element' && m.ref === reOsmId
+      )
+      if (!exists) {
+        laneRel.members.push({ type: 'relation', ref: reOsmId, role: 'regulatory_element' })
+      }
+    }
+  }
+
+  for (const tl of trafficLights) {
+    const affected = tl.props.affectedLaneIds ?? []
+    if (affected.length === 0) continue
+
+    const reOsmId = resolveOsmId(tl.id, tl.props.osmId)
+    shapeRelationOsmIds.add(reOsmId)
+
+    // Round-trip fidelity: a signal imported from this sidecar and left
+    // unedited re-emits its original refers way / nodes / relation verbatim.
+    // The 2-node synthesis below would otherwise lose the original way's
+    // orientation, elevation and any extra members (light_bulbs etc.).
+    const originalRelation = sidecarData?.relations.find(r => r.id === reOsmId)
+    const recordedRefersId = tl.props.attributes?.refers_osm_id
+    const originalRefers = recordedRefersId ? sidecarData?.ways.get(recordedRefersId) : undefined
+    if (originalRelation && originalRefers && originalRefers.nodeRefs.length >= 2) {
+      const nodeA = sidecarData?.nodes.get(originalRefers.nodeRefs[0])
+      const nodeB = sidecarData?.nodes.get(originalRefers.nodeRefs[originalRefers.nodeRefs.length - 1])
+      const current = canvasToLatLon(tl.x, tl.y, originLat, originLon)
+      // Unmoved = the shape still sits at the refers way midpoint (import
+      // placed it there; ~1e-9 deg covers projection round-trip fp error).
+      const unmoved =
+        !!nodeA && !!nodeB &&
+        Math.abs((nodeA.lat + nodeB.lat) / 2 - current.lat) < 1e-9 &&
+        Math.abs((nodeA.lon + nodeB.lon) / 2 - current.lon) < 1e-9
+      // The stop line link must still match the original ref_line member.
+      const originalRefLine = originalRelation.members.find(
+        m => m.type === 'way' && m.role === 'ref_line'
+      )?.ref
+      const stopLs = tl.props.stopLineId
+        ? (shapeMap.get(tl.props.stopLineId) as unknown as LinestringShape | undefined)
+        : undefined
+      const currentRefLine = stopLs ? resolveOsmId(stopLs.id, stopLs.props.osmId) : undefined
+      if (unmoved && originalRefLine === currentRefLine) {
+        for (const nid of originalRefers.nodeRefs) {
+          const n = sidecarData?.nodes.get(nid)
+          if (!n) continue
+          shapeNodeOsmIds.add(nid)
+          nodesOut.set(nid, { id: nid, lat: n.lat, lon: n.lon, ele: n.ele, tags: { ...n.tags } })
+        }
+        shapeWayOsmIds.add(originalRefers.id)
+        waysOut.set(originalRefers.id, {
+          id: originalRefers.id,
+          nodeRefs: [...originalRefers.nodeRefs],
+          tags: { ...originalRefers.tags },
+        })
+        relationsOut.push({
+          id: reOsmId,
+          members: originalRelation.members.map(m => ({ ...m })),
+          tags: { ...originalRelation.tags },
+        })
+        linkAffectedLanelets(reOsmId, affected)
+        continue
+      }
+    }
+
+    // "refers" way: reuse the way / node IDs recorded at import time (the
+    // `refers_osm_id` attribute) so the sidecar copies are overridden rather
+    // than duplicated; otherwise allocate fresh negative IDs.
+    const refersWayId =
+      tl.props.attributes?.refers_osm_id || resolveOsmId(`${tl.id}#refers`, undefined)
+    const sidecarRefers = sidecarData?.ways.get(refersWayId)
+    const reuseNodes = !!sidecarRefers && sidecarRefers.nodeRefs.length >= 2
+    const nodeIdA = reuseNodes
+      ? sidecarRefers.nodeRefs[0]
+      : resolveOsmId(`${tl.id}#refers_a`, undefined)
+    const nodeIdB = reuseNodes
+      ? sidecarRefers.nodeRefs[sidecarRefers.nodeRefs.length - 1]
+      : resolveOsmId(`${tl.id}#refers_b`, undefined)
+    const halfW = (tl.props.w ?? 0) / 2
+    const a = canvasToLatLon(tl.x - halfW, tl.y, originLat, originLon)
+    const b = canvasToLatLon(tl.x + halfW, tl.y, originLat, originLon)
+    for (const [nid, ll] of [[nodeIdA, a], [nodeIdB, b]] as const) {
+      shapeNodeOsmIds.add(nid)
+      const originalNode = sidecarData?.nodes.get(nid)
+      nodesOut.set(nid, {
+        id: nid,
+        lat: ll.lat,
+        lon: ll.lon,
+        ele: originalNode?.ele ?? 0,
+        tags: originalNode ? { ...originalNode.tags } : {},
+      })
+    }
+    shapeWayOsmIds.add(refersWayId)
+    const refersTags: Record<string, string> = sidecarRefers ? { ...sidecarRefers.tags } : {}
+    refersTags.type = 'traffic_light'
+    // Autoware requires subtype and height on the traffic light way; keep
+    // sidecar values when present, allow shape attributes to override, and
+    // fall back to the common defaults.
+    const tlAttrs = (tl.props.attributes ?? {}) as Record<string, string | undefined>
+    if (!refersTags.subtype) refersTags.subtype = tlAttrs.subtype || 'red_yellow_green'
+    if (!refersTags.height) refersTags.height = tlAttrs.height || '0.5'
+    waysOut.set(refersWayId, { id: refersWayId, nodeRefs: [nodeIdA, nodeIdB], tags: refersTags })
+
+    const members: { type: string; ref: string; role: string }[] = [
+      { type: 'way', ref: refersWayId, role: 'refers' },
+    ]
+
+    // "ref_line": the stop line linestring, already exported as a way above.
+    // Ensure the way carries type=stop_line so consumers recognize it.
+    if (tl.props.stopLineId) {
+      const stopLs = shapeMap.get(tl.props.stopLineId) as unknown as LinestringShape | undefined
+      if (stopLs) {
+        const stopWayId = resolveOsmId(stopLs.id, stopLs.props.osmId)
+        const stopWay = waysOut.get(stopWayId)
+        if (stopWay && stopWay.tags.type !== 'stop_line') stopWay.tags.type = 'stop_line'
+        members.push({ type: 'way', ref: stopWayId, role: 'ref_line' })
+      }
+    }
+
+    const tags: Record<string, string> = originalRelation ? { ...originalRelation.tags } : {}
+    tags.type = 'regulatory_element'
+    tags.subtype = 'traffic_light'
+    relationsOut.push({ id: reOsmId, members, tags })
+
+    linkAffectedLanelets(reOsmId, affected)
+  }
+
+  // Lanes with yieldLaneIds -> relations (type=regulatory_element,
+  // subtype=right_of_way). The lane plays the "right_of_way" role and each
+  // yielding lanelet joins with the "yield" role.
+  //
+  // Editor props store a flat per-lane union (`yieldLaneIds`), while a Lanelet2
+  // map may partition the same facts across several relations (one relation
+  // with many right_of_way lanelets, one lanelet in many relations, extra
+  // ref_line/refers members). To stay round-trip stable the export works in
+  // three steps:
+  //   1. sidecar RoW relations still fully satisfied by current props are
+  //      kept verbatim (not claimed, byte-stable)
+  //   2. sidecar RoW relations whose links were edited are rebuilt in place
+  //      (same osmId, member order preserved, removed links dropped)
+  //   3. yield links not covered by any sidecar relation are emitted as new
+  //      per-lane relations
+  const materializedLaneletIds = new Set<string>()
+  for (const rel of laneRelationByShapeId.values()) materializedLaneletIds.add(rel.id)
+
+  // laneletRef -> { laneShapeId, yieldLaneletRefs } (lanes that declare yields)
+  const rowInfoByLaneletRef = new Map<string, { laneShapeId: string; yieldRefs: Set<string> }>()
+  for (const lane of lanes) {
+    const yieldIds = lane.props.yieldLaneIds ?? []
+    const laneRel = laneRelationByShapeId.get(lane.id)
+    if (!laneRel) continue
+    const yieldRefs = new Set<string>()
+    for (const yieldShapeId of yieldIds) {
+      const yieldRel = laneRelationByShapeId.get(yieldShapeId)
+      if (yieldRel) yieldRefs.add(yieldRel.id)
+    }
+    rowInfoByLaneletRef.set(laneRel.id, { laneShapeId: lane.id, yieldRefs })
+  }
+
+  // laneletRef -> sidecar 由来でカバー済みの yield lanelet refs
+  const coveredYieldRefs = new Map<string, Set<string>>()
+  const coverageOf = (rowRef: string): Set<string> => {
+    let set = coveredYieldRefs.get(rowRef)
+    if (!set) {
+      set = new Set()
+      coveredYieldRefs.set(rowRef, set)
+    }
+    return set
+  }
+
+  const sidecarRowREs = (sidecarData?.relations ?? []).filter(
+    r => r.tags.type === 'regulatory_element' && r.tags.subtype === 'right_of_way'
+  )
+  for (const re of sidecarRowREs) {
+    const rowMembers = re.members.filter(m => m.type === 'relation' && m.role === 'right_of_way')
+    const yieldMembers = re.members.filter(m => m.type === 'relation' && m.role === 'yield')
+    // shape 化された lanelet のみが編集対象。非 materialize の member は素通し
+    const rowMat = rowMembers.map(m => m.ref).filter(ref => materializedLaneletIds.has(ref))
+    const yieldMat = yieldMembers.map(m => m.ref).filter(ref => materializedLaneletIds.has(ref))
+    if (rowMat.length === 0 || yieldMat.length === 0) continue
+
+    // 全 right_of_way lanelet が今もこの relation の yield 群を保持しているか
+    const satisfied = rowMat.every(rowRef => {
+      const info = rowInfoByLaneletRef.get(rowRef)
+      return !!info && yieldMat.every(y => info.yieldRefs.has(y))
+    })
+
+    if (satisfied) {
+      // 無編集: sidecar 素通し (claim しない) でバイト安定に保つ
+      for (const rowRef of rowMat) {
+        for (const y of yieldMat) coverageOf(rowRef).add(y)
+      }
+      continue
+    }
+
+    // 編集あり: 同 osmId で再構築 (member 順は保持しつつ、外れたリンクを除去)
+    shapeRelationOsmIds.add(re.id)
+    const members: { type: string; ref: string; role: string }[] = []
+    const keptRowRefs: string[] = []
+    for (const m of re.members) {
+      if (m.type === 'relation' && m.role === 'right_of_way') {
+        if (!materializedLaneletIds.has(m.ref)) {
+          members.push({ ...m })
+          continue
+        }
+        const info = rowInfoByLaneletRef.get(m.ref)
+        // この relation の yield を1つも保持しないレーンは right_of_way から外す
+        if (info && yieldMat.some(y => info.yieldRefs.has(y))) {
+          members.push({ ...m })
+          keptRowRefs.push(m.ref)
+        }
+        continue
+      }
+      if (m.type === 'relation' && m.role === 'yield') {
+        if (!materializedLaneletIds.has(m.ref)) {
+          members.push({ ...m })
+          continue
+        }
+        const stillReferenced = rowMat.some(rowRef => {
+          const info = rowInfoByLaneletRef.get(rowRef)
+          return !!info && info.yieldRefs.has(m.ref)
+        })
+        if (stillReferenced) members.push({ ...m })
+        continue
+      }
+      // ref_line / refers / その他のメンバーはそのまま保持
+      members.push({ ...m })
+    }
+    const keptYieldRefs = members
+      .filter(m => m.type === 'relation' && m.role === 'yield')
+      .map(m => m.ref)
+    for (const rowRef of keptRowRefs) {
+      const info = rowInfoByLaneletRef.get(rowRef)
+      if (!info) continue
+      for (const y of keptYieldRefs) {
+        if (info.yieldRefs.has(y)) coverageOf(rowRef).add(y)
+      }
+    }
+
+    const tags: Record<string, string> = { ...re.tags }
+    tags.type = 'regulatory_element'
+    tags.subtype = 'right_of_way'
+    relationsOut.push({ id: re.id, members, tags })
+
+    linkAffectedLanelets(
+      re.id,
+      keptRowRefs
+        .map(ref => rowInfoByLaneletRef.get(ref)?.laneShapeId)
+        .filter((id): id is string => !!id)
+    )
+  }
+
+  // sidecar でカバーされなかった yield リンクはレーンごとに新規 relation を生成
+  for (const lane of lanes) {
+    const laneRel = laneRelationByShapeId.get(lane.id)
+    if (!laneRel) continue
+    const info = rowInfoByLaneletRef.get(laneRel.id)
+    if (!info || info.yieldRefs.size === 0) continue
+    const covered = coveredYieldRefs.get(laneRel.id)
+    const residual = [...info.yieldRefs].filter(ref => !covered?.has(ref))
+    if (residual.length === 0) continue
+
+    const reOsmId = resolveOsmId(`${lane.id}#right_of_way`, undefined)
+    shapeRelationOsmIds.add(reOsmId)
+    const members: { type: string; ref: string; role: string }[] = [
+      { type: 'relation', ref: laneRel.id, role: 'right_of_way' },
+    ]
+    for (const ref of residual) members.push({ type: 'relation', ref, role: 'yield' })
+    relationsOut.push({
+      id: reOsmId,
+      members,
+      tags: { type: 'regulatory_element', subtype: 'right_of_way' },
+    })
+    linkAffectedLanelets(reOsmId, [lane.id])
+  }
+
+  // Crosswalks with affected lanes -> a synthesized crosswalk lanelet (the
+  // walking band's long edges as left/right ways), a crosswalk_polygon way
+  // (band outline), and a relation (type=regulatory_element,
+  // subtype=crosswalk) tying them together with the optional stop line.
+  // Way / node ids recorded at import time are reused so sidecar copies are
+  // overridden rather than duplicated.
+  for (const cw of crosswalks) {
+    // Dangling ids (deleted lanes) do not count: a crosswalk whose links all
+    // resolve to nothing is treated like an unlinked one and stays sidecar-only.
+    const affected = (cw.props.affectedLaneIds ?? []).filter(id => laneRelationByShapeId.has(id))
+    if (affected.length === 0) continue
+
+    const attrs = (cw.props.attributes ?? {}) as Record<string, string | undefined>
+    const reOsmId = resolveOsmId(cw.id, cw.props.osmId)
+    shapeRelationOsmIds.add(reOsmId)
+
+    // Band geometry: axis from start to end (walking direction), band width
+    // across it. The shape rotation is applied about the shape center,
+    // matching the OpenDRIVE exporter's convention.
+    const rotRad = ((cw.rotation || 0) * Math.PI) / 180
+    const cosR = Math.cos(rotRad)
+    const sinR = Math.sin(rotRad)
+    const centerX = cw.x + (cw.props.startX + cw.props.endX) / 2
+    const centerY = cw.y + (cw.props.startY + cw.props.endY) / 2
+    const halfDxLocal = (cw.props.endX - cw.props.startX) / 2
+    const halfDyLocal = (cw.props.endY - cw.props.startY) / 2
+    const halfDx = halfDxLocal * cosR - halfDyLocal * sinR
+    const halfDy = halfDxLocal * sinR + halfDyLocal * cosR
+    const axisLen = Math.hypot(halfDx, halfDy) * 2
+    if (axisLen < 1e-6) continue
+    const dirX = (halfDx * 2) / axisLen
+    const dirY = (halfDy * 2) / axisLen
+    // Unit normal toward the left of the walking direction (screen Y down).
+    const leftNX = dirY
+    const leftNY = -dirX
+    const halfW = (cw.props.crosswalkWidth ?? 0) / 2
+    const ax = centerX - halfDx
+    const ay = centerY - halfDy
+    const bx = centerX + halfDx
+    const by = centerY + halfDy
+
+    const laneletOsmId = attrs.crosswalk_lanelet_osm_id || resolveOsmId(`${cw.id}#lanelet`, undefined)
+    const leftWayId = attrs.crosswalk_left_osm_id || resolveOsmId(`${cw.id}#left`, undefined)
+    const rightWayId = attrs.crosswalk_right_osm_id || resolveOsmId(`${cw.id}#right`, undefined)
+    const polygonWayId = attrs.crosswalk_polygon_osm_id || resolveOsmId(`${cw.id}#polygon`, undefined)
+
+    // Node ids: reuse the sidecar boundary ways' endpoints when present.
+    const sidecarLeft = sidecarData?.ways.get(leftWayId)
+    const sidecarRight = sidecarData?.ways.get(rightWayId)
+    const reuseLeft = !!sidecarLeft && sidecarLeft.nodeRefs.length >= 2
+    const reuseRight = !!sidecarRight && sidecarRight.nodeRefs.length >= 2
+    const nodeLA = reuseLeft ? sidecarLeft.nodeRefs[0] : resolveOsmId(`${cw.id}#left_a`, undefined)
+    const nodeLB = reuseLeft
+      ? sidecarLeft.nodeRefs[sidecarLeft.nodeRefs.length - 1]
+      : resolveOsmId(`${cw.id}#left_b`, undefined)
+    const nodeRA = reuseRight ? sidecarRight.nodeRefs[0] : resolveOsmId(`${cw.id}#right_a`, undefined)
+    const nodeRB = reuseRight
+      ? sidecarRight.nodeRefs[sidecarRight.nodeRefs.length - 1]
+      : resolveOsmId(`${cw.id}#right_b`, undefined)
+
+    const corners: [string, number, number][] = [
+      [nodeLA, ax + leftNX * halfW, ay + leftNY * halfW],
+      [nodeLB, bx + leftNX * halfW, by + leftNY * halfW],
+      [nodeRA, ax - leftNX * halfW, ay - leftNY * halfW],
+      [nodeRB, bx - leftNX * halfW, by - leftNY * halfW],
+    ]
+    for (const [nid, x, y] of corners) {
+      shapeNodeOsmIds.add(nid)
+      const ll = canvasToLatLon(x, y, originLat, originLon)
+      const originalNode = sidecarData?.nodes.get(nid)
+      nodesOut.set(nid, {
+        id: nid,
+        lat: ll.lat,
+        lon: ll.lon,
+        ele: originalNode?.ele ?? 0,
+        tags: originalNode ? { ...originalNode.tags } : {},
+      })
+    }
+
+    shapeWayOsmIds.add(leftWayId)
+    waysOut.set(leftWayId, {
+      id: leftWayId,
+      nodeRefs: [nodeLA, nodeLB],
+      tags: sidecarLeft ? { ...sidecarLeft.tags } : {},
+    })
+    shapeWayOsmIds.add(rightWayId)
+    waysOut.set(rightWayId, {
+      id: rightWayId,
+      nodeRefs: [nodeRA, nodeRB],
+      tags: sidecarRight ? { ...sidecarRight.tags } : {},
+    })
+
+    // Band outline (closed ring over the four corners).
+    const sidecarPolygon = sidecarData?.ways.get(polygonWayId)
+    const polygonTags: Record<string, string> = sidecarPolygon ? { ...sidecarPolygon.tags } : {}
+    if (!polygonTags.type) polygonTags.type = 'crosswalk_polygon'
+    if (!polygonTags.area) polygonTags.area = 'yes'
+    shapeWayOsmIds.add(polygonWayId)
+    waysOut.set(polygonWayId, {
+      id: polygonWayId,
+      nodeRefs: [nodeLA, nodeLB, nodeRB, nodeRA, nodeLA],
+      tags: polygonTags,
+    })
+
+    // Crosswalk lanelet (type=lanelet, subtype=crosswalk).
+    const sidecarLanelet = sidecarData?.relations.find(r => r.id === laneletOsmId)
+    const laneletTags: Record<string, string> = sidecarLanelet ? { ...sidecarLanelet.tags } : {}
+    laneletTags.type = 'lanelet'
+    laneletTags.subtype = 'crosswalk'
+    shapeRelationOsmIds.add(laneletOsmId)
+    relationsOut.push({
+      id: laneletOsmId,
+      members: [
+        { type: 'way', ref: leftWayId, role: 'left' },
+        { type: 'way', ref: rightWayId, role: 'right' },
+      ],
+      tags: laneletTags,
+    })
+
+    const members: { type: string; ref: string; role: string }[] = [
+      { type: 'relation', ref: laneletOsmId, role: 'refers' },
+      { type: 'way', ref: polygonWayId, role: 'crosswalk_polygon' },
+    ]
+    if (cw.props.stopLineId) {
+      const stopLs = shapeMap.get(cw.props.stopLineId) as unknown as LinestringShape | undefined
+      if (stopLs) {
+        const stopWayId = resolveOsmId(stopLs.id, stopLs.props.osmId)
+        const stopWay = waysOut.get(stopWayId)
+        if (stopWay && stopWay.tags.type !== 'stop_line') stopWay.tags.type = 'stop_line'
+        members.push({ type: 'way', ref: stopWayId, role: 'ref_line' })
+      }
+    }
+
+    const sidecarRe = sidecarData?.relations.find(r => r.id === reOsmId)
+    const tags: Record<string, string> = sidecarRe ? { ...sidecarRe.tags } : {}
+    tags.type = 'regulatory_element'
+    tags.subtype = 'crosswalk'
+    relationsOut.push({ id: reOsmId, members, tags })
+
+    linkAffectedLanelets(reOsmId, affected)
   }
 
   return { nodes: nodesOut, ways: waysOut, relations: relationsOut, shapeNodeOsmIds, shapeWayOsmIds, shapeRelationOsmIds }

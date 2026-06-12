@@ -14,7 +14,8 @@ describe('latLonToTmercProj', () => {
     expect(proj).toContain('+lon_0=139.74000000')
     expect(proj).toContain('+datum=WGS84')
     expect(proj).toContain('+units=m')
-    expect(proj).toContain('+no_defs')
+    // +no_defs is intentionally omitted: esmini rejects the attribute.
+    expect(proj).not.toContain('+no_defs')
   })
 
   it('uses 8 decimal places for sub-cm precision', () => {

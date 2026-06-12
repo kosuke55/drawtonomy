@@ -76,8 +76,51 @@ describe('exportToOpenDrive', () => {
     expect(xml).toContain(`<lanes>`)
     expect(xml).toContain(`<laneSection s="0">`)
     expect(xml).toContain(`<center>`)
-    expect(xml).toContain(`<left>`)
     expect(xml).toContain(`<right>`)
+    // One drawtonomy lane = one full-width OpenDRIVE lane: the lane reference
+    // is shifted onto the left boundary via laneOffset, so no left lane exists.
+    expect(xml).not.toContain(`<left>`)
+    expect(xml).toContain(`<laneOffset `)
+    const width = xml.match(/<width sOffset="0(?:\.0+)?" a="([\d.]+)"/)
+    expect(width).not.toBeNull()
+    expect(parseFloat(width![1])).toBeCloseTo(0.5999, 2) // 10 px = 0.6 m, full width
+    const offset = xml.match(/<laneOffset s="0(?:\.0+)?" a="([\d.]+)"/)
+    expect(offset).not.toBeNull()
+    expect(parseFloat(offset![1])).toBeCloseTo(0.29997, 2) // +width/2
+  })
+
+  it('preserves lane types from odr_type and lanelet subtypes', () => {
+    const sidewalk = lane('lane1', 'left', 'right')
+    sidewalk.props.attributes = { type: 'lanelet', subtype: 'walkway' }
+    const imported = lane('lane2', 'left2', 'right2')
+    imported.props.attributes = { type: 'lanelet', subtype: 'road', odr_type: 'biking' }
+    const shapes = [
+      point('p1', 0, -5), point('p2', 100, -5),
+      point('p3', 0, 5), point('p4', 100, 5),
+      point('p5', 0, 195), point('p6', 100, 195),
+      point('p7', 0, 205), point('p8', 100, 205),
+      linestring('left', ['p1', 'p2']),
+      linestring('right', ['p3', 'p4']),
+      linestring('left2', ['p5', 'p6']),
+      linestring('right2', ['p7', 'p8']),
+      sidewalk,
+      imported,
+    ]
+    const xml = exportToOpenDrive(snapshot(shapes))
+    expect(xml).toContain(`type="sidewalk"`)
+    expect(xml).toContain(`type="biking"`)
+  })
+
+  it('skips degenerate zero-length lanes instead of emitting empty roads', () => {
+    const shapes = [
+      point('p1', 0, -5), point('p2', 0.001, -5),
+      point('p3', 0, 5), point('p4', 0.001, 5),
+      linestring('left', ['p1', 'p2']),
+      linestring('right', ['p3', 'p4']),
+      lane('lane1', 'left', 'right'),
+    ]
+    const xml = exportToOpenDrive(snapshot(shapes))
+    expect(xml).not.toContain(`<road `)
   })
 
   it('converts pixels to meters using PIXELS_PER_METER (16.67)', () => {
@@ -124,9 +167,9 @@ describe('exportToOpenDrive', () => {
     const xml = exportToOpenDrive(snapshot(shapes))
     expect(xml).toContain(`<successor elementType="road" elementId="2"`)
     expect(xml).toContain(`<predecessor elementType="road" elementId="1"`)
-    expect(xml).toContain(`<successor id="1"/>`)
     expect(xml).toContain(`<successor id="-1"/>`)
-    expect(xml).toContain(`<predecessor id="1"/>`)
+    expect(xml).toContain(`<successor id="-1"/>`)
+    expect(xml).toContain(`<predecessor id="-1"/>`)
     expect(xml).toContain(`<predecessor id="-1"/>`)
   })
 

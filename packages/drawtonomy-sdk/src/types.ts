@@ -50,10 +50,16 @@ export interface LaneProps {
   opacity?: number | null
   smooth?: boolean | null
   size: string
-  attributes: { type: string; subtype: string; speed_limit?: string }
+  attributes: { type: string; subtype: string; speed_limit?: string } & Record<string, string | undefined>
   next: string[]
   prev: string[]
   osmId: string
+  /**
+   * Lane shape ids that must yield to this lane (regulatory layer).
+   * Exported as a Lanelet2 `right_of_way` regulatory element whose
+   * "right_of_way" member is this lane and "yield" members are these lanes.
+   */
+  yieldLaneIds?: string[]
 }
 
 export interface VehicleProps {
@@ -142,6 +148,18 @@ export interface TrafficLightProps {
   size?: string
   attributes: { type?: string; subtype?: string } & Record<string, string>
   osmId: string
+  /**
+   * Lane shape ids whose traffic this signal controls (regulatory layer).
+   * Exported as a Lanelet2 regulatory element / OpenDRIVE signal validity.
+   */
+  affectedLaneIds?: string[]
+  /** Linestring shape id of the associated stop line, or null when absent. */
+  stopLineId?: string | null
+  /**
+   * Signal group id. Signals sharing the same controllerId belong to one
+   * intersection controller (exported as an OpenDRIVE <controller>).
+   */
+  controllerId?: string
 }
 
 export interface CrosswalkProps {
@@ -161,6 +179,14 @@ export interface CrosswalkProps {
   opacity?: number | null
   attributes: { type?: string; subtype?: string } & Record<string, string>
   osmId: string
+  /**
+   * Lane shape ids whose traffic this crosswalk regulates (regulatory layer).
+   * Exported as a Lanelet2 `crosswalk` regulatory element referenced by the
+   * affected lanelets.
+   */
+  affectedLaneIds?: string[]
+  /** Linestring shape id of the associated stop line, or null when absent. */
+  stopLineId?: string | null
 }
 
 export interface FreehandProps {
