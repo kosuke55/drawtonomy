@@ -60,7 +60,7 @@ describe('exportToOpenDrive', () => {
     expect(xml).toContain(`</OpenDRIVE>`)
   })
 
-  it('emits one road per lane with planView and lanes sections', () => {
+  it('emits a road with planView and lanes sections for a single lane', () => {
     const shapes = [
       point('p1', 0, -5), point('p2', 100, -5),
       point('p3', 0, 5), point('p4', 100, 5),
@@ -77,16 +77,62 @@ describe('exportToOpenDrive', () => {
     expect(xml).toContain(`<laneSection s="0">`)
     expect(xml).toContain(`<center>`)
     expect(xml).toContain(`<right>`)
-    // One drawtonomy lane = one full-width OpenDRIVE lane: the lane reference
-    // is shifted onto the left boundary via laneOffset, so no left lane exists.
+    // The reference line IS the lane's left boundary, so lane -1 spans the
+    // full lane width with no laneOffset and no left lane.
     expect(xml).not.toContain(`<left>`)
-    expect(xml).toContain(`<laneOffset `)
+    expect(xml).not.toContain(`<laneOffset `)
     const width = xml.match(/<width sOffset="0(?:\.0+)?" a="([\d.]+)"/)
     expect(width).not.toBeNull()
     expect(parseFloat(width![1])).toBeCloseTo(0.5999, 2) // 10 px = 0.6 m, full width
-    const offset = xml.match(/<laneOffset s="0(?:\.0+)?" a="([\d.]+)"/)
-    expect(offset).not.toBeNull()
-    expect(parseFloat(offset![1])).toBeCloseTo(0.29997, 2) // +width/2
+  })
+
+  it('bundles laterally adjacent same-direction lanes into one road', () => {
+    const shapes = [
+      point('p1', 0, 0), point('p2', 100, 0),
+      point('p3', 0, 10), point('p4', 100, 10),
+      point('p5', 0, 20), point('p6', 100, 20),
+      linestring('b0', ['p1', 'p2']),
+      linestring('b1', ['p3', 'p4']),
+      linestring('b2', ['p5', 'p6']),
+      lane('lane1', 'b0', 'b1'), // inner lane
+      lane('lane2', 'b1', 'b2'), // its right neighbour (shares b1)
+    ]
+    const xml = exportToOpenDrive(snapshot(shapes))
+    // One <road> carrying both lanes as -1 / -2, not two single-lane roads.
+    expect(xml.match(/<road /g)).toHaveLength(1)
+    expect(xml).toContain(`<lane id="-1" type="driving"`)
+    expect(xml).toContain(`<lane id="-2" type="driving"`)
+    // Per-lane attributes stay separate in the userData stash.
+    expect(xml).toContain(`<userData code="laneAttributes"`)
+    const ud = xml.match(/<userData code="laneAttributes" value="([^"]+)"/)
+    expect(ud).not.toBeNull()
+    const parsed = JSON.parse(ud![1].replace(/&quot;/g, '"'))
+    expect(Object.keys(parsed).sort()).toEqual(['-1', '-2'])
+  })
+
+  it('keeps opposite-direction neighbours in separate roads', () => {
+    const shapes = [
+      point('p1', 0, 0), point('p2', 100, 0),
+      point('p3', 0, 10), point('p4', 100, 10),
+      point('p5', 0, 20), point('p6', 100, 20),
+      linestring('b0', ['p1', 'p2']),
+      linestring('b1', ['p3', 'p4']),
+      linestring('b2', ['p5', 'p6']),
+      // lane1 travels +x; lane2 shares b1 as its (inverted) left boundary but
+      // travels -x — the same encoding the OpenDRIVE importer uses for left
+      // lanes of a two-way road.
+      lane('lane1', 'b0', 'b1'),
+      {
+        ...lane('lane2', 'b1', 'b2'),
+        props: {
+          ...lane('lane2', 'b1', 'b2').props,
+          invertLeft: true,
+          invertRight: true,
+        },
+      },
+    ]
+    const xml = exportToOpenDrive(snapshot(shapes))
+    expect(xml.match(/<road /g)).toHaveLength(2)
   })
 
   it('preserves lane types from odr_type and lanelet subtypes', () => {

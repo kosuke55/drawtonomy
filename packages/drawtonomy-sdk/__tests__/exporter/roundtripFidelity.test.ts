@@ -31,8 +31,10 @@
 //   Fix D — lanelet-only lane tags ride in <userData code="laneAttributes">,
 //           multi-road signal validity in <signalReference>, stop lines in
 //           <userData code="stopLine">, and are restored on import.
-//   Fix E — boundary-alignment snapping never merges a lane's own start and
-//           end clusters, so sub-epsilon connecting lanes survive export.
+//   Fix E — boundary-alignment snapping never merges a lane's start-side and
+//           end-side endpoint Points into one cluster (tracked per point id,
+//           covering Points shared with neighbouring lanes), so sub-epsilon
+//           connecting lanes survive export.
 //
 // Real-world fixtures: esmini's fabriksgatan.xodr / two_plus_one.xodr ship in
 // __tests__/fixtures. A real Lanelet2 map can additionally be supplied via
@@ -42,12 +44,14 @@
 import { describe, it, expect } from 'vitest'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { parseOpenDriveXml } from '../../src/exporter/opendriveParser'
+import { parseOpenDriveXml, type OdrGeometry } from '../../src/exporter/opendriveParser'
 import { odrToShapes } from '../../src/exporter/odrToShapes'
+import { evalGeometry, sampleReferenceLine } from '../../src/exporter/odrGeometry'
 import { exportToOpenDrive } from '../../src/exporter/opendrive'
 import { exportToLanelet2 } from '../../src/exporter/lanelet2'
 import { parseOsmXml } from '../../src/exporter/osmParser'
 import { osmToShapes, type ImportedShapes } from '../../src/exporter/osmToShapes'
+import { PIXELS_PER_METER } from '../../src/exporter/units'
 import type { DrawtonomySnapshot } from '../../src/types'
 
 // ---------------------------------------------------------------------------
@@ -399,6 +403,7 @@ function snapshotFrom(imported: ImportedShapes): DrawtonomySnapshot {
         next: lane.next,
         prev: lane.prev,
         osmId: lane.osmId,
+        ...(lane.yieldLaneIds ? { yieldLaneIds: lane.yieldLaneIds } : {}),
       },
     })
   }
@@ -419,6 +424,28 @@ function snapshotFrom(imported: ImportedShapes): DrawtonomySnapshot {
         osmId: tl.osmId,
         affectedLaneIds: tl.affectedLaneIds,
         stopLineId: tl.stopLineId,
+      },
+    })
+  }
+  for (const cw of imported.crosswalks ?? []) {
+    shapes.push({
+      id: cw.id,
+      type: 'crosswalk',
+      x: cw.x,
+      y: cw.y,
+      rotation: 0,
+      zIndex: 0,
+      props: {
+        startX: cw.startX,
+        startY: cw.startY,
+        endX: cw.endX,
+        endY: cw.endY,
+        crosswalkWidth: cw.crosswalkWidth,
+        color: 'default',
+        attributes: cw.attributes,
+        osmId: cw.osmId,
+        affectedLaneIds: cw.affectedLaneIds,
+        stopLineId: cw.stopLineId,
       },
     })
   }
@@ -620,8 +647,8 @@ const SYNTHETIC_XODR = `<?xml version="1.0"?>
  * - lane A (r100) -> lane B (r101): consecutive, boundaries share end nodes
  * - lane C (r102): right neighbour of A, sharing way 11 as its left boundary
  * - traffic light regulatory element (r200) on lanes A and C with a stop line
- *   (a multi-lane signal: OpenDRIVE <validity> can only attach to one road
- *   in the 1-lane-per-road export model, so this exercises that loss)
+ *   (a multi-lane signal: A and C bundle into one road, so the OpenDRIVE
+ *   export covers both with a single <validity> lane range)
  * Latitude step of 3.15e-5 deg is roughly 3.5 m.
  */
 const SYNTHETIC_LANELET2 = `<?xml version='1.0' encoding='UTF-8'?>
@@ -696,8 +723,8 @@ const SYNTHETIC_LANELET2 = `<?xml version='1.0' encoding='UTF-8'?>
 
 /**
  * Minimal bidirectional Lanelet2 map: a single lanelet tagged one_way=no.
- * OpenDRIVE roads in the 1-lane-per-road export are always one-directional,
- * so the bidirectional flag is lost through an xodr round trip.
+ * Exported OpenDRIVE roads only carry one-directional right lanes, so the
+ * bidirectional flag is lost through an xodr round trip.
  */
 const BIDIRECTIONAL_LANELET2 = `<?xml version='1.0' encoding='UTF-8'?>
 <osm version='0.6' generator='test'>
@@ -959,20 +986,93 @@ describe('(b) xodr -> shapes -> xodr -> shapes', () => {
       // 1:1 edges ride on road links; branch/merge edges ride on the
       // junctions synthesized by Fix C (see the diamond suite below).
       expect(r.edgesPreserved, `${name}: edges`).toBe(r.edgesBefore)
-      expectAttributesPreserved(r, ['type', 'subtype', 'odr_type', 'one_way'])
+      expectAttributesPreserved(r, [
+        'type',
+        'subtype',
+        'odr_type',
+        'one_way',
+        // Junction turn directions ride per lane in the laneAttributes
+        // userData stash, so they survive even though lane ids shift.
+        'turn_direction',
+      ])
     }
   })
 
-  // Fix B: the exporter emits one <road> per lane with its own reference
-  // line, so re-import would create fresh boundary linestrings per road;
-  // odrToShapes dedupes geometrically identical boundary linestrings so
-  // left/right adjacency (shared boundary linestrings) survives.
-  it('preserves left/right adjacency (Fix B: dedupe shared boundaries)', () => {
+  // Same-direction adjacent lanes are exported as one <road> (lane bundling),
+  // so their shared boundary is structural in the file itself; adjacency
+  // across travel directions (e.g. the two sides of a two-way road) lives in
+  // separate roads and is restored by the importer's boundary dedupe (Fix B).
+  it('preserves left/right adjacency (bundling + Fix B dedupe)', () => {
     for (const { name, imported } of fixtures) {
       const r = measureFidelity(imported, viaOpenDrive(imported))
       expect(r.adjacencyBefore, `${name}: adjacency before`).toBeGreaterThan(0)
       expect(r.adjacencyPreserved, `${name}: adjacency preserved`).toBe(r.adjacencyBefore)
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Road bundling: laterally adjacent same-direction lanes become one <road>
+// ---------------------------------------------------------------------------
+
+describe('road bundling (shapes -> xodr structural adjacency)', () => {
+  it('keeps the two adjacent lanes of one road in one exported road (-1/-2)', () => {
+    const before = importXodr(SYNTHETIC_XODR)
+    const snapshot = snapshotFrom(before)
+    if (!snapshot.origin) snapshot.origin = FALLBACK_ORIGIN
+    const xodr = exportToOpenDrive(snapshot)
+    const parsed = parseOpenDriveXml(xodr)
+
+    // Source road 1 carries two adjacent right driving lanes; the export must
+    // keep them inside one road — structurally, in the XML itself, not
+    // recovered by the importer's geometric dedupe.
+    const mainRoads = parsed.roads.filter(r => r.junction === '-1')
+    const twoLaneRoads = mainRoads.filter(r => r.laneSections[0]?.right.length === 2)
+    expect(twoLaneRoads).toHaveLength(1)
+    expect(twoLaneRoads[0].laneSections[0].right.map(l => l.id)).toEqual([-1, -2])
+    // Bundling strictly reduces the mainline road count below
+    // one-road-per-lane (junction-stamped roads are the short synthesized
+    // connecting roads, not lane-carrying mainlines).
+    expect(mainRoads.length).toBeLessThan(before.lanes.length)
+
+    // Re-import: the two lanes carry the same odr_road_id, ids -1/-2, and
+    // share the middle boundary linestring object.
+    const after = importXodr(xodr)
+    const lanes = after.lanes.filter(l => l.attributes.odr_road_id === twoLaneRoads[0].id)
+    expect(lanes).toHaveLength(2)
+    const inner = lanes.find(l => l.attributes.odr_lane_id === '-1')!
+    const outer = lanes.find(l => l.attributes.odr_lane_id === '-2')!
+    expect(inner).toBeDefined()
+    expect(outer).toBeDefined()
+    expect(inner.rightBoundaryId).toBe(outer.leftBoundaryId)
+  })
+
+  it('drops the exported road count well below one-road-per-lane on real maps', () => {
+    for (const { name, imported } of loadXodrFixtures()) {
+      const snapshot = snapshotFrom(imported)
+      if (!snapshot.origin) snapshot.origin = FALLBACK_ORIGIN
+      const parsed = parseOpenDriveXml(exportToOpenDrive(snapshot))
+      const mainRoads = parsed.roads.filter(r => r.junction === '-1')
+      expect(mainRoads.length, `${name}: exported mainline roads`).toBeLessThan(imported.lanes.length)
+      const multiLaneRoads = mainRoads.filter(
+        r => (r.laneSections[0]?.right.length ?? 0) >= 2
+      )
+      expect(multiLaneRoads.length, `${name}: multi-lane roads`).toBeGreaterThan(0)
+    }
+  })
+
+  it('emits multi-lane signal validity as one lane range inside one road', () => {
+    // Lanes A and C of the synthetic Lanelet2 map are laterally adjacent and
+    // both controlled by the signal, so they bundle into one road and the
+    // <validity> covers lanes -2..-1 — no <signalReference> needed.
+    const before = importLanelet2(SYNTHETIC_LANELET2)
+    const snapshot = snapshotFrom(before)
+    if (!snapshot.origin) snapshot.origin = FALLBACK_ORIGIN
+    const xodr = exportToOpenDrive(snapshot)
+    expect(xodr).toContain('<validity fromLane="-2" toLane="-1"/>')
+    expect(xodr).not.toContain('<signalReference')
+    const r = measureFidelity(before, importXodr(xodr))
+    expect(r.trafficLightAffectedPreserved).toBe(r.trafficLightsBefore)
   })
 })
 
@@ -1041,9 +1141,9 @@ describe('(c) lanelet2 -> shapes -> xodr -> shapes', () => {
   })
 
   // Fix D: a regulatory element controlling N lanelets becomes a <signal>
-  // on one road plus <signalReference> records on the other affected roads
-  // (1 lane = 1 road), and the stop line rides in <userData code="stopLine">
-  // on the signal; both are merged back on import.
+  // whose <validity> covers the affected lanes of its road; lanes living in
+  // other road bundles get <signalReference> records. The stop line rides in
+  // <userData code="stopLine"> on the signal; all are merged back on import.
   it('preserves multi-lane signal validity and stop lines (Fix C/D)', () => {
     const before = importLanelet2(SYNTHETIC_LANELET2)
     const r = measureFidelity(before, viaOpenDrive(before))
@@ -1083,6 +1183,99 @@ describe('diamond branch/merge through xodr (shapes -> xodr -> shapes)', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Junction normalization: standard incoming -> connecting -> outgoing roads
+// ---------------------------------------------------------------------------
+
+describe('junction normalization (standard connecting-road structure)', () => {
+  function exportXodr(imported: ImportedShapes): string {
+    const snapshot = snapshotFrom(imported)
+    if (!snapshot.origin) snapshot.origin = FALLBACK_ORIGIN
+    return exportToOpenDrive(snapshot)
+  }
+
+  // Standard OpenDRIVE semantics: roads inside a junction are short
+  // connecting roads carrying a guaranteed predecessor (incoming road) and
+  // successor (outgoing road); the mainlines stay junction="-1". The missing
+  // successor on junction-stamped roads is exactly what esmini warns about
+  // ("connecting road lacks successor").
+  it('emits only short, fully linked connecting roads inside junctions', () => {
+    const sources = [...loadXodrFixtures(), { name: 'diamond', imported: diamondShapes() }]
+    for (const { name, imported } of sources) {
+      const parsed = parseOpenDriveXml(exportXodr(imported))
+      const roadById = new Map(parsed.roads.map(r => [r.id, r]))
+      let connectingCount = 0
+      for (const road of parsed.roads) {
+        if (road.junction === '-1') continue
+        connectingCount++
+        expect(road.length, `${name}: connecting road ${road.id} length`).toBeLessThan(0.5)
+        expect(road.predecessor?.elementType, `${name}: road ${road.id} predecessor`).toBe('road')
+        expect(road.successor?.elementType, `${name}: road ${road.id} successor`).toBe('road')
+      }
+      for (const junction of parsed.junctions) {
+        expect(junction.connections.length, `${name}: junction ${junction.id} connections`).toBeGreaterThan(0)
+        for (const conn of junction.connections) {
+          const connecting = roadById.get(conn.connectingRoad)
+          expect(connecting?.junction, `${name}: connection road ${conn.connectingRoad}`).toBe(junction.id)
+          expect(connecting?.predecessor?.elementId).toBe(conn.incomingRoad)
+          // Incoming and outgoing mainlines are not junction members.
+          expect(roadById.get(conn.incomingRoad)?.junction).toBe('-1')
+          expect(roadById.get(connecting!.successor!.elementId)?.junction).toBe('-1')
+        }
+      }
+      if (parsed.junctions.length > 0) {
+        expect(connectingCount, `${name}: connecting roads exist`).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  // The synthesized connecting roads sit below the importer's micro-section
+  // threshold: a re-import must skip them (no extra sliver lanes) while
+  // bridging the lane links across, keeping the lane set and edge set intact.
+  it('re-imports without materializing the synthesized connecting roads', () => {
+    const before = diamondShapes()
+    const after = importXodr(exportXodr(before))
+    expect(after.lanes).toHaveLength(before.lanes.length)
+    const r = measureFidelity(before, after)
+    expect(r.matchedLanes).toBe(r.laneCountBefore)
+    expect(r.edgesPreserved).toBe(r.edgesBefore)
+  })
+
+  // Right-of-way between two maneuvers of one junction is standard junction
+  // <priority high low> (between connecting roads), replacing the userData
+  // stash for such pairs; the importer maps it back to yieldLaneIds on the
+  // incoming lanes the maneuvers start from.
+  it('expresses junction right-of-way as <priority> and restores yieldLaneIds', () => {
+    const before = diamondShapes()
+    const laneA = before.lanes.find(l => (l.id as string) === 'shape:lane_A')!
+    const laneD = before.lanes.find(l => (l.id as string) === 'shape:lane_D')!
+    laneA.yieldLaneIds = [laneD.id as string] // A has right of way; D yields.
+
+    const xodr = exportXodr(before)
+    const parsed = parseOpenDriveXml(xodr)
+    expect(parsed.junctions).toHaveLength(1)
+    const junction = parsed.junctions[0]
+    // A and D have two maneuvers each -> 2x2 priority records.
+    expect(junction.priorities).toHaveLength(4)
+    const roadById = new Map(parsed.roads.map(r => [r.id, r]))
+    for (const pr of junction.priorities) {
+      expect(roadById.get(pr.high)?.junction).toBe(junction.id)
+      expect(roadById.get(pr.low)?.junction).toBe(junction.id)
+    }
+    // The junction-expressible pair no longer needs the userData fallback.
+    expect(xodr).not.toContain('<userData code="yieldLanes"')
+
+    const after = importXodr(xodr)
+    const rowLanes = after.lanes.filter(l => (l.yieldLaneIds ?? []).length > 0)
+    expect(rowLanes).toHaveLength(1)
+    expect(rowLanes[0].yieldLaneIds).toHaveLength(1)
+    // Lane A was drawn at y=0, lane D at y=200 (canvas px survive the trip).
+    const yielding = after.lanes.find(l => l.id === rowLanes[0].yieldLaneIds![0])!
+    expect(rowLanes[0].y).toBeLessThan(100)
+    expect(yielding.y).toBeGreaterThan(100)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Short connecting lanes vs boundary-alignment snapping (Fix E)
 // ---------------------------------------------------------------------------
 
@@ -1102,6 +1295,341 @@ describe('short connecting lanes through xodr (shapes -> xodr -> shapes)', () =>
     expect(r.laneCountAfter).toBe(r.laneCountBefore)
     expect(r.edgesBefore).toBe(2)
     expect(r.edgesPreserved).toBe(r.edgesBefore)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Plan-view geometry fitting (export quality)
+// ---------------------------------------------------------------------------
+
+/**
+ * Synthetic curvy OpenDRIVE road: line -> spiral -> arc -> spiral -> line
+ * with two right driving lanes. Start poses are chained analytically through
+ * evalGeometry so the plan view is exactly continuous.
+ */
+function buildCurvyXodr(): string {
+  const defs: (Omit<OdrGeometry, 's' | 'x' | 'y' | 'hdg'> & { xml: string })[] = [
+    { kind: 'line', length: 40, xml: '<line/>' },
+    {
+      kind: 'spiral',
+      length: 40,
+      curvStart: 0,
+      curvEnd: 0.02,
+      xml: '<spiral curvStart="0" curvEnd="0.02"/>',
+    },
+    { kind: 'arc', length: 60, curvature: 0.02, xml: '<arc curvature="0.02"/>' },
+    {
+      kind: 'spiral',
+      length: 40,
+      curvStart: 0.02,
+      curvEnd: 0,
+      xml: '<spiral curvStart="0.02" curvEnd="0"/>',
+    },
+    { kind: 'line', length: 30, xml: '<line/>' },
+  ]
+  let pose = { x: 0, y: 0, hdg: 0 }
+  let s = 0
+  const parts: string[] = []
+  for (const d of defs) {
+    const geom = { ...d, s, x: pose.x, y: pose.y, hdg: pose.hdg } as OdrGeometry
+    parts.push(
+      `      <geometry s="${s}" x="${pose.x}" y="${pose.y}" hdg="${pose.hdg}" length="${d.length}">${d.xml}</geometry>`
+    )
+    pose = evalGeometry(geom, d.length)
+    s += d.length
+  }
+  return `<?xml version="1.0"?>
+<OpenDRIVE>
+  <header revMajor="1" revMinor="6">
+    <geoReference><![CDATA[+proj=tmerc +lat_0=35.0 +lon_0=139.0 +datum=WGS84]]></geoReference>
+  </header>
+  <road name="curvy" length="${s}" id="1" junction="-1">
+    <planView>
+${parts.join('\n')}
+    </planView>
+    <lanes>
+      <laneSection s="0">
+        <right>
+          <lane id="-1" type="driving" level="false"><width sOffset="0" a="3.5" b="0" c="0" d="0"/></lane>
+          <lane id="-2" type="driving" level="false"><width sOffset="0" a="3.5" b="0" c="0" d="0"/></lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+</OpenDRIVE>`
+}
+
+/** Boundary polylines of an imported map in ENU meters. */
+function boundaryPolylinesEnu(shapes: ImportedShapes): { x: number; y: number }[][] {
+  const pointById = new Map(shapes.points.map(p => [p.id, p]))
+  return shapes.linestrings.map(ls =>
+    ls.pointIds
+      .map(id => pointById.get(id))
+      .filter((p): p is NonNullable<typeof p> => !!p)
+      .map(p => ({ x: p.x / PIXELS_PER_METER, y: -p.y / PIXELS_PER_METER }))
+  )
+}
+
+function distToPolyline(p: Pt, poly: readonly Pt[]): number {
+  let best = Infinity
+  for (let i = 0; i < poly.length - 1; i++) {
+    const a = poly[i]
+    const b = poly[i + 1]
+    const dx = b.x - a.x
+    const dy = b.y - a.y
+    const len2 = dx * dx + dy * dy
+    let t = len2 > 1e-18 ? ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2 : 0
+    t = Math.max(0, Math.min(1, t))
+    best = Math.min(best, Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy)))
+  }
+  return best
+}
+
+/** Max distance (px) from each before-lane boundary point to its matched after boundary. */
+function maxBoundaryDeviationPx(before: ImportedShapes, after: ImportedShapes): number {
+  const topoB = topologySignature(before)
+  const topoA = topologySignature(after)
+  const matching = matchLanesForTest(topoB.geoms, topoA.geoms)
+  const ptB = new Map(before.points.map(p => [p.id, p]))
+  const ptA = new Map(after.points.map(p => [p.id, p]))
+  const lsB = new Map(before.linestrings.map(l => [l.id, l]))
+  const lsA = new Map(after.linestrings.map(l => [l.id, l]))
+  const polyOf = (
+    lane: ImportedShapes['lanes'][number],
+    pts: Map<string, { x: number; y: number }>,
+    ls: Map<string, { pointIds: string[] }>,
+    side: 'left' | 'right'
+  ): Pt[] => {
+    const rec = ls.get(side === 'left' ? lane.leftBoundaryId : lane.rightBoundaryId)
+    if (!rec) return []
+    return rec.pointIds.map(id => pts.get(id)).filter((p): p is Pt => !!p)
+  }
+  let max = 0
+  for (const [b, a] of matching) {
+    for (const side of ['left', 'right'] as const) {
+      const pb = polyOf(before.lanes[b], ptB, lsB, side)
+      const pa = polyOf(after.lanes[a], ptA, lsA, side)
+      if (pb.length < 2 || pa.length < 2) continue
+      for (const p of pb) max = Math.max(max, distToPolyline(p, pa))
+    }
+  }
+  return max
+}
+
+function matchLanesForTest(before: LaneGeom[], after: LaneGeom[]): Map<number, number> {
+  return matchLanes(before, after, DEFAULT_TOL_PX)
+}
+
+describe('plan-view geometry fitting (export quality)', () => {
+  const curvyXml = buildCurvyXodr()
+
+  it('emits compact analytic primitives instead of a line decomposition', () => {
+    const before = importXodr(curvyXml)
+    expect(before.lanes).toHaveLength(2)
+    const xml = exportToOpenDrive(snapshotFrom(before))
+    const geomCount = (xml.match(/<geometry /g) ?? []).length
+    // The previous per-sample line decomposition needed ~40 <line> records
+    // for this road (5 cm chord tolerance on R = 50 m); the fitter must get
+    // far below that and use curved primitives. Tighten only, never relax.
+    expect(geomCount).toBeLessThanOrEqual(16)
+    expect(xml).toContain('<arc ')
+  })
+
+  it('keeps the fitted reference line within tolerance of the source boundaries', () => {
+    const before = importXodr(curvyXml)
+    const exported = parseOpenDriveXml(exportToOpenDrive(snapshotFrom(before)))
+    const boundaries = boundaryPolylinesEnu(before)
+    expect(exported.roads.length).toBeGreaterThan(0)
+    for (const road of exported.roads) {
+      const samples = sampleReferenceLine(road, { maxChordErrorMeters: 0.01, maxStepMeters: 1 })
+      expect(samples.length).toBeGreaterThan(10)
+      for (const sample of samples) {
+        // The road reference line is the bundle's leftmost boundary, so each
+        // re-evaluated point must sit on one of the original boundary
+        // polylines: 5 cm fit tolerance + the polylines' own chordal slack.
+        const d = Math.min(...boundaries.map(b => distToPolyline(sample, b)))
+        expect(d).toBeLessThanOrEqual(0.12)
+      }
+    }
+  })
+
+  it('round-trips curved-lane boundary geometry within 0.15 m', () => {
+    const before = importXodr(curvyXml)
+    const after = viaOpenDrive(before)
+    const r = measureFidelity(before, after)
+    expect(r.laneCountAfter).toBe(r.laneCountBefore)
+    expect(r.matchedLanes).toBe(r.laneCountBefore)
+    expect(r.adjacencyPreserved).toBe(r.adjacencyBefore)
+    const maxDevPx = maxBoundaryDeviationPx(before, after)
+    expect(maxDevPx / PIXELS_PER_METER).toBeLessThanOrEqual(0.15)
+  })
+
+  it('keeps a straight road a single <line> geometry (no regression)', () => {
+    const before = importXodr(SYNTHETIC_XODR)
+    const xml = exportToOpenDrive(snapshotFrom(before))
+    // Synthesized junction connecting stubs are excluded: they blend the
+    // incoming pose onto the outgoing road and legitimately emit an <arc>
+    // when the drawn branch kinks (contact-gap cleanliness, see
+    // emitConnectingRoad).
+    const roadChunks = xml.split('<road ').slice(1).filter(c => !c.startsWith('name="connecting"'))
+    expect(roadChunks.length).toBeGreaterThan(0)
+    for (const chunk of roadChunks) {
+      const planView = chunk.split('<planView>')[1]?.split('</planView>')[0] ?? ''
+      const count = (planView.match(/<geometry /g) ?? []).length
+      expect(count).toBe(1)
+      expect(planView).toContain('<line/>')
+      expect(planView).not.toContain('<arc ')
+      expect(planView).not.toContain('<paramPoly3 ')
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Contact-point cleanliness (ASAM QC checker rules)
+// ---------------------------------------------------------------------------
+
+describe('contact-point cleanliness (ASAM QC rules)', () => {
+  const point = (id: string, x: number, y: number) => ({
+    id, type: 'point', x, y, rotation: 0, zIndex: 0,
+    props: { color: 'black', visible: true, osmId: '' },
+  })
+  const linestring = (id: string, pointIds: string[]) => ({
+    id, type: 'linestring', x: 0, y: 0, rotation: 0, zIndex: 0,
+    props: { pointIds, color: 'black', strokeWidth: 2, attributes: {}, osmId: '' },
+  })
+  const lane = (id: string, left: string, right: string, opts: { next?: string[]; prev?: string[] } = {}) => ({
+    id, type: 'lane', x: 0, y: 0, rotation: 0, zIndex: 0,
+    props: {
+      leftBoundaryId: left, rightBoundaryId: right, invertLeft: false, invertRight: false,
+      color: 'default', size: 'm', attributes: { type: 'lanelet', subtype: 'road' },
+      next: opts.next ?? [], prev: opts.prev ?? [], osmId: '',
+    },
+  })
+  const snap = (shapes: unknown[]): DrawtonomySnapshot =>
+    ({ version: '1.1', timestamp: 't', shapes, origin: FALLBACK_ORIGIN } as DrawtonomySnapshot)
+
+  it('omits standard links on zero-width contacts and restores the edge from userData', () => {
+    // Lane t1 tapers to a point (left and right boundaries share the final
+    // Point) where lane t2 grows from the same point — the Town01 sidewalk /
+    // fabriksgatan border pattern. OpenDRIVE forbids linking lanes with zero
+    // width at the linked contact (zero_width_at_start/end, new_lane_appear),
+    // so the edge must leave the standard records and ride in
+    // <userData code="hiddenLaneLinks"> instead — and come back on import.
+    const shapes = [
+      point('p1', 0, -10), point('p2', 100, 0), point('p3', 0, 10),
+      point('p4', 200, -10), point('p5', 200, 10),
+      linestring('t1l', ['p1', 'p2']), linestring('t1r', ['p3', 'p2']),
+      lane('t1', 't1l', 't1r', { next: ['t2'] }),
+      linestring('t2l', ['p2', 'p4']), linestring('t2r', ['p2', 'p5']),
+      lane('t2', 't2l', 't2r', { prev: ['t1'] }),
+    ]
+    const xml = exportToOpenDrive(snap(shapes))
+    expect(xml).not.toContain('<successor id=')
+    expect(xml).not.toContain('<predecessor id=')
+    expect(xml).toContain('userData code="hiddenLaneLinks"')
+    const after = importXodr(xml)
+    expect(after.lanes).toHaveLength(2)
+    const next = after.lanes.flatMap(l => l.next)
+    expect(next).toHaveLength(1)
+  })
+
+  it('keeps narrow connected lanes at full width at the contact (no snap pinch)', () => {
+    // Two connected 10 px (0.6 m) lanes: the endpoint snap must not cluster a
+    // lane's left and right boundary endpoints (which would pinch the lane to
+    // zero width at the weld and bend the geometry).
+    const shapes = [
+      point('p1', 0, -5), point('p2', 100, -5), point('p3', 0, 5), point('p4', 100, 5),
+      linestring('l1l', ['p1', 'p2']), linestring('l1r', ['p3', 'p4']),
+      lane('n1', 'l1l', 'l1r', { next: ['n2'] }),
+      point('p5', 100, -5), point('p6', 200, -5), point('p7', 100, 5), point('p8', 200, 5),
+      linestring('l2l', ['p5', 'p6']), linestring('l2r', ['p7', 'p8']),
+      lane('n2', 'l2l', 'l2r', { prev: ['n1'] }),
+    ]
+    const parsed = parseOpenDriveXml(exportToOpenDrive(snap(shapes)))
+    expect(parsed.roads.length).toBe(2)
+    for (const road of parsed.roads) {
+      const l = road.laneSections[0].right[0]
+      for (const w of l.widths) {
+        // 10 px = 0.6 m everywhere (constant-width rectangles).
+        expect(w.a).toBeGreaterThan(0.55)
+        expect(Math.abs(w.b)).toBeLessThan(1e-6)
+      }
+      // No skew: the reference line stays horizontal.
+      expect(Math.abs(road.planView[0].hdg)).toBeLessThan(1e-6)
+    }
+  })
+
+  it('lands the fitted plan view exactly on the drawn boundary endpoints', () => {
+    // A quarter arc drawn as a polyline: the fitted reference line must end
+    // on the final drawn vertex (the contact point with a neighbouring road),
+    // not merely within the 5 cm fitting band.
+    const n = 24
+    const leftIds: string[] = []
+    const rightIds: string[] = []
+    const shapes: unknown[] = []
+    for (let i = 0; i <= n; i++) {
+      const a = (Math.PI / 2) * (i / n)
+      shapes.push(point(`a${i}`, 560 * Math.cos(a), -560 * Math.sin(a)))
+      shapes.push(point(`b${i}`, 500 * Math.cos(a), -500 * Math.sin(a)))
+      leftIds.push(`a${i}`)
+      rightIds.push(`b${i}`)
+    }
+    shapes.push(linestring('arcL', leftIds), linestring('arcR', rightIds))
+    shapes.push(lane('arc1', 'arcL', 'arcR'))
+    const parsed = parseOpenDriveXml(exportToOpenDrive(snap(shapes)))
+    const road = parsed.roads[0]
+    const last = road.planView[road.planView.length - 1]
+    const end = evalGeometry(last, last.length)
+    // Drawn final left vertex (canvas px -> ENU meters: x/PX, -y/PX).
+    const ex = 0 / PIXELS_PER_METER
+    const ey = 560 / PIXELS_PER_METER
+    expect(Math.hypot(end.x - ex, end.y - ey)).toBeLessThan(0.002)
+    // The start heading honors the drawn tangent (downward in canvas =
+    // +pi/2 in ENU... the arc starts at angle 0 moving toward -y canvas).
+    expect(Math.abs(road.planView[0].hdg - Math.PI / 2)).toBeLessThan(0.01)
+  })
+
+  it('blends synthesized connecting stubs onto kinked outgoing roads (no border step)', () => {
+    // A branch whose exit kinks 0.35 rad at the weld (the hand-drawn case):
+    // the stub must blend heading and width so both of its lane borders meet
+    // the outgoing road within the 1 cm gap tolerance of ASAM QC checkers.
+    const kc = Math.cos(0.35)
+    const ks = Math.sin(0.35)
+    const shapes = [
+      point('m1', 0, -30), point('m2', 300, -30),
+      point('m3', 0, 30), point('m4', 300, 30),
+      linestring('mL', ['m1', 'm2']), linestring('mR', ['m3', 'm4']),
+      lane('main', 'mL', 'mR', { next: ['exitA', 'exitB'] }),
+      point('e1', 300, -30), point('e2', 300 + 200 * kc, -30 + 200 * ks),
+      point('e3', 300, 30), point('e4', 300 + 200 * kc, 30 + 200 * ks),
+      linestring('eL', ['e1', 'e2']), linestring('eR', ['e3', 'e4']),
+      lane('exitA', 'eL', 'eR', { prev: ['main'] }),
+      point('f1', 300, -30), point('f2', 500, -30),
+      point('f3', 300, 30), point('f4', 500, 30),
+      linestring('fL', ['f1', 'f2']), linestring('fR', ['f3', 'f4']),
+      lane('exitB', 'fL', 'fR', { prev: ['main'] }),
+    ]
+    const parsed = parseOpenDriveXml(exportToOpenDrive(snap(shapes)))
+    const roadById = new Map(parsed.roads.map(r => [r.id, r]))
+    const stubs = parsed.roads.filter(r => r.junction !== '-1')
+    expect(stubs.length).toBe(2)
+    for (const stub of stubs) {
+      const out = roadById.get(stub.successor!.elementId)!
+      const stubGeom = stub.planView[0]
+      const stubEnd = evalGeometry(stubGeom, stubGeom.length)
+      const outStart = evalGeometry(out.planView[0], 0)
+      // Inner border: stub end vs outgoing reference start.
+      expect(Math.hypot(stubEnd.x - outStart.x, stubEnd.y - outStart.y)).toBeLessThan(0.01)
+      // Outer border: add each side's width along its own right normal.
+      const wRec = stub.laneSections[0].right[0].widths[0]
+      const stubW = wRec.a + wRec.b * stubGeom.length
+      const wOut = out.laneSections[0].right[0].widths[0].a
+      const ox1 = stubEnd.x + Math.sin(stubEnd.hdg) * stubW
+      const oy1 = stubEnd.y - Math.cos(stubEnd.hdg) * stubW
+      const ox2 = outStart.x + Math.sin(outStart.hdg) * wOut
+      const oy2 = outStart.y - Math.cos(outStart.hdg) * wOut
+      expect(Math.hypot(ox1 - ox2, oy1 - oy2)).toBeLessThan(0.01)
+    }
   })
 })
 
@@ -1155,5 +1683,235 @@ describe.runIf(process.env.ROUNDTRIP_DEBUG === '1')('fidelity matrix (debug)', (
     const { writeFileSync } = await import('node:fs')
     writeFileSync('/tmp/fidelity-matrix.txt', lines.join('\n') + '\n')
     expect(true).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Carry-through export (verbatim re-emission of unedited roads)
+// ---------------------------------------------------------------------------
+
+import { odrToShapes as odrToShapesFull } from '../../src/exporter/odrToShapes'
+import {
+  extractOdrDocument,
+  rewriteRoadLinkTargets,
+} from '../../src/exporter/odrCarryThrough'
+
+describe('carry-through export (sidecar verbatim re-emission)', () => {
+  /** Three single-lane roads chained by plain road links + one signal. */
+  const CHAIN_XODR = `<?xml version="1.0"?>
+<OpenDRIVE>
+  <header revMajor="1" revMinor="6" name="chain">
+    <geoReference><![CDATA[+proj=tmerc +lat_0=35.0 +lon_0=139.0 +datum=WGS84]]></geoReference>
+  </header>
+  <road name="a" length="60" id="1" junction="-1">
+    <link><successor elementType="road" elementId="2" contactPoint="start"/></link>
+    <planView><geometry s="0" x="0" y="0" hdg="0" length="60"><line/></geometry></planView>
+    <lanes>
+      <laneSection s="0">
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link><successor id="-1"/></link>
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+    <signals>
+      <signal id="7" s="55" t="-2" zOffset="4.5" name="sig" dynamic="yes" orientation="+" type="1000001" subtype="-1" country="OpenDRIVE" value="0" height="0.8" width="0.5">
+        <validity fromLane="-1" toLane="-1"/>
+      </signal>
+    </signals>
+  </road>
+  <road name="b" length="60" id="2" junction="-1">
+    <link>
+      <predecessor elementType="road" elementId="1" contactPoint="end"/>
+      <successor elementType="road" elementId="3" contactPoint="start"/>
+    </link>
+    <planView><geometry s="0" x="60" y="0" hdg="0" length="60"><line/></geometry></planView>
+    <lanes>
+      <laneSection s="0">
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link><predecessor id="-1"/><successor id="-1"/></link>
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+  <road name="c" length="60" id="3" junction="-1">
+    <link><predecessor elementType="road" elementId="2" contactPoint="end"/></link>
+    <planView><geometry s="0" x="120" y="0" hdg="0" length="60"><line/></geometry></planView>
+    <lanes>
+      <laneSection s="0">
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link><predecessor id="-1"/></link>
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+</OpenDRIVE>`
+
+  const stripDate = (xml: string): string => xml.replace(/date="[^"]*"/, 'date=""')
+
+  /** Assert a verbatim unedited round trip for the given source document. */
+  const expectVerbatimRoundTrip = (xml: string): void => {
+    const imported = odrToShapesFull(parseOpenDriveXml(xml))
+    expect(imported.sidecar.roadRecords).toBeDefined()
+    const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
+    const doc = extractOdrDocument(xml)!
+    for (const road of doc.roads) {
+      expect(out).toContain(road.text)
+    }
+    for (const junction of doc.junctions) {
+      expect(out).toContain(junction.text)
+    }
+    if (doc.headerText) expect(out).toContain(doc.headerText)
+    // Semantic identity: re-importing the export reproduces the original
+    // lane count, edges, adjacency and signal links exactly.
+    const re = importXodr(out)
+    const rep = measureFidelity(imported, re)
+    expect(rep.laneCountAfter).toBe(rep.laneCountBefore)
+    expect(rep.matchedLanes).toBe(rep.laneCountBefore)
+    expect(rep.edgesAfter).toBe(rep.edgesBefore)
+    expect(rep.edgesPreserved).toBe(rep.edgesBefore)
+    expect(rep.adjacencyAfter).toBe(rep.adjacencyBefore)
+    expect(rep.adjacencyPreserved).toBe(rep.adjacencyBefore)
+    expect(rep.trafficLightsMatched).toBe(rep.trafficLightsBefore)
+    expect(rep.trafficLightAffectedPreserved).toBe(rep.trafficLightsBefore)
+    expect(rep.stopLinesPreserved).toBe(rep.stopLinesBefore)
+  }
+
+  it('re-emits every road verbatim on an unedited chain round trip', () => {
+    expectVerbatimRoundTrip(CHAIN_XODR)
+  })
+
+  it('re-emits the synthetic junction map verbatim (junction + validity)', () => {
+    expectVerbatimRoundTrip(SYNTHETIC_XODR)
+  })
+
+  it('re-emits fabriksgatan verbatim (real-world map, two-way roads, signals)', () => {
+    if (!existsSync(FABRIKSGATAN)) return
+    expectVerbatimRoundTrip(readFileSync(FABRIKSGATAN, 'utf-8'))
+  })
+
+  it('re-emits two_plus_one verbatim', () => {
+    if (!existsSync(TWO_PLUS_ONE)) return
+    expectVerbatimRoundTrip(readFileSync(TWO_PLUS_ONE, 'utf-8'))
+  })
+
+  it('regenerates only the edited road and keeps its original id', () => {
+    const imported = odrToShapesFull(parseOpenDriveXml(CHAIN_XODR))
+    const records = imported.sidecar.roadRecords!
+    // Nudge an interior boundary point of road 2's lane sideways (~1.8 m).
+    const laneId = records['2'].laneShapeIds[0]
+    const lane = imported.lanes.find(l => l.id === laneId)!
+    const ls = imported.linestrings.find(l => l.id === lane.leftBoundaryId)!
+    const midPid = ls.pointIds[Math.floor(ls.pointIds.length / 2)]
+    const pt = imported.points.find(p => p.id === midPid)!
+    pt.y += 30
+
+    const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
+    const doc = extractOdrDocument(CHAIN_XODR)!
+    const road = (id: string) => doc.roads.find(r => r.id === id)!
+    expect(out).toContain(road('1').text)
+    expect(out).toContain(road('3').text)
+    expect(out).not.toContain(road('2').text)
+    // The regenerated bundle covers exactly road 2's lane set -> id reuse,
+    // so the verbatim neighbours' links stay valid without rewriting.
+    expect(out).toMatch(/<road [^>]*id="2"/)
+
+    const re = importXodr(out)
+    expect(re.lanes.length).toBe(3)
+    const rep = measureFidelity(imported, re)
+    expect(rep.matchedLanes).toBe(3)
+    expect(rep.edgesPreserved).toBe(rep.edgesBefore)
+    expect(rep.edgesBefore).toBe(2)
+    // The edit survived: some re-imported boundary point sits near the
+    // nudged position (lane 2's left boundary originally ran along y = 0).
+    const moved = re.points.some(
+      p => Math.abs(p.y - pt.y) < 10 && Math.abs(p.x - pt.x) < 100
+    )
+    expect(moved).toBe(true)
+  })
+
+  it('moving a traffic light regenerates only its carrying road', () => {
+    const imported = odrToShapesFull(parseOpenDriveXml(CHAIN_XODR))
+    const tl = imported.trafficLights[0]
+    expect(tl).toBeDefined()
+    tl.x += 50
+
+    const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
+    const doc = extractOdrDocument(CHAIN_XODR)!
+    const road = (id: string) => doc.roads.find(r => r.id === id)!
+    expect(out).not.toContain(road('1').text)
+    expect(out).toContain(road('2').text)
+    expect(out).toContain(road('3').text)
+    // The regenerated signal id starts above the original signal id space.
+    expect(out).toMatch(/<signal [^>]*id="8"/)
+    const re = importXodr(out)
+    const rep = measureFidelity(imported, re)
+    expect(rep.matchedLanes).toBe(3)
+    expect(rep.edgesPreserved).toBe(rep.edgesBefore)
+    expect(rep.trafficLightsMatched).toBe(1)
+    expect(rep.trafficLightAffectedPreserved).toBe(1)
+  })
+
+  it('regenerates a junction but keeps clean incoming/outgoing roads, re-pointing their junction links', () => {
+    const imported = odrToShapesFull(parseOpenDriveXml(SYNTHETIC_XODR))
+    const records = imported.sidecar.roadRecords!
+    // Nudge an interior boundary point of out_b (road 3).
+    const laneId = records['3'].laneShapeIds[0]
+    const lane = imported.lanes.find(l => l.id === laneId)!
+    const ls = imported.linestrings.find(l => l.id === lane.leftBoundaryId)!
+    const midPid = ls.pointIds[Math.floor(ls.pointIds.length / 2)]
+    imported.points.find(p => p.id === midPid)!.y += 20
+
+    const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
+    const doc = extractOdrDocument(SYNTHETIC_XODR)!
+    const road = (id: string) => doc.roads.find(r => r.id === id)!
+    const stripIds = (s: string): string => s.replace(/elementId="[^"]*"/g, 'elementId=""')
+    // Roads 1 / 2 / 4 stay verbatim except their junction link elementIds,
+    // which are re-pointed at the regenerated junction.
+    for (const rid of ['1', '2', '4']) {
+      expect(stripIds(out)).toContain(stripIds(road(rid).text))
+    }
+    // The dirty road and the junction's connecting roads regenerate.
+    expect(out).not.toContain(road('3').text)
+    expect(stripIds(out)).not.toContain(stripIds(road('5').text))
+    // The original junction element is replaced.
+    const junction = doc.junctions.find(j => j.id === '10')!
+    expect(out).not.toContain(junction.text)
+    expect(out).toMatch(/<junction /)
+    // Semantic identity through re-import: all lanes and junction edges.
+    const re = importXodr(out)
+    const rep = measureFidelity(imported, re)
+    expect(rep.matchedLanes).toBe(rep.laneCountBefore)
+    expect(rep.edgesPreserved).toBe(rep.edgesBefore)
+  })
+
+  it('keeps the no-sidecar behavior unchanged (regression guard)', () => {
+    const imported = odrToShapesFull(parseOpenDriveXml(CHAIN_XODR))
+    const snapshot = snapshotFrom(imported)
+    const base = stripDate(exportToOpenDrive(snapshot))
+    expect(stripDate(exportToOpenDrive(snapshot, {}))).toBe(base)
+    expect(stripDate(exportToOpenDrive(snapshot, { sidecar: null }))).toBe(base)
+    // A legacy sidecar without road records also falls back to full regeneration.
+    const legacy = { ...imported.sidecar }
+    delete legacy.roadRecords
+    expect(stripDate(exportToOpenDrive(snapshot, { sidecar: legacy }))).toBe(base)
+  })
+
+  it('rewrites only road link elementIds in verbatim blocks', () => {
+    const doc = extractOdrDocument(CHAIN_XODR)!
+    const road1 = doc.roads.find(r => r.id === '1')!
+    const rewritten = rewriteRoadLinkTargets(road1.text, new Map([['2', '99']]))
+    expect(rewritten).toContain('elementId="99"')
+    expect(rewritten.replace('elementId="99"', 'elementId="2"')).toBe(road1.text)
+    // No mapping -> byte-identical.
+    expect(rewriteRoadLinkTargets(road1.text, new Map())).toBe(road1.text)
   })
 })

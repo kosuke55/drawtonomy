@@ -8,7 +8,7 @@
 //                         geometries (line/arc/spiral/paramPoly3/poly3),
 //                         <lanes> (laneOffset + laneSections with widths and
 //                         road marks), minimal <signals>/<objects> records
-//   - <junction>        : connections with laneLinks
+//   - <junction>        : connections with laneLinks, priorities
 //
 // Like the Lanelet2 OSM parser, this is hand-written so it works in a plain
 // Node runtime without a DOM. When a global `DOMParser` is available (browser
@@ -198,10 +198,19 @@ export interface OdrJunctionConnection {
   laneLinks: OdrJunctionLaneLink[]
 }
 
+/** <priority> record: right-of-way between two connecting roads of a junction. */
+export interface OdrJunctionPriority {
+  /** Connecting road id with priority. */
+  high: string
+  /** Connecting road id that yields. */
+  low: string
+}
+
 export interface OdrJunction {
   id: string
   name: string
   connections: OdrJunctionConnection[]
+  priorities: OdrJunctionPriority[]
 }
 
 export interface OdrMap {
@@ -638,7 +647,10 @@ function parseJunction(el: XmlNode): OdrJunction {
       })),
     }
   })
-  return { id, name: el.attrs.name ?? '', connections }
+  const priorities = children(el, 'priority')
+    .map(pr => ({ high: pr.attrs.high ?? '', low: pr.attrs.low ?? '' }))
+    .filter(pr => pr.high !== '' && pr.low !== '')
+  return { id, name: el.attrs.name ?? '', connections, priorities }
 }
 
 /** Parse an OpenDRIVE XML string into the intermediate `OdrMap` model. */
