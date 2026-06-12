@@ -35,7 +35,7 @@ import type {
   OdrSignalValidity,
 } from './opendriveParser'
 import { evalPoly3, sampleReferenceLine, type ReferenceSample } from './odrGeometry'
-import { sampleAtParam } from './laneCenterline'
+import { sampleAtParam, type Point2D } from './laneCenterline'
 import {
   createShapeIdAllocator,
   type ImportBounds,
@@ -48,12 +48,26 @@ import {
   type ShapeIdAllocator,
 } from './osmToShapes'
 import { PIXELS_PER_METER } from './units'
+import {
+  hashRoadState,
+  type CarryLaneState,
+  type CarryRegulatoryState,
+  type OdrRoadRecord,
+} from './odrCarryThrough'
+
+export type { OdrRoadRecord } from './odrCarryThrough'
 
 /** Sidecar captured at OpenDRIVE import time (for verbatim round-trip export). */
 export interface OdrSidecar {
   rawXml: string
   originLat: number | null
   originLon: number | null
+  /**
+   * Per source road: the lane shape ids it materialized and a hash of their
+   * editable state at import time. `exportToOpenDrive({ sidecar })` re-emits
+   * roads whose hash still matches verbatim from `rawXml` (carry-through).
+   */
+  roadRecords?: Record<string, OdrRoadRecord>
 }
 
 export interface OdrImportResult extends ImportedShapes {
@@ -320,32 +334,59 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
   const roadById = new Map<string, OdrRoad>()
   /** Roads (with their reference samples) whose signals are converted after all lanes exist. */
   const signalRoads: { road: OdrRoad; samples: ReferenceSample[] }[] = []
-  /** Lane attributes restored from <userData code="laneAttributes"> per road. */
-  const restoredAttrCache = new Map<string, Record<string, string> | null>()
+  /**
+   * Lane attributes restored from <userData code="laneAttributes">.
+   * Current exporters key the stash by ODR lane id ({"-1": {...}, "-2": ...});
+   * legacy files carried one flat map applied to every lane of the road.
+   */
+  interface RestoredLaneAttrs {
+    flat: Record<string, string> | null
+    perLane: Map<number, Record<string, string>> | null
+  }
+  const restoredAttrCache = new Map<string, RestoredLaneAttrs>()
 
-  const restoredLaneAttributes = (road: OdrRoad): Record<string, string> | null => {
-    const cached = restoredAttrCache.get(road.id)
-    if (cached !== undefined) return cached
-    let parsed: Record<string, string> | null = null
-    const raw = road.userData['laneAttributes']
-    if (raw) {
-      try {
-        const obj = JSON.parse(raw) as unknown
-        if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
-          parsed = {}
-          for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
-            // `type` is fixed to 'lanelet' and odr_* meta is regenerated.
-            if (typeof v !== 'string' || k === 'type' || k.startsWith('odr_')) continue
-            parsed[k] = v
-          }
-          if (Object.keys(parsed).length === 0) parsed = null
-        }
-      } catch {
-        // Malformed userData JSON is ignored (third-party files).
-      }
+  const pickStringAttrs = (obj: Record<string, unknown>): Record<string, string> | null => {
+    const out: Record<string, string> = {}
+    for (const [k, v] of Object.entries(obj)) {
+      // `type` is fixed to 'lanelet' and odr_* meta is regenerated.
+      if (typeof v !== 'string' || k === 'type' || k.startsWith('odr_')) continue
+      out[k] = v
     }
-    restoredAttrCache.set(road.id, parsed)
-    return parsed
+    return Object.keys(out).length > 0 ? out : null
+  }
+
+  const restoredLaneAttributes = (road: OdrRoad, odrLaneId: number): Record<string, string> | null => {
+    let entry = restoredAttrCache.get(road.id)
+    if (entry === undefined) {
+      entry = { flat: null, perLane: null }
+      const raw = road.userData['laneAttributes']
+      if (raw) {
+        try {
+          const obj = JSON.parse(raw) as unknown
+          if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+            const flat: Record<string, unknown> = {}
+            for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+              if (v && typeof v === 'object' && !Array.isArray(v) && /^-?\d+$/.test(k)) {
+                const laneAttrs = pickStringAttrs(v as Record<string, unknown>)
+                if (laneAttrs) {
+                  entry.perLane = entry.perLane ?? new Map()
+                  entry.perLane.set(parseInt(k, 10), laneAttrs)
+                }
+              } else {
+                flat[k] = v
+              }
+            }
+            entry.flat = pickStringAttrs(flat)
+          }
+        } catch {
+          // Malformed userData JSON is ignored (third-party files).
+        }
+      }
+      restoredAttrCache.set(road.id, entry)
+    }
+    const perLane = entry.perLane?.get(odrLaneId) ?? null
+    if (!entry.flat && !perLane) return null
+    return { ...(entry.flat ?? {}), ...(perLane ?? {}) }
   }
 
   const registryKey = (roadId: string, sectionIdx: number, odrLaneId: number): string =>
@@ -606,6 +647,32 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
     return out
   }
 
+  /** Shape ids of a specific (road, ODR lane id) pair, across all sections. */
+  const lanesOfRoadLane = (roadId: string, odrLaneId: number): string[] => {
+    const out: string[] = []
+    for (const reg of lanesByRoad.get(roadId) ?? []) {
+      if (reg.odrLaneId === odrLaneId && !out.includes(reg.shapeId)) out.push(reg.shapeId)
+    }
+    return out
+  }
+
+  /** Resolve a [[roadId, laneId], ...] JSON record to lane shape ids. */
+  const resolveLanePairs = (pairs: unknown): string[] => {
+    const out: string[] = []
+    if (!Array.isArray(pairs)) return out
+    for (const entry of pairs) {
+      if (!Array.isArray(entry) || entry.length < 2) continue
+      const [rid, lid] = entry
+      if (typeof rid !== 'string' || typeof lid !== 'string') continue
+      const odrLaneId = parseInt(lid, 10)
+      if (!Number.isFinite(odrLaneId)) continue
+      for (const shapeId of lanesOfRoadLane(rid, odrLaneId)) {
+        if (!out.includes(shapeId)) out.push(shapeId)
+      }
+    }
+    return out
+  }
+
   /**
    * Convert crosswalk objects into crosswalk shapes. The band center is the
    * (s, t) station on the reference line; the walking axis follows the
@@ -637,8 +704,18 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
       const rawLinks = obj.userData['crosswalkLinks']
       if (rawLinks) {
         try {
-          const links = JSON.parse(rawLinks) as { affectedRoads?: unknown; stopLine?: unknown }
-          if (Array.isArray(links.affectedRoads)) {
+          const links = JSON.parse(rawLinks) as {
+            affectedLanes?: unknown
+            affectedRoads?: unknown
+            stopLine?: unknown
+          }
+          // Current exports carry lane-precise [[roadId, laneId], ...] pairs;
+          // legacy files only listed road ids (=> every driving lane).
+          if (Array.isArray(links.affectedLanes)) {
+            for (const shapeId of resolveLanePairs(links.affectedLanes)) {
+              if (!affected.includes(shapeId)) affected.push(shapeId)
+            }
+          } else if (Array.isArray(links.affectedRoads)) {
             for (const rid of links.affectedRoads) {
               if (typeof rid !== 'string') continue
               for (const shapeId of drivingLanesOf(rid)) {
@@ -681,10 +758,33 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
     materializeCrosswalks(road, samples)
   }
 
-  // Restore right-of-way links stashed by the exporter in
-  // <userData code="yieldRoads">: every driving lane of the carrying road
-  // yields priority over the driving lanes of the listed roads.
+  // Restore right-of-way links stashed by the exporter.
+  // Current exports carry <userData code="yieldLanes"> with per-lane
+  // { ownLaneId: [[roadId, laneId], ...] } records; legacy files carried
+  // <userData code="yieldRoads"> (every driving lane of the carrying road
+  // yields over the driving lanes of the listed roads).
   for (const road of roads) {
+    const rawYieldLanes = road.userData['yieldLanes']
+    if (rawYieldLanes) {
+      let byLane: unknown
+      try {
+        byLane = JSON.parse(rawYieldLanes)
+      } catch {
+        continue
+      }
+      if (!byLane || typeof byLane !== 'object' || Array.isArray(byLane)) continue
+      for (const [laneIdStr, pairs] of Object.entries(byLane as Record<string, unknown>)) {
+        const odrLaneId = parseInt(laneIdStr, 10)
+        if (!Number.isFinite(odrLaneId)) continue
+        const yieldLaneIds = resolveLanePairs(pairs)
+        if (yieldLaneIds.length === 0) continue
+        for (const shapeId of lanesOfRoadLane(road.id, odrLaneId)) {
+          const lane = laneShapeById.get(shapeId)
+          if (lane) lane.yieldLaneIds = [...yieldLaneIds]
+        }
+      }
+      continue
+    }
     const rawYield = road.userData['yieldRoads']
     if (!rawYield) continue
     let yieldRoadIds: unknown
@@ -810,7 +910,7 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
           // Lanelet tags stashed by the exporter in <userData
           // code="laneAttributes"> (speed_limit, turn_direction, location,
           // one_way=no, exact subtype, custom tags) override the defaults.
-          ...restoredLaneAttributes(road),
+          ...restoredLaneAttributes(road, lane.id),
           odr_type: lane.type,
           odr_road_id: road.id,
           odr_lane_id: String(lane.id),
@@ -889,6 +989,82 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
   }
 
   /**
+   * A materialized lane standing in for a (road, contact, lane id) endpoint.
+   * `odrLaneId` / `contact` describe the endpoint in the road the lane was
+   * found in (which may differ from the queried road after bridging), so
+   * travel-direction checks in `linkLanes` stay correct.
+   */
+  interface LaneEndpoint {
+    reg: RegisteredLane
+    odrLaneId: number
+    contact: 'start' | 'end'
+  }
+
+  /**
+   * Resolve a (road, contact, lane id) endpoint to materialized lanes.
+   *
+   * Within a road this is `lanesAt` (which already bridges skipped micro
+   * sections). When the whole road was skipped — e.g. the short synthesized
+   * junction connecting roads this exporter emits, or any sub-threshold road
+   * in third-party files — the resolution continues across the road: lane
+   * links are walked through its (skipped) sections to the far end, and the
+   * road-level link there is followed into the neighbouring road, recursively,
+   * so connectivity is bridged across skipped roads instead of being lost.
+   */
+  const resolveLaneEndpoints = (
+    roadId: string,
+    contact: 'start' | 'end',
+    odrLaneId: number,
+    depth: number = 0
+  ): LaneEndpoint[] => {
+    const direct = lanesAt(roadId, contact, odrLaneId)
+    if (direct.length > 0) return direct.map(reg => ({ reg, odrLaneId, contact }))
+    const road = roadById.get(roadId)
+    if (!road || depth > 4) return []
+    // Only bridge across roads with no materialized lanes at all; partially
+    // materialized roads are fully handled by the in-road resolution above.
+    if ((lanesByRoad.get(roadId) ?? []).length > 0) return []
+    const n = road.laneSections.length
+    if (n === 0) return []
+    // Walk lane-level links through the skipped sections to the far end.
+    const farContact: 'start' | 'end' = contact === 'start' ? 'end' : 'start'
+    const dir = contact === 'start' ? 1 : -1
+    let idx = contact === 'start' ? 0 : n - 1
+    let ids = [odrLaneId]
+    for (let step = 0; step < n - 1 && ids.length > 0; step++) {
+      const sec = road.laneSections[idx]
+      const nextIds: number[] = []
+      for (const id of ids) {
+        const lane = [...sec.left, ...sec.right].find(l => l.id === id)
+        if (!lane) continue
+        for (const linked of dir === 1 ? lane.successorIds : lane.predecessorIds) {
+          if (!nextIds.includes(linked)) nextIds.push(linked)
+        }
+      }
+      ids = nextIds
+      idx += dir
+    }
+    const farSec = road.laneSections[farContact === 'start' ? 0 : n - 1]
+    const link = farContact === 'end' ? road.successor : road.predecessor
+    if (!farSec || !link || link.elementType !== 'road') return []
+    const cpB = link.contactPoint ?? (farContact === 'end' ? 'start' : 'end')
+    const out: LaneEndpoint[] = []
+    for (const id of ids) {
+      const lane = [...farSec.left, ...farSec.right].find(l => l.id === id)
+      if (!lane) continue
+      const targetIds = farContact === 'end' ? lane.successorIds : lane.predecessorIds
+      for (const tid of targetIds) {
+        for (const ep of resolveLaneEndpoints(link.elementId, cpB, tid, depth + 1)) {
+          if (!out.some(o => o.reg === ep.reg && o.odrLaneId === ep.odrLaneId && o.contact === ep.contact)) {
+            out.push(ep)
+          }
+        }
+      }
+    }
+    return out
+  }
+
+  /**
    * Link two lanes meeting at a shared contact, respecting travel direction:
    * right lanes (id < 0) travel toward the road's end, left lanes (id > 0)
    * toward its start. A connection is `a -> b` when a's travel exits at the
@@ -957,10 +1133,10 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
     if (!sec) return
     for (const lane of [...sec.left, ...sec.right]) {
       const targetIds = cpA === 'end' ? lane.successorIds : lane.predecessorIds
-      for (const a of lanesAt(roadA.id, cpA, lane.id)) {
+      for (const a of resolveLaneEndpoints(roadA.id, cpA, lane.id)) {
         for (const toId of targetIds) {
-          for (const b of lanesAt(roadB.id, cpB, toId)) {
-            linkLanes(a, lane.id, cpA, b, toId, cpB)
+          for (const b of resolveLaneEndpoints(roadB.id, cpB, toId)) {
+            linkLanes(a.reg, a.odrLaneId, a.contact, b.reg, b.odrLaneId, b.contact)
           }
         }
       }
@@ -988,12 +1164,87 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
       if (contacts.length === 0) contacts.push('end') // Tolerant default.
       for (const cpA of contacts) {
         for (const ll of conn.laneLinks) {
-          for (const a of lanesAt(roadA.id, cpA, ll.from)) {
-            for (const b of lanesAt(roadC.id, conn.contactPoint, ll.to)) {
-              linkLanes(a, ll.from, cpA, b, ll.to, conn.contactPoint)
+          for (const a of resolveLaneEndpoints(roadA.id, cpA, ll.from)) {
+            for (const b of resolveLaneEndpoints(roadC.id, conn.contactPoint, ll.to)) {
+              linkLanes(a.reg, a.odrLaneId, a.contact, b.reg, b.odrLaneId, b.contact)
             }
           }
         }
+      }
+    }
+  }
+
+  // Hidden lane links: edges the exporter could not express as standard
+  // <link>/<laneLink> records because a contact width is zero (the OpenDRIVE
+  // zero-width / appearing-lane link rules), stashed per road as
+  // <userData code="hiddenLaneLinks" value="[{fr,fl,tr,tl},...]"> with
+  // from-road / from-lane / to-road / to-lane ids (from end -> to start in
+  // travel direction). Restored here into next/prev like any other link.
+  for (const road of roads) {
+    const raw = road.userData['hiddenLaneLinks']
+    if (!raw) continue
+    let recs: unknown
+    try {
+      recs = JSON.parse(raw)
+    } catch {
+      continue // Malformed userData JSON is ignored (third-party files).
+    }
+    if (!Array.isArray(recs)) continue
+    for (const rec of recs) {
+      if (!rec || typeof rec !== 'object') continue
+      const { fr, fl, tr, tl } = rec as Record<string, unknown>
+      if (typeof fl !== 'number' || typeof tl !== 'number') continue
+      const fromRoad = fr === undefined ? road.id : String(fr)
+      const toRoad = tr === undefined ? road.id : String(tr)
+      for (const a of resolveLaneEndpoints(fromRoad, 'end', fl)) {
+        for (const b of resolveLaneEndpoints(toRoad, 'start', tl)) {
+          linkLanes(a.reg, a.odrLaneId, a.contact, b.reg, b.odrLaneId, b.contact)
+        }
+      }
+    }
+  }
+
+  // Junction <priority high low> records restore right-of-way links: the
+  // lanes standing in for the prioritized connecting road gain yieldLaneIds
+  // over the lanes standing in for the yielding one. A materialized
+  // connecting road is represented by its own lanes; a skipped (short
+  // synthesized) one resolves through its predecessor link to the incoming
+  // lanes the maneuver started from — the lanes the exporter originally read
+  // the yieldLaneIds off. Merged with any userData-restored links above.
+  const priorityRoadLanes = (roadId: string): string[] => {
+    const own = lanesByRoad.get(roadId) ?? []
+    if (own.length > 0) {
+      const out: string[] = []
+      for (const reg of own) {
+        if (!out.includes(reg.shapeId)) out.push(reg.shapeId)
+      }
+      return out
+    }
+    const road = roadById.get(roadId)
+    if (!road) return []
+    const lastSec = road.laneSections[road.laneSections.length - 1]
+    if (!lastSec) return []
+    const out: string[] = []
+    for (const lane of [...lastSec.left, ...lastSec.right]) {
+      for (const ep of resolveLaneEndpoints(roadId, 'end', lane.id)) {
+        if (!out.includes(ep.reg.shapeId)) out.push(ep.reg.shapeId)
+      }
+    }
+    return out
+  }
+  for (const junction of map.junctions) {
+    for (const pr of junction.priorities) {
+      const highLanes = priorityRoadLanes(pr.high)
+      const lowLanes = priorityRoadLanes(pr.low)
+      if (highLanes.length === 0 || lowLanes.length === 0) continue
+      for (const shapeId of highLanes) {
+        const lane = laneShapeById.get(shapeId)
+        if (!lane) continue
+        const merged = lane.yieldLaneIds ?? []
+        for (const lowId of lowLanes) {
+          if (lowId !== shapeId && !merged.includes(lowId)) merged.push(lowId)
+        }
+        if (merged.length > 0) lane.yieldLaneIds = merged
       }
     }
   }
@@ -1008,6 +1259,99 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
   dedupeSharedBoundaries(result)
   weldConnectedLaneContacts(result)
   removeOrphanPoints(result)
+
+  // ---- Carry-through records ----
+  // Per-road state hashes for `exportToOpenDrive({ sidecar })`: a road whose
+  // hash still matches at export time was not edited and is re-emitted
+  // verbatim from the sidecar XML. Hashes are taken AFTER all post-processing
+  // (dedupe / weld / orphan removal) so they describe exactly the shapes the
+  // editor will hold; the exporter recomputes them from the live shapes.
+  {
+    const recPointById = new Map(result.points.map(p => [p.id as string, p]))
+    const recLsById = new Map(result.linestrings.map(l => [l.id as string, l]))
+    const boundaryPts = (lsId: string | null, invert: boolean): Point2D[] | null => {
+      if (!lsId) return null
+      const ls = recLsById.get(lsId)
+      if (!ls) return null
+      const ids = invert ? [...ls.pointIds].reverse() : ls.pointIds
+      const pts: Point2D[] = []
+      for (const pid of ids) {
+        const p = recPointById.get(pid)
+        if (p) pts.push({ x: p.x, y: p.y })
+      }
+      return pts.length >= 2 ? pts : null
+    }
+    const laneRoadOf = new Map<string, string>()
+    for (const [roadId, regs] of lanesByRoad) {
+      for (const reg of regs) laneRoadOf.set(reg.shapeId, roadId)
+    }
+    // Regulatory shapes touching a road: attached to it (odr_road_id) or
+    // affecting any of its lanes. Mirrored by the exporter's hash builder.
+    const regStatesByRoad = new Map<string, CarryRegulatoryState[]>()
+    const addRegState = (state: CarryRegulatoryState, affected: readonly string[], own: string | undefined): void => {
+      const touching = new Set<string>()
+      if (own && roadById.has(own)) touching.add(own)
+      for (const lid of affected) {
+        const rid = laneRoadOf.get(lid)
+        if (rid) touching.add(rid)
+      }
+      for (const rid of touching) {
+        const list = regStatesByRoad.get(rid) ?? []
+        list.push(state)
+        regStatesByRoad.set(rid, list)
+      }
+    }
+    for (const tl of result.trafficLights) {
+      addRegState(
+        {
+          kind: 'traffic_light',
+          shapeId: tl.id as string,
+          numbers: [tl.x, tl.y, tl.w, tl.h, 0],
+          attributes: tl.attributes,
+          affectedLaneIds: tl.affectedLaneIds,
+          stopLinePts: boundaryPts(tl.stopLineId, false),
+          controllerId: '',
+        },
+        tl.affectedLaneIds,
+        tl.attributes['odr_road_id']
+      )
+    }
+    for (const cw of result.crosswalks) {
+      addRegState(
+        {
+          kind: 'crosswalk',
+          shapeId: cw.id as string,
+          numbers: [cw.x, cw.y, cw.startX, cw.startY, cw.endX, cw.endY, cw.crosswalkWidth, 0],
+          attributes: cw.attributes,
+          affectedLaneIds: cw.affectedLaneIds,
+          stopLinePts: boundaryPts(cw.stopLineId, false),
+          controllerId: '',
+        },
+        cw.affectedLaneIds,
+        cw.attributes['odr_road_id']
+      )
+    }
+    const roadRecords: Record<string, OdrRoadRecord> = {}
+    for (const road of roads) {
+      const regLanes = lanesByRoad.get(road.id) ?? []
+      const laneStates: CarryLaneState[] = regLanes.map(reg => {
+        const lane = laneShapeById.get(reg.shapeId)!
+        return {
+          leftPts: boundaryPts(lane.leftBoundaryId, lane.invertLeft),
+          rightPts: boundaryPts(lane.rightBoundaryId, lane.invertRight),
+          attributes: lane.attributes,
+          next: lane.next,
+          prev: lane.prev,
+          yieldLaneIds: lane.yieldLaneIds ?? [],
+        }
+      })
+      roadRecords[road.id] = {
+        laneShapeIds: regLanes.map(r => r.shapeId),
+        stateHash: hashRoadState(laneStates, regStatesByRoad.get(road.id) ?? []),
+      }
+    }
+    result.sidecar.roadRecords = roadRecords
+  }
 
   // ---- Aggregated warnings ----
   if (elevationRoads > 0) {

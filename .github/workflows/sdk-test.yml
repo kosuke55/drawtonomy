@@ -29,3 +29,45 @@ jobs:
 
       - name: Unit tests
         run: pnpm test
+
+  opendrive-qc:
+    if: contains(github.event.pull_request.labels.*.name, 'run-tests')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/drawtonomy-sdk
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install ASAM qc-opendrive checker
+        run: pip install asam-qc-opendrive
+
+      - name: Fetch sample maps
+        run: |
+          mkdir -p /tmp/qc/maps
+          base_esmini="https://raw.githubusercontent.com/esmini/esmini/master/resources/xodr"
+          for m in fabriksgatan two_plus_one curves e6mini; do
+            curl -fsSL -o "/tmp/qc/maps/${m}.xodr" "${base_esmini}/${m}.xodr"
+          done
+          curl -fsSL -o /tmp/qc/maps/Town01.xodr \
+            "https://raw.githubusercontent.com/carla-simulator/opendrive-test-files/master/OpenDrive/Town01.xodr"
+
+      - name: Export round trips and a drawn scene
+        run: npx --yes tsx scripts/qc-roundtrip.mts /tmp/qc/maps /tmp/qc/out
+
+      - name: ASAM QC check (fail on ERROR-level issues)
+        run: python scripts/check-qc.py /tmp/qc/out

@@ -230,12 +230,14 @@ describe('round-trip smoke (import -> export)', () => {
 
     const xml = exportToOpenDrive(snapshot)
     const reparsed = parseOpenDriveXml(xml)
-    // The current exporter emits one <road> per lane.
-    expect(reparsed.roads).toHaveLength(2)
-    for (const road of reparsed.roads) {
-      expect(road.length).toBeGreaterThan(99)
-      expect(road.length).toBeLessThan(101)
-    }
+    // The two adjacent lanes share a boundary, so the exporter bundles them
+    // back into a single <road> with right lanes -1 and -2 — the same
+    // structure as the source file.
+    expect(reparsed.roads).toHaveLength(1)
+    const road = reparsed.roads[0]
+    expect(road.length).toBeGreaterThan(99)
+    expect(road.length).toBeLessThan(101)
+    expect(road.laneSections[0].right.map(l => l.id)).toEqual([-1, -2])
   })
 })
 

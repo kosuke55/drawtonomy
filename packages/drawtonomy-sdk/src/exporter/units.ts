@@ -31,6 +31,17 @@ export function fmt(n: number): string {
   return n.toFixed(6)
 }
 
+/**
+ * Full-precision number formatting (shortest round-trip representation) for
+ * attributes whose magnitude can sit far below the 6-decimal grid, e.g. arc
+ * curvatures and paramPoly3 cubic coefficients. xsd:double accepts both plain
+ * and exponent notation.
+ */
+export function fmtPrecise(n: number): string {
+  if (!Number.isFinite(n)) return '0'
+  return String(n)
+}
+
 /** XML attribute / text escaping. */
 export function escapeXml(s: string): string {
   return s

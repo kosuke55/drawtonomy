@@ -7,7 +7,7 @@
 // turns OSM XML back into editor-ready primitives (points / linestrings /
 // lanes), enabling round-trip workflows.
 
-export { exportToOpenDrive } from './opendrive'
+export { exportToOpenDrive, type OpenDriveExportOptions } from './opendrive'
 export {
   latLonToTmercProj,
   latLonToUtmProj,
@@ -102,6 +102,7 @@ export {
   odrToShapes,
   parseGeoReferenceOrigin,
   type OdrImportResult,
+  type OdrRoadRecord,
   type OdrSidecar,
   type OdrToShapesOptions,
 } from './odrToShapes'

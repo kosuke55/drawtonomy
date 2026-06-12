@@ -343,9 +343,9 @@ describe('exportToLanelet2 crosswalk', () => {
 })
 
 describe('exportToOpenDrive regulatory carry-through', () => {
-  it('stashes yieldLaneIds as <userData code="yieldRoads"> and restores them on import', () => {
+  it('stashes yieldLaneIds as <userData code="yieldLanes"> and restores them on import', () => {
     const xml = exportToOpenDrive(snapshot(rowLaneShapes()))
-    expect(xml).toContain('<userData code="yieldRoads"')
+    expect(xml).toContain('<userData code="yieldLanes"')
 
     const result = odrToShapes(parseOpenDriveXml(xml))
     expect(result.lanes).toHaveLength(2)

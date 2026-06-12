@@ -2,14 +2,24 @@
 // No external library dependencies.
 //
 // Design:
-// - Each lane is emitted as an independent <road>
-// - Reference line is the midpoints of the left/right boundary samples
-// - Each segment is a <line> geometry; lane width is a per-sample <width>
-// - Lane connectivity (next/prev) is written into <link>; branch/merge edges
-//   that a single road link cannot express are synthesized into <junction>
-//   elements (see planJunctions)
-// - Lanelet-only lane tags are stashed in <userData code="laneAttributes">
-//   and restored on import; multi-road signal validity uses <signalReference>
+// - Laterally adjacent same-direction lanes (detected through shared boundary
+//   linestrings) are grouped into one road bundle and emitted as a single
+//   <road> with lanes -1, -2, ... (inner to outer)
+// - The road reference line is the bundle's leftmost boundary (the left edge
+//   in travel direction), so lane 0 sits on it and no laneOffset is needed
+// - The reference polyline is fitted into analytic primitives (<line>, <arc>,
+//   <paramPoly3>) by odrGeometryFit; lane widths are piecewise-linear <width>
+//   records measured along the fitted reference normals (the exact inverse of
+//   the importer's offset-along-normal reconstruction)
+// - Lane connectivity (next/prev) is written into road/lane <link> records;
+//   branch/merge edges that road links cannot express are synthesized into
+//   <junction> elements with short connecting roads (one per lane edge, each
+//   carrying predecessor/successor road links) so the standard
+//   incoming -> connecting -> outgoing structure holds (see planConnectivity)
+// - Lanelet-only lane tags are stashed per lane in
+//   <userData code="laneAttributes"> and restored on import; signal validity
+//   uses <validity fromLane toLane> lane ranges within a road and
+//   <signalReference> only when a signal spans several roads
 // - Coordinate frame: canvas (x right, y down) → ENU (x right, y up); y is flipped
 
 import type {
@@ -22,9 +32,23 @@ import type {
   PolygonProps,
   TrafficLightProps,
 } from '../types'
-import { computeCenterlineWithWidth, type Point2D, type CenterlineSample } from './laneCenterline'
+import { sampleAtParam, type Point2D } from './laneCenterline'
+import { evalGeometry } from './odrGeometry'
+import { fitPlanView, type FittedSamplePose } from './odrGeometryFit'
+import type { OdrGeometry } from './opendriveParser'
 import { originToProjString } from './projection'
-import { escapeXml, fmt, pxToEnuX, pxToEnuY, pxToMeter } from './units'
+import { escapeXml, fmt, fmtPrecise, pxToEnuX, pxToEnuY, pxToMeter } from './units'
+import {
+  extractOdrDocument,
+  hashRoadState,
+  rewriteRoadLinkTargets,
+  type CarryLaneState,
+  type CarryRegulatoryState,
+  type OdrDocRoad,
+  type OdrDocument,
+  type OdrRoadRecord,
+} from './odrCarryThrough'
+import type { OdrSidecar } from './odrToShapes'
 
 type LaneShape = BaseShape<'lane', LaneProps>
 type LinestringShape = BaseShape<'linestring', LinestringProps>
@@ -33,13 +57,28 @@ type TrafficLightShape = BaseShape<'traffic_light', TrafficLightProps>
 type CrosswalkShape = BaseShape<'crosswalk', CrosswalkProps>
 type PolygonShape = BaseShape<'polygon', PolygonProps>
 
-interface RoadGeometry {
-  laneId: string
-  samples: CenterlineSample[]
-  /** Centerline samples in OpenDRIVE meters. */
-  odrSamples: { x: number; y: number; width: number; s: number }[]
-  /** Total arc length (m). */
+interface BundleGeometry {
+  /**
+   * Fitted plan-view primitives for the reference line (the bundle's leftmost
+   * boundary), contiguous stations starting at s = 0, OpenDRIVE meters.
+   */
+  planView: OdrGeometry[]
+  /** Station + pose on the fitted reference line at every width station. */
+  samplePoses: FittedSamplePose[]
+  /**
+   * Full lane width (m) per lane (bundle order, left→right) at each
+   * reference-line station (index-aligned with `samplePoses`).
+   */
+  laneWidths: number[][]
+  /** Total fitted reference-line arc length (m). */
   length: number
+}
+
+/** A road bundle: laterally adjacent lanes emitted as one <road>. */
+interface ExportBundle {
+  /** Lanes ordered left→right in travel direction; index i ⇒ ODR lane -(i+1). */
+  lanes: LaneShape[]
+  geom: BundleGeometry
 }
 
 /** O(1) shape lookup by id. */
@@ -47,42 +86,6 @@ function buildShapeMap(shapes: readonly BaseShape[]): Map<string, BaseShape> {
   const map = new Map<string, BaseShape>()
   for (const s of shapes) map.set(s.id, s)
   return map
-}
-
-/**
- * Build the centerline + width samples for a lane from its two boundaries.
- * If pointOverrides is provided, those point ids are read from the override
- * map instead of from the shape map (used for boundary alignment snapping).
- */
-function buildRoadGeometry(
-  shapeMap: Map<string, BaseShape>,
-  lane: LaneShape,
-  pointOverrides: Map<string, Point2D>
-): RoadGeometry | null {
-  const leftId = lane.props.leftBoundaryId
-  const rightId = lane.props.rightBoundaryId
-  if (!leftId || !rightId) return null
-
-  const left = shapeMap.get(leftId) as unknown as LinestringShape | undefined
-  const right = shapeMap.get(rightId) as unknown as LinestringShape | undefined
-  if (!left || !right) return null
-
-  const leftPts = collectPoints(shapeMap, left.props.pointIds, lane.props.invertLeft, pointOverrides)
-  const rightPts = collectPoints(shapeMap, right.props.pointIds, lane.props.invertRight, pointOverrides)
-  if (leftPts.length < 2 || rightPts.length < 2) return null
-
-  const samples = computeCenterlineWithWidth(leftPts, rightPts)
-  if (samples.length < 2) return null
-
-  const odrSamples = samples.map((s) => ({
-    x: pxToEnuX(s.x),
-    y: pxToEnuY(s.y),
-    width: pxToMeter(s.width),
-    s: pxToMeter(s.s),
-  }))
-  const length = odrSamples[odrSamples.length - 1].s
-
-  return { laneId: lane.id, samples, odrSamples, length }
 }
 
 function collectPoints(
@@ -105,6 +108,263 @@ function collectPoints(
   return pts
 }
 
+/** Boundary polyline of a linestring in travel order, or null when unusable. */
+function boundaryPointsOf(
+  shapeMap: Map<string, BaseShape>,
+  boundaryId: string | null,
+  invert: boolean,
+  pointOverrides: Map<string, Point2D>
+): Point2D[] | null {
+  if (!boundaryId) return null
+  const ls = shapeMap.get(boundaryId) as unknown as LinestringShape | undefined
+  if (!ls) return null
+  const pts = collectPoints(shapeMap, ls.props.pointIds, invert, pointOverrides)
+  return pts.length >= 2 ? pts : null
+}
+
+/**
+ * Group lanes into road bundles by lateral adjacency.
+ *
+ * Lane B is the direct right neighbour of lane A when A's right boundary IS
+ * B's left boundary — the same linestring traversed in the same direction
+ * (`A.invertRight === B.invertLeft`); a direction mismatch means the
+ * neighbour travels the other way (e.g. the two sides of a two-way road) and
+ * belongs in its own bundle. The relation must be unique on both sides so
+ * pathological data (several lanes claiming one boundary side) degrades to
+ * separate bundles instead of guessing.
+ *
+ * Because adjacency requires sharing the whole linestring, every lane of a
+ * bundle spans the same longitudinal extent by construction.
+ */
+function detectBundles(lanes: LaneShape[]): LaneShape[][] {
+  const byLeft = new Map<string, LaneShape[]>()
+  const byRight = new Map<string, LaneShape[]>()
+  for (const lane of lanes) {
+    const l = lane.props.leftBoundaryId
+    const r = lane.props.rightBoundaryId
+    if (l) byLeft.set(l, [...(byLeft.get(l) ?? []), lane])
+    if (r) byRight.set(r, [...(byRight.get(r) ?? []), lane])
+  }
+
+  const rightNeighbor = new Map<string, LaneShape>()
+  const hasLeftNeighbor = new Set<string>()
+  for (const lane of lanes) {
+    const rb = lane.props.rightBoundaryId
+    if (!rb) continue
+    const candidates = (byLeft.get(rb) ?? []).filter(
+      b => b.id !== lane.id && b.props.invertLeft === lane.props.invertRight
+    )
+    if (candidates.length !== 1) continue
+    const b = candidates[0]
+    const owners = (byRight.get(rb) ?? []).filter(
+      a => a.props.invertRight === b.props.invertLeft
+    )
+    if (owners.length !== 1 || owners[0].id !== lane.id) continue
+    rightNeighbor.set(lane.id, b)
+    hasLeftNeighbor.add(b.id)
+  }
+
+  const bundles: LaneShape[][] = []
+  const visited = new Set<string>()
+  const walk = (start: LaneShape): void => {
+    const bundle: LaneShape[] = []
+    let cur: LaneShape | undefined = start
+    while (cur && !visited.has(cur.id)) {
+      visited.add(cur.id)
+      bundle.push(cur)
+      cur = rightNeighbor.get(cur.id)
+    }
+    if (bundle.length > 0) bundles.push(bundle)
+  }
+  // Start from the leftmost lane of each chain ...
+  for (const lane of lanes) {
+    if (!visited.has(lane.id) && !hasLeftNeighbor.has(lane.id)) walk(lane)
+  }
+  // ... and break adjacency cycles (degenerate ring data) deterministically.
+  for (const lane of lanes) {
+    if (!visited.has(lane.id)) walk(lane)
+  }
+  return bundles
+}
+
+/** Distance from `p` to the polyline `pts` (projection onto each segment). */
+function distancePointToPolyline(p: Point2D, pts: readonly Point2D[]): number {
+  let best = Infinity
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i]
+    const b = pts[i + 1]
+    const dx = b.x - a.x
+    const dy = b.y - a.y
+    const len2 = dx * dx + dy * dy
+    let t = len2 > 1e-18 ? ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2 : 0
+    if (t < 0) t = 0
+    if (t > 1) t = 1
+    const d = Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy))
+    if (d < best) best = d
+  }
+  return best
+}
+
+/**
+ * Signed lateral offset (m, positive toward -t / the right of the travel
+ * direction) from each fitted reference pose to a boundary polyline, measured
+ * along the pose normal — the exact inverse of the importer's
+ * offset-along-normal boundary reconstruction. Among multiple normal/boundary
+ * intersections the one closest to the previous station's offset wins
+ * (continuity); stations whose normal misses the boundary entirely (e.g. the
+ * very ends, where boundary extents differ slightly) fall back to the
+ * closest-point distance.
+ */
+/**
+ * Largest believable offset change between neighbouring width stations (m).
+ * An intersection jumping further than this is the normal ray hitting a far
+ * branch of the boundary (e.g. the opposite end of a ~180° ramp), not the
+ * adjacent lane edge, and is discarded for the closest-point fallback.
+ */
+const OFFSET_JUMP_TOL_M = 5
+
+function normalOffsets(poses: readonly FittedSamplePose[], bnd: readonly Point2D[]): number[] {
+  const out: number[] = []
+  let prev: number | null = null
+  for (const pose of poses) {
+    // Right normal of heading h in ENU: (sin h, -cos h).
+    const nx = Math.sin(pose.hdg)
+    const ny = -Math.cos(pose.hdg)
+    const fallback = distancePointToPolyline({ x: pose.x, y: pose.y }, bnd)
+    const refVal = prev ?? fallback
+    let best: number | null = null
+    for (let i = 0; i < bnd.length - 1; i++) {
+      const dx = bnd[i + 1].x - bnd[i].x
+      const dy = bnd[i + 1].y - bnd[i].y
+      // Solve pose + t·n = bnd[i] + w·(bnd[i+1]-bnd[i]) for (t, w).
+      const det = dx * ny - dy * nx
+      if (Math.abs(det) < 1e-12) continue
+      const rx = bnd[i].x - pose.x
+      const ry = bnd[i].y - pose.y
+      const w = (nx * ry - ny * rx) / det
+      if (w < -1e-9 || w > 1 + 1e-9) continue
+      const t = (dx * ry - dy * rx) / det
+      if (best === null || Math.abs(t - refVal) < Math.abs(best - refVal)) best = t
+    }
+    if (best === null || Math.abs(best - refVal) > OFFSET_JUMP_TOL_M) best = fallback
+    prev = best
+    out.push(best)
+  }
+  return out
+}
+
+/**
+ * Build the bundle geometry: the fitted reference line (leftmost boundary)
+ * plus per-lane width samples.
+ *
+ * The reference polyline keeps the boundary's own vertices and is refined
+ * with uniform arc-length stations so the width grid is at least as dense as
+ * the densest boundary of the bundle. The polyline is then fitted into
+ * analytic plan-view primitives (line / arc / paramPoly3), and the width of
+ * lane i at station j is the gap between its inner and outer boundary
+ * measured along the fitted reference normal at that station, so the
+ * importer's offset-along-normal reconstruction reproduces the original
+ * boundaries with no longitudinal skew.
+ */
+function buildBundleGeometry(
+  shapeMap: Map<string, BaseShape>,
+  bundleLanes: LaneShape[],
+  pointOverrides: Map<string, Point2D>
+): BundleGeometry | null {
+  const first = bundleLanes[0]
+  const boundaries: Point2D[][] = []
+  const left = boundaryPointsOf(shapeMap, first.props.leftBoundaryId, first.props.invertLeft, pointOverrides)
+  if (!left) return null
+  boundaries.push(left)
+  for (const lane of bundleLanes) {
+    const right = boundaryPointsOf(shapeMap, lane.props.rightBoundaryId, lane.props.invertRight, pointOverrides)
+    if (!right) return null
+    boundaries.push(right)
+  }
+
+  // Boundaries in OpenDRIVE meters (ENU).
+  const bndOdr = boundaries.map(b => b.map(p => ({ x: pxToEnuX(p.x), y: pxToEnuY(p.y) })))
+
+  // The plan view is fitted to the reference boundary's own vertices only:
+  // they are true samples of the drawn curve, so the fitter's tangent
+  // estimates are sound there. Densifying the polyline before the fit would
+  // insert points along its chords, whose collinear runs masquerade as
+  // straight stretches and corrupt the tangent estimates (worst at the road
+  // ends, where the start/end heading defines the contact cross-section
+  // shared with the neighbouring roads).
+  const ref = bndOdr[0]
+  const fit = fitPlanView(ref)
+  if (fit.geometries.length === 0 || !(fit.length > 0)) return null
+
+  // Width stations: the reference vertices (corners must survive into the
+  // width records) merged with a uniform grid as dense as the densest
+  // boundary (inner-boundary detail must survive too). Grid stations are
+  // placed by chord-length interpolation between the fitted stations of the
+  // surrounding reference vertices and posed on the fitted curve.
+  let n = 2
+  for (const b of bndOdr) n = Math.max(n, b.length)
+  const cum: number[] = [0]
+  for (let i = 1; i < ref.length; i++) {
+    cum.push(cum[i - 1] + Math.hypot(ref[i].x - ref[i - 1].x, ref[i].y - ref[i - 1].y))
+  }
+  const total = cum[cum.length - 1]
+  if (!(total > 0)) return null
+  const params = cum.map(c => c / total)
+  for (let j = 0; j < n; j++) params.push(j / (n - 1))
+  params.sort((a, b) => a - b)
+  const stationOf = (t: number): number => {
+    const target = t * total
+    let i = 1
+    while (i < cum.length - 1 && cum[i] < target) i++
+    const c0 = cum[i - 1]
+    const c1 = cum[i]
+    const s0 = fit.samplePoses[i - 1].s
+    const s1 = fit.samplePoses[i].s
+    const f = c1 > c0 ? (target - c0) / (c1 - c0) : 0
+    return s0 + (s1 - s0) * f
+  }
+  const poseAtStation = (s: number): FittedSamplePose => {
+    const clamped = Math.min(Math.max(s, 0), fit.length)
+    let g = fit.geometries[0]
+    for (const geom of fit.geometries) {
+      if (geom.s <= clamped + 1e-12) g = geom
+      else break
+    }
+    const p = evalGeometry(g, Math.min(Math.max(clamped - g.s, 0), g.length))
+    return { s: clamped, x: p.x, y: p.y, hdg: p.hdg }
+  }
+  const samplePoses: FittedSamplePose[] = []
+  for (const t of params) {
+    const pose = poseAtStation(stationOf(t))
+    const last = samplePoses[samplePoses.length - 1]
+    if (!last || pose.s > last.s + 1e-9 || samplePoses.length === 0) samplePoses.push(pose)
+  }
+  if (samplePoses.length < 2) return null
+
+  const offsets = bndOdr.map(b => normalOffsets(samplePoses, b))
+  // Contact stations measure each boundary's own endpoint (projected onto
+  // the contact normal) instead of the ray/polyline crossing: the endpoints
+  // are the welded corners shared with the neighbouring road, so both sides
+  // of a contact derive their border positions from the same drawn points
+  // and meet without a lateral step. (The ray crossing drifts by up to a few
+  // centimeters when a boundary meets the contact at a skew.)
+  const projectEndpoint = (pose: FittedSamplePose, p: Point2D, fallback: number): number => {
+    const t = (p.x - pose.x) * Math.sin(pose.hdg) - (p.y - pose.y) * Math.cos(pose.hdg)
+    return Math.abs(t - fallback) <= 0.5 ? t : fallback
+  }
+  const lastIdx = samplePoses.length - 1
+  for (let b = 0; b < bndOdr.length; b++) {
+    const bnd = bndOdr[b]
+    offsets[b][0] = projectEndpoint(samplePoses[0], bnd[0], offsets[b][0])
+    offsets[b][lastIdx] = projectEndpoint(samplePoses[lastIdx], bnd[bnd.length - 1], offsets[b][lastIdx])
+  }
+  const laneWidths = bundleLanes.map((_, i) =>
+    samplePoses.map((_, j) => Math.max(0, offsets[i + 1][j] - offsets[i][j]))
+  )
+
+  return { planView: fit.geometries, samplePoses, laneWidths, length: fit.length }
+}
+
 /**
  * Snap together boundary endpoints of connected lanes by clustering nearby
  * points and using the centroid as the canonical position.
@@ -121,7 +381,14 @@ function buildBoundaryAlignmentOverrides(
   lanes: LaneShape[],
   epsilonPx: number = 30
 ): Map<string, Point2D> {
-  type Endpoint = { pointId: string; laneId: string; side: 'start' | 'end'; x: number; y: number }
+  type Endpoint = {
+    pointId: string
+    laneId: string
+    side: 'start' | 'end'
+    boundary: 'left' | 'right'
+    x: number
+    y: number
+  }
   const endpoints: Endpoint[] = []
   const laneIds = new Set(lanes.map((l) => l.id))
 
@@ -138,7 +405,14 @@ function buildBoundaryAlignmentOverrides(
       const pid = side === 'start' ? ids[0] : ids[ids.length - 1]
       const pt = shapeMap.get(pid) as unknown as PointShape | undefined
       if (!pt) continue
-      endpoints.push({ pointId: pid, laneId: lane.id, side, x: pt.x, y: pt.y })
+      endpoints.push({
+        pointId: pid,
+        laneId: lane.id,
+        side,
+        boundary: sideKey === 'leftBoundaryId' ? 'left' : 'right',
+        x: pt.x,
+        y: pt.y,
+      })
     }
   }
 
@@ -150,35 +424,87 @@ function buildBoundaryAlignmentOverrides(
     if (hasPrev) collectEndpoints(lane, 'start')
   }
 
-  // Greedy clustering: group points within epsilon of each other, with two
+  // Forbidden point pairs: a lane's start-side and end-side endpoint Points
+  // must never land in the same cluster. A connecting lane shorter than
+  // epsilon would otherwise get its start and end merged into one cluster,
+  // collapsing its boundaries below the degenerate-road export guard and
+  // silently dropping the lane (and its next/prev chain). The constraint is
+  // tracked by point id — not by the owning lane entry — because boundary
+  // endpoints are often Point shapes shared with the neighbouring lanes, and
+  // a neighbour's entry could otherwise pull both of a short lane's end
+  // points into one cluster.
+  const sidePids = new Map<string, { start: Set<string>; end: Set<string> }>()
+  for (const ep of endpoints) {
+    const entry = sidePids.get(ep.laneId) ?? { start: new Set(), end: new Set() }
+    entry[ep.side].add(ep.pointId)
+    sidePids.set(ep.laneId, entry)
+  }
+  const forbidden = new Map<string, Set<string>>()
+  const forbid = (a: string, b: string): void => {
+    forbidden.set(a, (forbidden.get(a) ?? new Set()).add(b))
+    forbidden.set(b, (forbidden.get(b) ?? new Set()).add(a))
+  }
+  for (const { start, end } of sidePids.values()) {
+    for (const s of start) {
+      for (const e of end) {
+        if (s !== e) forbid(s, e)
+      }
+    }
+  }
+  // A lane's left-boundary endpoint must never merge with its right-boundary
+  // endpoint on the same side: lanes narrower than epsilon would be pinched
+  // to zero width at the contact (and the welded neighbours dragged along).
+  // Tracked by point id like above, so a genuine zero-width taper — where
+  // left and right already share one Point — is unaffected.
+  const boundaryPids = new Map<string, { left: Set<string>; right: Set<string> }>()
+  for (const ep of endpoints) {
+    const key = `${ep.laneId}|${ep.side}`
+    const entry = boundaryPids.get(key) ?? { left: new Set(), right: new Set() }
+    entry[ep.boundary].add(ep.pointId)
+    boundaryPids.set(key, entry)
+  }
+  for (const { left, right } of boundaryPids.values()) {
+    for (const l of left) {
+      for (const r of right) {
+        if (l !== r) forbid(l, r)
+      }
+    }
+  }
+
+  // Greedy clustering: group points within epsilon of each other, with three
   // refinements over plain first-fit grouping:
-  // 1. An endpoint never joins a cluster that already holds the opposite end
-  //    of the same lane. A connecting lane shorter than epsilon would
-  //    otherwise get its start and end merged into one cluster, collapsing
-  //    its centerline below the degenerate-road export guard and silently
-  //    dropping the lane (and its next/prev chain).
+  // 1. An endpoint never joins a cluster holding a point its point id is
+  //    forbidden against (see above).
   // 2. Among the eligible clusters the nearest one wins, so the far end of a
   //    short lane clusters with its true counterpart rather than with the
   //    first cluster found within epsilon.
+  // 3. An endpoint whose nearest in-range cluster is a forbidden one never
+  //    hops to a farther eligible cluster: the forbidden cluster marks a
+  //    neighbouring corner of the same contact (narrow lane / short lane),
+  //    so anything beyond it belongs to a different corner entirely and
+  //    merging would drag the contact sideways. It opens its own cluster.
   const clusters: Endpoint[][] = []
   const eps2 = epsilonPx * epsilonPx
   for (const ep of endpoints) {
     let best: Endpoint[] | null = null
     let bestD2 = Infinity
+    let blockedD2 = Infinity
+    const epForbidden = forbidden.get(ep.pointId)
     for (const cluster of clusters) {
       const c0 = cluster[0]
       const dx = ep.x - c0.x
       const dy = ep.y - c0.y
       const d2 = dx * dx + dy * dy
-      if (d2 > eps2 || d2 >= bestD2) continue
-      const conflictsOwnLane = cluster.some(
-        (m) => m.laneId === ep.laneId && m.side !== ep.side
-      )
-      if (conflictsOwnLane) continue
+      if (d2 > eps2) continue
+      if (epForbidden && cluster.some((m) => epForbidden.has(m.pointId))) {
+        if (d2 < blockedD2) blockedD2 = d2
+        continue
+      }
+      if (d2 >= bestD2) continue
       best = cluster
       bestD2 = d2
     }
-    if (best) best.push(ep)
+    if (best && bestD2 <= blockedD2) best.push(ep)
     else clusters.push([ep])
   }
 
@@ -202,21 +528,24 @@ function buildBoundaryAlignmentOverrides(
   return overrides
 }
 
-function emitPlanView(geom: RoadGeometry): string {
+function emitPlanView(geom: BundleGeometry): string {
   const lines: string[] = []
   lines.push(`    <planView>`)
-  for (let i = 0; i < geom.odrSamples.length - 1; i++) {
-    const a = geom.odrSamples[i]
-    const b = geom.odrSamples[i + 1]
-    const dx = b.x - a.x
-    const dy = b.y - a.y
-    const segLen = Math.hypot(dx, dy)
-    if (segLen < 1e-9) continue
-    const hdg = Math.atan2(dy, dx)
+  for (const g of geom.planView) {
+    if (g.length < 1e-9) continue
     lines.push(
-      `      <geometry s="${fmt(a.s)}" x="${fmt(a.x)}" y="${fmt(a.y)}" hdg="${fmt(hdg)}" length="${fmt(segLen)}">`
+      `      <geometry s="${fmt(g.s)}" x="${fmt(g.x)}" y="${fmt(g.y)}" hdg="${fmt(g.hdg)}" length="${fmt(g.length)}">`
     )
-    lines.push(`        <line/>`)
+    if (g.kind === 'arc') {
+      lines.push(`        <arc curvature="${fmtPrecise(g.curvature)}"/>`)
+    } else if (g.kind === 'paramPoly3') {
+      lines.push(
+        `        <paramPoly3 aU="${fmtPrecise(g.aU)}" bU="${fmtPrecise(g.bU)}" cU="${fmtPrecise(g.cU)}" dU="${fmtPrecise(g.dU)}" ` +
+          `aV="${fmtPrecise(g.aV)}" bV="${fmtPrecise(g.bV)}" cV="${fmtPrecise(g.cV)}" dV="${fmtPrecise(g.dV)}" pRange="arcLength"/>`
+      )
+    } else {
+      lines.push(`        <line/>`)
+    }
     lines.push(`      </geometry>`)
   }
   lines.push(`    </planView>`)
@@ -256,119 +585,348 @@ function roadMarkTypeFor(shapeMap: Map<string, BaseShape>, boundaryId: string | 
 }
 
 function emitLanes(
-  geom: RoadGeometry,
-  hasPrev: boolean,
-  hasNext: boolean,
-  laneType: string,
-  centerMark: string,
-  outerMark: string
+  bundle: ExportBundle,
+  plan: ConnectivityPlan,
+  shapeMap: Map<string, BaseShape>
 ): string {
+  const geom = bundle.geom
   const lines: string[] = []
   lines.push(`    <lanes>`)
-  // The plan view follows the lane centerline; shifting the lane reference by
-  // +width/2 puts center lane 0 on the lane's left boundary, so a single
-  // right lane (-1) spans the full lane width. One drawtonomy lane therefore
-  // maps to exactly one OpenDRIVE driving lane (not two half-width lanes).
-  emitLaneOffsetEntries(geom, lines)
+  // The plan view follows the bundle's leftmost boundary, so lane 0 (center)
+  // lies on the left edge of lane -1 and no laneOffset is required. Lanes are
+  // emitted -1, -2, ... from the reference line outward (left→right in travel
+  // direction), each spanning its full drawn width.
   lines.push(`      <laneSection s="0">`)
-  // Center reference line (= left boundary after the laneOffset shift).
   lines.push(`        <center>`)
   lines.push(`          <lane id="0" type="none" level="false">`)
   lines.push(`            <link/>`)
+  const centerMark = roadMarkTypeFor(shapeMap, bundle.lanes[0].props.leftBoundaryId)
   lines.push(`            <roadMark sOffset="0" type="${centerMark}" weight="standard" color="white" width="0.13"/>`)
   lines.push(`          </lane>`)
   lines.push(`        </center>`)
   lines.push(`        <right>`)
-  lines.push(`          <lane id="-1" type="${laneType}" level="false">`)
-  emitLaneLink(lines, hasPrev, hasNext, -1)
-  emitWidthEntries(geom, lines)
-  lines.push(`            <roadMark sOffset="0" type="${outerMark}" weight="standard" color="white" width="0.13"/>`)
-  lines.push(`          </lane>`)
+  bundle.lanes.forEach((lane, i) => {
+    const odrId = -(i + 1)
+    lines.push(`          <lane id="${odrId}" type="${odrLaneTypeFor(lane)}" level="false">`)
+    emitLaneLink(lines, plan.lanePredecessor.get(lane.id), plan.laneSuccessor.get(lane.id))
+    emitWidthEntries(geom, i, lines)
+    const outerMark = roadMarkTypeFor(shapeMap, lane.props.rightBoundaryId)
+    lines.push(`            <roadMark sOffset="0" type="${outerMark}" weight="standard" color="white" width="0.13"/>`)
+    lines.push(`          </lane>`)
+  })
   lines.push(`        </right>`)
   lines.push(`      </laneSection>`)
   lines.push(`    </lanes>`)
   return lines.join('\n')
 }
 
-function emitLaneLink(out: string[], hasPrev: boolean, hasNext: boolean, laneId: number): void {
-  if (!hasPrev && !hasNext) {
+function emitLaneLink(out: string[], predId: number | undefined, succId: number | undefined): void {
+  if (predId === undefined && succId === undefined) {
     out.push(`            <link/>`)
     return
   }
   out.push(`            <link>`)
-  if (hasPrev) {
-    out.push(`              <predecessor id="${laneId}"/>`)
+  if (predId !== undefined) {
+    out.push(`              <predecessor id="${predId}"/>`)
   }
-  if (hasNext) {
-    out.push(`              <successor id="${laneId}"/>`)
+  if (succId !== undefined) {
+    out.push(`              <successor id="${succId}"/>`)
   }
   out.push(`            </link>`)
 }
 
-/** Piecewise-linear laneOffset records: +width/2 toward the left boundary. */
-function emitLaneOffsetEntries(geom: RoadGeometry, out: string[]): void {
-  for (let i = 0; i < geom.odrSamples.length - 1; i++) {
-    const s = geom.odrSamples[i].s
-    const halfA = geom.odrSamples[i].width / 2
-    const halfB = geom.odrSamples[i + 1].width / 2
-    const segLen = geom.odrSamples[i + 1].s - s
-    const b = segLen > 1e-9 ? (halfB - halfA) / segLen : 0
-    out.push(`      <laneOffset s="${fmt(s)}" a="${fmt(halfA)}" b="${fmt(b)}" c="0" d="0"/>`)
+/**
+ * Maximum width error (m) tolerated when folding stations into one record.
+ * Width samples carry chordal noise of the same order (the boundary polyline
+ * is a chordal approximation of the original curve), so a 1 cm band mostly
+ * absorbs that noise while staying far below the 5 cm position tolerance.
+ */
+const WIDTH_SIMPLIFY_TOL_M = 0.01
+
+/**
+ * Piecewise-linear full lane width records: a + b*ds (c=d=0). Station runs
+ * are simplified greedily: a record absorbs every following station whose
+ * widths stay within WIDTH_SIMPLIFY_TOL_M of the straight ramp between the
+ * record start and the run end, so constant-width lanes collapse to a single
+ * record and smoothly varying lanes to a few.
+ */
+function emitWidthEntries(geom: BundleGeometry, laneIndex: number, out: string[]): void {
+  const allWidths = geom.laneWidths[laneIndex]
+  const poses = geom.samplePoses
+  // Strictly increasing stations (duplicates share one width sample).
+  const sArr: number[] = []
+  const wArr: number[] = []
+  for (let i = 0; i < poses.length; i++) {
+    if (sArr.length === 0 || poses[i].s > sArr[sArr.length - 1] + 1e-9) {
+      sArr.push(poses[i].s)
+      wArr.push(allWidths[i])
+    }
+  }
+  const recs: { s: number; a: number; b: number }[] = []
+  if (sArr.length < 2) {
+    recs.push({ s: 0, a: wArr[0] ?? 0, b: 0 })
+  }
+  let i0 = 0
+  while (i0 < sArr.length - 1) {
+    let end = i0 + 1
+    for (let j = i0 + 2; j < sArr.length; j++) {
+      const slope = (wArr[j] - wArr[i0]) / (sArr[j] - sArr[i0])
+      let ok = true
+      for (let k = i0 + 1; k < j; k++) {
+        if (Math.abs(wArr[i0] + slope * (sArr[k] - sArr[i0]) - wArr[k]) > WIDTH_SIMPLIFY_TOL_M) {
+          ok = false
+          break
+        }
+      }
+      if (!ok) break
+      end = j
+    }
+    recs.push({ s: sArr[i0], a: wArr[i0], b: (wArr[end] - wArr[i0]) / (sArr[end] - sArr[i0]) })
+    i0 = end
+  }
+  for (const r of recs) {
+    out.push(`            <width sOffset="${fmt(r.s)}" a="${fmt(r.a)}" b="${fmtPrecise(r.b)}" c="0" d="0"/>`)
   }
 }
 
-/** Piecewise-linear full lane width records: a + b*ds (c=d=0). */
-function emitWidthEntries(geom: RoadGeometry, out: string[]): void {
-  for (let i = 0; i < geom.odrSamples.length - 1; i++) {
-    const s = geom.odrSamples[i].s
-    const wA = geom.odrSamples[i].width
-    const wB = geom.odrSamples[i + 1].width
-    const segLen = geom.odrSamples[i + 1].s - s
-    const b = segLen > 1e-9 ? (wB - wA) / segLen : 0
-    out.push(`            <width sOffset="${fmt(s)}" a="${fmt(wA)}" b="${fmt(b)}" c="0" d="0"/>`)
-  }
-}
+type RoadLinkTarget = { kind: 'road' | 'junction'; id: number }
 
-interface JunctionPlan {
-  /** Junction id routing a lane's outgoing (next) edges, when present. */
-  nextJunction: Map<string, number>
-  /** Junction id routing a lane's incoming (prev) edges, when present. */
-  prevJunction: Map<string, number>
-  /** Junction id stamped on a connecting road (<road junction="...">). */
-  roadJunction: Map<string, number>
-  junctions: { id: number; connections: { incoming: number; connecting: number }[] }[]
+/** Length (m) of a synthesized junction connecting road. Kept below the
+ * importer's micro-section threshold so re-imports skip it and bridge the
+ * lane links across instead of materializing an extra sliver lane. Also kept
+ * below the 1 cm contact-point gap tolerance of ASAM quality checkers: the
+ * incoming lane end and the outgoing lane start coincide in the drawing, so
+ * the stub necessarily overlaps the outgoing road and its whole length shows
+ * up as a contact-point discontinuity to gap checks. */
+const CONNECTING_ROAD_LENGTH_M = 0.005
+
+/**
+ * Contact widths below this (m) count as zero for lane linking: OpenDRIVE
+ * forbids predecessor/successor records on lanes that have zero width at the
+ * linked contact (zero-width / appearing-lane semantics). Welded taper lanes
+ * produce exact zeros; the epsilon also covers values that round to zero in
+ * the 6-decimal output.
+ */
+const ZERO_WIDTH_LINK_EPS_M = 1e-3
+
+/** Wrap an angle to (-pi, pi]. */
+function wrapAngleRad(a: number): number {
+  while (a > Math.PI) a -= 2 * Math.PI
+  while (a < -Math.PI) a += 2 * Math.PI
+  return a
 }
 
 /**
- * Plan synthesized <junction> elements for branch / merge connectivity.
+ * A zero-length(ish) connecting road synthesized for one branch / merge lane
+ * edge, giving junctions the standard incoming -> connecting -> outgoing
+ * structure (the mainline roads keep junction="-1").
+ */
+interface ConnectingRoadSpec {
+  roadId: number
+  junctionId: number
+  incomingRoadId: number
+  outgoingRoadId: number
+  /** ODR lane id of the source lane on the incoming road. */
+  fromOdrLaneId: number
+  /** ODR lane id of the target lane on the outgoing road. */
+  toOdrLaneId: number
+  /** Geometry seed at the source lane's end (see ConnectingSource). */
+  source: ConnectingSource
+  /** Heading / width of the target lane at its start (see ConnectingTarget). */
+  target: ConnectingTarget | null
+}
+
+/**
+ * Pose / width / type of the lane a connecting road starts from: the inner
+ * boundary endpoint of the source lane (ENU meters), the travel heading
+ * there, the lane's end width, and its OpenDRIVE lane type.
+ */
+interface ConnectingSource {
+  x: number
+  y: number
+  hdg: number
+  width: number
+  laneType: string
+}
+
+/**
+ * Pose / width of the lane a connecting road ends on, at its start contact:
+ * the lane's inner-border point as the outgoing road actually emits it
+ * (reference pose + accumulated widths), its travel heading and width there.
+ * The stub blends onto them (Hermite onto the exact border point when it is
+ * ahead of the source, else an arc sweep, plus a linear width ramp) so both
+ * of its contacts stay gap-free even when the drawing kinks or staggers at
+ * the branch point.
+ */
+interface ConnectingTarget {
+  x: number
+  y: number
+  hdg: number
+  width: number
+}
+
+interface ConnectivityPlan {
+  /** Road-level predecessor / successor per road id. */
+  roadPredecessor: Map<number, RoadLinkTarget>
+  roadSuccessor: Map<number, RoadLinkTarget>
+  /** ODR lane id of the linked lane, per lane shape id (road-linked roads only). */
+  lanePredecessor: Map<string, number>
+  laneSuccessor: Map<string, number>
+  junctions: {
+    id: number
+    connections: { incoming: number; connecting: number; laneLinks: { from: number; to: number }[] }[]
+    /** <priority high low> records between connecting roads (right of way). */
+    priorities: { high: number; low: number }[]
+  }[]
+  /** Synthesized connecting roads, one per junction-routed lane edge. */
+  connectingRoads: ConnectingRoadSpec[]
+  /**
+   * yieldLaneIds pairs ("rowLaneShapeId|yieldLaneShapeId") expressed as
+   * junction <priority> records; excluded from the userData fallback stash.
+   */
+  handledYieldPairs: Set<string>
+  /**
+   * Lane edges whose contact width is (near) zero on either side. OpenDRIVE
+   * forbids linking lanes that have zero width at the linked contact (the
+   * "appearing lane" rules), so these edges are kept out of every standard
+   * <link> / <laneLink> record and stashed as
+   * <userData code="hiddenLaneLinks"> on the road of `home` instead, from
+   * where the importer restores the next/prev relationship.
+   */
+  hiddenLaneEdges: { from: string; to: string; home: string }[]
+}
+
+/**
+ * Plan road links, lane links and synthesized <junction> elements.
  *
- * A road <link> can name only one predecessor and one successor, so an edge
- * is representable as plain road links only when it is its source's only
- * `next` AND its target's only `prev`. Every other edge (branching or
- * merging) is routed through a synthesized junction: the target roads become
- * connecting roads (their <road junction> attribute is set) and each edge is
- * emitted as a <connection incomingRoad connectingRoad contactPoint="start">
- * carrying a <laneLink from="-1" to="-1"/> (the exporter emits exactly one
- * driving lane -1 per road). Edges that share a lane collapse into the same
+ * A road <link> can name only one predecessor and one successor, so a road
+ * pair (P → Q) is representable as a plain road link only when Q is P's only
+ * successor road AND P is Q's only predecessor road AND every lane edge
+ * between them is 1:1 (its source's only `next` and its target's only
+ * `prev`). Every other lane edge is routed through a synthesized junction
+ * with the standard structure: a short connecting road (junction-stamped,
+ * with a guaranteed road-level predecessor=incoming / successor=outgoing
+ * link) is synthesized at the contact point for each lane edge, and the
+ * junction's <connection incomingRoad connectingRoad contactPoint="start">
+ * carries the per-lane <laneLink>. The mainline roads stay junction="-1" and
+ * link to the junction by id. Edges that share a road collapse into the same
  * junction (connected components), so a 2-in x 2-out diamond becomes one
  * junction with four connections.
+ *
+ * Right-of-way lane pairs (`yieldLaneIds`) whose two lanes both feed
+ * connecting roads of the same junction are emitted as standard
+ * <priority high low> records between those connecting roads.
  */
-function planJunctions(
-  lanes: LaneShape[],
-  laneIdToRoadId: Map<string, number>,
-  firstJunctionId: number
-): JunctionPlan {
+function planConnectivity(
+  exportBundles: ExportBundle[],
+  roadIdOf: Map<string, number>,
+  odrIdOf: Map<string, number>,
+  firstJunctionId: number,
+  connectingSourceFor: (laneShapeId: string) => ConnectingSource | null,
+  connectingTargetFor: (laneShapeId: string) => ConnectingTarget | null,
+  contactWidth: (laneShapeId: string, contact: 'start' | 'end') => number | null,
+  externalLanes: Map<string, LaneShape> = new Map()
+): ConnectivityPlan {
   const validNext = new Map<string, string[]>()
   const validPrev = new Map<string, string[]>()
-  for (const lane of lanes) {
-    if (!laneIdToRoadId.has(lane.id)) continue
-    validNext.set(lane.id, (lane.props.next ?? []).filter((id) => laneIdToRoadId.has(id)))
-    validPrev.set(lane.id, (lane.props.prev ?? []).filter((id) => laneIdToRoadId.has(id)))
+  for (const bundle of exportBundles) {
+    for (const lane of bundle.lanes) {
+      validNext.set(lane.id, (lane.props.next ?? []).filter(id => roadIdOf.has(id)))
+      validPrev.set(lane.id, (lane.props.prev ?? []).filter(id => roadIdOf.has(id)))
+    }
+  }
+  // Carry-through: lanes of verbatim (unedited) roads participate as link
+  // endpoints — their roads are never re-emitted here, but regenerated roads
+  // must still link to / from them. Edges between two external lanes are
+  // covered by the verbatim XML and are skipped below.
+  for (const [id, lane] of externalLanes) {
+    validNext.set(id, (lane.props.next ?? []).filter(t => roadIdOf.has(t)))
+    validPrev.set(id, (lane.props.prev ?? []).filter(t => roadIdOf.has(t)))
   }
 
-  // Union-find over the lanes participating in junction-routed edges.
-  const parent = new Map<string, string>()
-  const find = (x: string): string => {
+  // Lanes with (near) zero width at a linked contact must not carry standard
+  // link records there (zero-width / appearing-lane rules), so those edges
+  // are diverted into the hiddenLaneLinks userData stash. The stash lives on
+  // the `from` road when it is re-emitted in this export, else on the `to`
+  // road (one of the two always is: external-external edges stay verbatim).
+  const hiddenLaneEdges: ConnectivityPlan['hiddenLaneEdges'] = []
+  for (const [laneId, nexts] of validNext) {
+    if (nexts.length === 0) continue
+    const kept: string[] = []
+    for (const to of nexts) {
+      if (externalLanes.has(laneId) && externalLanes.has(to)) {
+        kept.push(to)
+        continue
+      }
+      const wFrom = contactWidth(laneId, 'end')
+      const wTo = contactWidth(to, 'start')
+      if (
+        (wFrom !== null && wFrom < ZERO_WIDTH_LINK_EPS_M) ||
+        (wTo !== null && wTo < ZERO_WIDTH_LINK_EPS_M)
+      ) {
+        hiddenLaneEdges.push({ from: laneId, to, home: externalLanes.has(laneId) ? to : laneId })
+        const prevs = validPrev.get(to)
+        if (prevs) validPrev.set(to, prevs.filter(p => p !== laneId))
+        continue
+      }
+      kept.push(to)
+    }
+    if (kept.length !== nexts.length) validNext.set(laneId, kept)
+  }
+
+  interface LaneEdge {
+    from: string
+    to: string
+  }
+  const succRoads = new Map<number, Set<number>>()
+  const predRoads = new Map<number, Set<number>>()
+  const edgesByPair = new Map<string, LaneEdge[]>()
+  for (const [laneId, nexts] of validNext) {
+    const fromRoad = roadIdOf.get(laneId)!
+    for (const to of nexts) {
+      if (externalLanes.has(laneId) && externalLanes.has(to)) continue
+      const toRoad = roadIdOf.get(to)!
+      succRoads.set(fromRoad, (succRoads.get(fromRoad) ?? new Set()).add(toRoad))
+      predRoads.set(toRoad, (predRoads.get(toRoad) ?? new Set()).add(fromRoad))
+      const key = `${fromRoad}->${toRoad}`
+      edgesByPair.set(key, [...(edgesByPair.get(key) ?? []), { from: laneId, to }])
+    }
+  }
+
+  const plan: ConnectivityPlan = {
+    roadPredecessor: new Map(),
+    roadSuccessor: new Map(),
+    lanePredecessor: new Map(),
+    laneSuccessor: new Map(),
+    junctions: [],
+    connectingRoads: [],
+    handledYieldPairs: new Set(),
+    hiddenLaneEdges,
+  }
+
+  const junctionPairs: { incoming: number; outgoing: number; laneEdges: LaneEdge[] }[] = []
+  for (const [key, laneEdges] of edgesByPair) {
+    const [fromRoad, toRoad] = key.split('->').map(Number)
+    const uniquePair = succRoads.get(fromRoad)!.size === 1 && predRoads.get(toRoad)!.size === 1
+    const lanesOneToOne = laneEdges.every(
+      e => (validNext.get(e.from) ?? []).length === 1 && (validPrev.get(e.to) ?? []).length === 1
+    )
+    if (uniquePair && lanesOneToOne) {
+      plan.roadSuccessor.set(fromRoad, { kind: 'road', id: toRoad })
+      plan.roadPredecessor.set(toRoad, { kind: 'road', id: fromRoad })
+      for (const e of laneEdges) {
+        plan.laneSuccessor.set(e.from, odrIdOf.get(e.to)!)
+        plan.lanePredecessor.set(e.to, odrIdOf.get(e.from)!)
+      }
+    } else {
+      junctionPairs.push({ incoming: fromRoad, outgoing: toRoad, laneEdges })
+    }
+  }
+
+  // Union-find over road ids: junction-routed pairs sharing a road merge into
+  // one junction.
+  const parent = new Map<number, number>()
+  const find = (x: number): number => {
     let root = x
     while (true) {
       const p = parent.get(root)
@@ -383,83 +941,258 @@ function planJunctions(
     }
     return root
   }
-  const union = (a: string, b: string): void => {
+  const union = (a: number, b: number): void => {
     if (!parent.has(a)) parent.set(a, a)
     if (!parent.has(b)) parent.set(b, b)
     const ra = find(a)
     const rb = find(b)
     if (ra !== rb) parent.set(rb, ra)
   }
+  for (const pair of junctionPairs) union(pair.incoming, pair.outgoing)
 
-  const junctionEdges: { from: string; to: string }[] = []
-  for (const [laneId, nexts] of validNext) {
-    for (const to of nexts) {
-      const prevsOfTarget = validPrev.get(to) ?? []
-      if (nexts.length === 1 && prevsOfTarget.length === 1) continue // plain road link
-      junctionEdges.push({ from: laneId, to })
-      union(laneId, to)
-    }
-  }
-
-  const plan: JunctionPlan = {
-    nextJunction: new Map(),
-    prevJunction: new Map(),
-    roadJunction: new Map(),
-    junctions: [],
-  }
-  const junctionByRoot = new Map<string, JunctionPlan['junctions'][number]>()
+  // Pass 1: one junction per connected component (ids first, so junction ids
+  // and connecting road ids stay sequential and collision-free).
+  const junctionByRoot = new Map<number, ConnectivityPlan['junctions'][number]>()
   let nextId = firstJunctionId
-  for (const e of junctionEdges) {
-    const root = find(e.from)
-    let junction = junctionByRoot.get(root)
-    if (!junction) {
-      junction = { id: nextId++, connections: [] }
+  for (const pair of junctionPairs) {
+    const root = find(pair.incoming)
+    if (!junctionByRoot.has(root)) {
+      const junction = { id: nextId++, connections: [], priorities: [] }
       junctionByRoot.set(root, junction)
       plan.junctions.push(junction)
     }
-    junction.connections.push({
-      incoming: laneIdToRoadId.get(e.from)!,
-      connecting: laneIdToRoadId.get(e.to)!,
-    })
-    plan.nextJunction.set(e.from, junction.id)
-    plan.prevJunction.set(e.to, junction.id)
-    plan.roadJunction.set(e.to, junction.id)
+  }
+
+  // Pass 2: synthesize one short connecting road per junction-routed lane
+  // edge and register it as a <connection> of its junction.
+  const connectingByLane = new Map<string, ConnectingRoadSpec[]>()
+  for (const pair of junctionPairs) {
+    const junction = junctionByRoot.get(find(pair.incoming))!
+    for (const e of pair.laneEdges.slice().sort((a, b) => odrIdOf.get(b.from)! - odrIdOf.get(a.from)! || odrIdOf.get(b.to)! - odrIdOf.get(a.to)!)) {
+      const source = connectingSourceFor(e.from)
+      if (!source) continue
+      const spec: ConnectingRoadSpec = {
+        roadId: nextId++,
+        junctionId: junction.id,
+        incomingRoadId: pair.incoming,
+        outgoingRoadId: pair.outgoing,
+        fromOdrLaneId: odrIdOf.get(e.from)!,
+        toOdrLaneId: odrIdOf.get(e.to)!,
+        source,
+        target: connectingTargetFor(e.to),
+      }
+      plan.connectingRoads.push(spec)
+      junction.connections.push({
+        incoming: pair.incoming,
+        connecting: spec.roadId,
+        laneLinks: [{ from: spec.fromOdrLaneId, to: -1 }],
+      })
+      const list = connectingByLane.get(e.from) ?? []
+      list.push(spec)
+      connectingByLane.set(e.from, list)
+    }
+    plan.roadSuccessor.set(pair.incoming, { kind: 'junction', id: junction.id })
+    plan.roadPredecessor.set(pair.outgoing, { kind: 'junction', id: junction.id })
+  }
+
+  // Right-of-way: a lane pair (X has priority, Y yields) whose maneuvers both
+  // run through connecting roads of one junction becomes <priority high low>
+  // records between those connecting roads.
+  const junctionById = new Map(plan.junctions.map(j => [j.id, j]))
+  for (const bundle of exportBundles) {
+    for (const lane of bundle.lanes) {
+      const highSpecs = connectingByLane.get(lane.id)
+      if (!highSpecs?.length) continue
+      for (const yieldShapeId of lane.props.yieldLaneIds ?? []) {
+        const lowSpecs = connectingByLane.get(yieldShapeId)
+        if (!lowSpecs?.length) continue
+        let expressed = false
+        for (const hi of highSpecs) {
+          for (const lo of lowSpecs) {
+            if (hi.junctionId !== lo.junctionId) continue
+            const junction = junctionById.get(hi.junctionId)!
+            if (!junction.priorities.some(p => p.high === hi.roadId && p.low === lo.roadId)) {
+              junction.priorities.push({ high: hi.roadId, low: lo.roadId })
+            }
+            expressed = true
+          }
+        }
+        if (expressed) plan.handledYieldPairs.add(`${lane.id}|${yieldShapeId}`)
+      }
+    }
   }
   return plan
 }
 
-function emitLink(
-  lane: LaneShape,
-  laneIdToRoadId: Map<string, number>,
-  junctionPlan: JunctionPlan
-): string {
-  const lines: string[] = []
-  lines.push(`    <link>`)
-  const prevJunction = junctionPlan.prevJunction.get(lane.id)
-  if (prevJunction !== undefined) {
-    lines.push(`      <predecessor elementType="junction" elementId="${prevJunction}"/>`)
-  } else {
-    const prevLane = (lane.props.prev ?? []).find((id) => laneIdToRoadId.has(id))
-    if (prevLane) {
-      const rid = laneIdToRoadId.get(prevLane)!
-      lines.push(`      <predecessor elementType="road" elementId="${rid}" contactPoint="end"/>`)
+/**
+ * Emit a synthesized junction connecting road: a single short segment
+ * starting at the incoming lane's inner-boundary endpoint, heading along the
+ * incoming road's end direction, carrying one right lane as wide as the
+ * source lane. When the outgoing lane starts with a different heading or
+ * width (drawn branch points may kink), the stub blends onto them — an <arc>
+ * sweeping the heading difference and a linear width ramp — so the borders
+ * meet both neighbours without a lateral step. The road always links
+ * predecessor=incoming(road, end) and successor=outgoing(road, start), so
+ * standard consumers can traverse incoming -> connecting -> outgoing without
+ * dead ends.
+ */
+function emitConnectingRoad(spec: ConnectingRoadSpec): string {
+  const { x, y, hdg, width } = spec.source
+  const dHdg = spec.target ? wrapAngleRad(spec.target.hdg - hdg) : 0
+  // Target border point in the source frame: when the outgoing lane's
+  // emitted start sits measurably ahead of the source corner (drawn branch
+  // points stagger by centimeters), a cubic Hermite interpolates both end
+  // poses exactly; otherwise a minimum-length arc (or line) blends the
+  // heading in place.
+  let geometry = ''
+  let len = CONNECTING_ROAD_LENGTH_M
+  if (spec.target) {
+    const cosH = Math.cos(hdg)
+    const sinH = Math.sin(hdg)
+    const ex = spec.target.x - x
+    const ey = spec.target.y - y
+    const u1 = ex * cosH + ey * sinH
+    const v1 = -ex * sinH + ey * cosH
+    const dist = Math.hypot(ex, ey)
+    // A target at or behind the source corner (the outgoing road's emitted
+    // start can sit a few millimeters behind the drawn weld) is unreachable
+    // by a forward curve; an in-place blend as short as representable keeps
+    // the leftover contact offset at the stagger itself.
+    if (u1 < CONNECTING_ROAD_LENGTH_M) len = 0.001
+    if (dist >= CONNECTING_ROAD_LENGTH_M && u1 >= 0.7 * dist && Math.abs(dHdg) <= 1.45) {
+      // Hermite with parameter domain [0, L]: u(0)=0,u'(0)=1,v(0)=0,v'(0)=0,
+      // u(L)=u1, u'(L)=cosθ, v(L)=v1, v'(L)=sinθ (same construction as the
+      // plan-view fitter, emitted as paramPoly3 pRange="arcLength").
+      let L = Math.max(dist, u1)
+      let cU = 0
+      let dU = 0
+      let cV = 0
+      let dV = 0
+      const cosT = Math.cos(dHdg)
+      const sinT = Math.sin(dHdg)
+      const solve = (dom: number): void => {
+        const A = u1 - dom
+        const B = cosT - 1
+        cU = (3 * A - B * dom) / (dom * dom)
+        dU = (B * dom - 2 * A) / (dom * dom * dom)
+        cV = (3 * v1 - sinT * dom) / (dom * dom)
+        dV = (sinT * dom - 2 * v1) / (dom * dom * dom)
+      }
+      const arcLength = (dom: number): number => {
+        const n = 32
+        let acc = 0
+        let px = 0
+        let py = 0
+        for (let k = 1; k <= n; k++) {
+          const p = (dom * k) / n
+          const lu = p * (1 + p * (cU + p * dU))
+          const lv = p * p * (cV + p * dV)
+          acc += Math.hypot(lu - px, lv - py)
+          px = lu
+          py = lv
+        }
+        return acc
+      }
+      for (let iter = 0; iter < 3; iter++) {
+        solve(L)
+        const actual = arcLength(L)
+        if (!(actual > 1e-6)) break
+        if (Math.abs(actual - L) < 1e-6) break
+        L = actual
+      }
+      solve(L)
+      // Stay below the importer's micro-section threshold (0.3 m) so the
+      // stub keeps being bridged on re-import instead of materializing as a
+      // sliver lane; larger staggers fall back to the in-place blend.
+      if (L > 1e-6 && L <= 0.25) {
+        len = L
+        geometry = `        <paramPoly3 aU="0" bU="1" cU="${fmtPrecise(cU)}" dU="${fmtPrecise(dU)}" aV="0" bV="0" cV="${fmtPrecise(cV)}" dV="${fmtPrecise(dV)}" pRange="arcLength"/>`
+      }
     }
   }
-  const nextJunction = junctionPlan.nextJunction.get(lane.id)
-  if (nextJunction !== undefined) {
-    lines.push(`      <successor elementType="junction" elementId="${nextJunction}"/>`)
-  } else {
-    const nextLane = (lane.props.next ?? []).find((id) => laneIdToRoadId.has(id))
-    if (nextLane) {
-      const rid = laneIdToRoadId.get(nextLane)!
-      lines.push(`      <successor elementType="road" elementId="${rid}" contactPoint="start"/>`)
-    }
+  if (!geometry) {
+    geometry =
+      Math.abs(dHdg) > 1e-4
+        ? `        <arc curvature="${fmtPrecise(dHdg / len)}"/>`
+        : `        <line/>`
+  }
+  const widthSlope =
+    spec.target !== null && Math.abs(spec.target.width - width) > 1e-6
+      ? (spec.target.width - width) / len
+      : 0
+  const lines: string[] = []
+  lines.push(
+    `  <road name="connecting" length="${fmt(len)}" id="${spec.roadId}" junction="${spec.junctionId}">`
+  )
+  lines.push(`    <link>`)
+  lines.push(
+    `      <predecessor elementType="road" elementId="${spec.incomingRoadId}" contactPoint="end"/>`
+  )
+  lines.push(
+    `      <successor elementType="road" elementId="${spec.outgoingRoadId}" contactPoint="start"/>`
+  )
+  lines.push(`    </link>`)
+  lines.push(`    <planView>`)
+  lines.push(
+    `      <geometry s="0" x="${fmt(x)}" y="${fmt(y)}" hdg="${fmt(hdg)}" length="${fmt(len)}">`
+  )
+  lines.push(geometry)
+  lines.push(`      </geometry>`)
+  lines.push(`    </planView>`)
+  lines.push(`    <elevationProfile/>`)
+  lines.push(`    <lateralProfile/>`)
+  lines.push(`    <lanes>`)
+  lines.push(`      <laneSection s="0">`)
+  lines.push(`        <center>`)
+  lines.push(`          <lane id="0" type="none" level="false">`)
+  lines.push(`            <link/>`)
+  lines.push(`            <roadMark sOffset="0" type="none" weight="standard" color="white" width="0.13"/>`)
+  lines.push(`          </lane>`)
+  lines.push(`        </center>`)
+  lines.push(`        <right>`)
+  lines.push(`          <lane id="-1" type="${spec.source.laneType}" level="false">`)
+  lines.push(`            <link>`)
+  lines.push(`              <predecessor id="${spec.fromOdrLaneId}"/>`)
+  lines.push(`              <successor id="${spec.toOdrLaneId}"/>`)
+  lines.push(`            </link>`)
+  lines.push(
+    `            <width sOffset="0" a="${fmt(width)}" b="${widthSlope === 0 ? '0' : fmtPrecise(widthSlope)}" c="0" d="0"/>`
+  )
+  lines.push(`            <roadMark sOffset="0" type="none" weight="standard" color="white" width="0.13"/>`)
+  lines.push(`          </lane>`)
+  lines.push(`        </right>`)
+  lines.push(`      </laneSection>`)
+  lines.push(`    </lanes>`)
+  lines.push(`    <objects/>`)
+  lines.push(`    <signals/>`)
+  lines.push(`  </road>`)
+  return lines.join('\n')
+}
+
+function emitLink(roadId: number, plan: ConnectivityPlan): string {
+  const lines: string[] = []
+  lines.push(`    <link>`)
+  const pred = plan.roadPredecessor.get(roadId)
+  if (pred) {
+    lines.push(
+      pred.kind === 'junction'
+        ? `      <predecessor elementType="junction" elementId="${pred.id}"/>`
+        : `      <predecessor elementType="road" elementId="${pred.id}" contactPoint="end"/>`
+    )
+  }
+  const succ = plan.roadSuccessor.get(roadId)
+  if (succ) {
+    lines.push(
+      succ.kind === 'junction'
+        ? `      <successor elementType="junction" elementId="${succ.id}"/>`
+        : `      <successor elementType="road" elementId="${succ.id}" contactPoint="start"/>`
+    )
   }
   lines.push(`    </link>`)
   return lines.join('\n')
 }
 
-function projectToRoad(geom: RoadGeometry, xG: number, yG: number): {
+function projectToRoad(geom: BundleGeometry, xG: number, yG: number): {
   s: number
   t: number
   hdg: number
@@ -471,7 +1204,9 @@ function projectToRoad(geom: RoadGeometry, xG: number, yG: number): {
   let bestDist = Infinity
   let bestHdg = 0
   let bestClamped = false
-  const samples = geom.odrSamples
+  // The fitted sample poses lie on the analytic reference line, so chord
+  // projection between them yields stations directly in the emitted s domain.
+  const samples = geom.samplePoses
   for (let i = 0; i < samples.length - 1; i++) {
     const a = samples[i]
     const b = samples[i + 1]
@@ -498,7 +1233,7 @@ function projectToRoad(geom: RoadGeometry, xG: number, yG: number): {
     const dist = Math.hypot(xG - projX, yG - projY)
     if (dist < bestDist) {
       bestDist = dist
-      bestS = a.s + tNorm
+      bestS = a.s + (tNorm / segLen) * (b.s - a.s)
       const nx = -uy
       const ny = ux
       bestT = px * nx + py * ny
@@ -507,6 +1242,33 @@ function projectToRoad(geom: RoadGeometry, xG: number, yG: number): {
     }
   }
   return { s: bestS, t: bestT, hdg: bestHdg, distance: bestDist, clampedAtEnd: bestClamped }
+}
+
+/** Inclusive lane id range a signal applies to. */
+interface ValidityRange {
+  fromLane: number
+  toLane: number
+}
+
+/** Contiguous <validity> ranges from a set of ODR lane ids. */
+function laneIdRanges(ids: number[]): ValidityRange[] {
+  const sorted = [...new Set(ids)].sort((a, b) => a - b)
+  const ranges: ValidityRange[] = []
+  if (sorted.length === 0) return ranges
+  let start = sorted[0]
+  let prev = sorted[0]
+  for (let i = 1; i < sorted.length; i++) {
+    const v = sorted[i]
+    if (v === prev + 1) {
+      prev = v
+      continue
+    }
+    ranges.push({ fromLane: start, toLane: prev })
+    start = v
+    prev = v
+  }
+  ranges.push({ fromLane: start, toLane: prev })
+  return ranges
 }
 
 interface SignalEntry {
@@ -521,8 +1283,8 @@ interface SignalEntry {
   subtype: string
   dynamic: 'yes' | 'no'
   orientation: '+' | '-'
-  /** Lane range the signal applies to (regulatory layer); omitted = whole road. */
-  validity?: { fromLane: number; toLane: number }
+  /** Lane ranges the signal applies to (regulatory layer); omitted = whole road. */
+  validity?: ValidityRange[]
   /**
    * Stop line polyline in ENU meters, carried as <userData code="stopLine">
    * so the importer can rebuild the stop-line linestring and re-link it.
@@ -539,6 +1301,7 @@ interface SignalReferenceEntry {
   s: number
   t: number
   orientation: '+' | '-'
+  validity: ValidityRange[]
 }
 
 interface ObjectEntry {
@@ -563,9 +1326,11 @@ function attachShapesToRoads(
   trafficLights: TrafficLightShape[],
   crosswalks: CrosswalkShape[],
   polygons: { shape: PolygonShape; vertices: { x: number; y: number }[] }[],
-  laneToGeom: Map<string, RoadGeometry>,
+  roads: { roadId: number; geom: BundleGeometry }[],
   laneIdToRoadId: Map<string, number>,
-  maxAttachDistanceMeter: number = 50
+  laneIdToOdrLaneId: Map<string, number>,
+  maxAttachDistanceMeter: number = 50,
+  signalIdStart: number = 1
 ): {
   roadSignals: Map<number, SignalEntry[]>
   roadObjects: Map<number, ObjectEntry[]>
@@ -578,34 +1343,39 @@ function attachShapesToRoads(
   const roadObjects = new Map<number, ObjectEntry[]>()
   const roadSignalRefs = new Map<number, SignalReferenceEntry[]>()
   const signalIdByShape = new Map<string, number>()
-  let signalIdCounter = 1
+  let signalIdCounter = signalIdStart
   let objectIdCounter = 1
 
-  const roads: { laneId: string; geom: RoadGeometry; roadId: number }[] = []
-  laneToGeom.forEach((geom, laneId) => {
-    const roadId = laneIdToRoadId.get(laneId)
-    if (roadId !== undefined) roads.push({ laneId, geom, roadId })
-  })
-  const geomByRoadId = new Map<number, RoadGeometry>()
+  const geomByRoadId = new Map<number, BundleGeometry>()
   for (const r of roads) geomByRoadId.set(r.roadId, r.geom)
+
+  /** Affected lanes grouped per road: road id -> ODR lane ids. */
+  const affectedLanesByRoad = (laneShapeIds: readonly string[] | undefined): Map<number, number[]> => {
+    const byRoad = new Map<number, number[]>()
+    for (const laneShapeId of laneShapeIds ?? []) {
+      const rid = laneIdToRoadId.get(laneShapeId)
+      const oid = laneIdToOdrLaneId.get(laneShapeId)
+      if (rid === undefined || oid === undefined) continue
+      const list = byRoad.get(rid) ?? []
+      if (!list.includes(oid)) list.push(oid)
+      byRoad.set(rid, list)
+    }
+    return byRoad
+  }
 
   for (const tl of trafficLights) {
     const xG = pxToEnuX(tl.x)
     const yG = pxToEnuY(tl.y)
 
     // Regulatory layer: a signal that names affected lanes attaches to the
-    // nearest of those lanes' roads and carries a <validity> record for the
-    // road's single driving lane (-1). Distance gating does not apply — the
-    // assignment is explicit.
-    const affectedRoadIds = new Set<number>()
-    for (const laneShapeId of tl.props.affectedLaneIds ?? []) {
-      const rid = laneIdToRoadId.get(laneShapeId)
-      if (rid !== undefined) affectedRoadIds.add(rid)
-    }
+    // nearest of those lanes' roads and carries <validity> records for the
+    // affected lane range. Distance gating does not apply — the assignment is
+    // explicit.
+    const affectedByRoad = affectedLanesByRoad(tl.props.affectedLaneIds)
     let best: { roadId: number; proj: ReturnType<typeof projectToRoad> } | null = null
-    if (affectedRoadIds.size > 0) {
+    if (affectedByRoad.size > 0) {
       for (const r of roads) {
-        if (!affectedRoadIds.has(r.roadId)) continue
+        if (!affectedByRoad.has(r.roadId)) continue
         const proj = projectToRoad(r.geom, xG, yG)
         if (!best || proj.distance < best.proj.distance) best = { roadId: r.roadId, proj }
       }
@@ -638,21 +1408,20 @@ function attachShapesToRoads(
       dynamic: 'yes',
       orientation: best.proj.t >= 0 ? '+' : '-',
     }
-    if (affectedRoadIds.size > 0) {
-      // The exporter emits one driving lane (-1) per road.
-      entry.validity = { fromLane: -1, toLane: -1 }
+    if (affectedByRoad.size > 0) {
+      entry.validity = laneIdRanges(affectedByRoad.get(best.roadId)!)
     }
     list.push(entry)
     roadSignals.set(best.roadId, list)
     signalIdByShape.set(tl.id, entry.id)
 
-    // A signal controlling several lanes spans several roads in the
-    // 1-lane-per-road model. The remaining affected roads get a standard
-    // <signalReference> pointing back at the signal so the validity links
-    // survive a round trip (and ODR consumers see the full coverage).
-    if (affectedRoadIds.size > 1) {
+    // A signal controlling lanes in several road bundles cannot carry a
+    // single <validity> (it cannot cross roads); the remaining affected roads
+    // get a standard <signalReference> pointing back at the signal with their
+    // own lane ranges, so the validity links survive a round trip.
+    if (affectedByRoad.size > 1) {
       for (const r of roads) {
-        if (r.roadId === best.roadId || !affectedRoadIds.has(r.roadId)) continue
+        if (r.roadId === best.roadId || !affectedByRoad.has(r.roadId)) continue
         const proj = projectToRoad(r.geom, xG, yG)
         const refs = roadSignalRefs.get(r.roadId) ?? []
         refs.push({
@@ -660,6 +1429,7 @@ function attachShapesToRoads(
           s: proj.s,
           t: proj.t,
           orientation: proj.t >= 0 ? '+' : '-',
+          validity: laneIdRanges(affectedByRoad.get(r.roadId)!),
         })
         roadSignalRefs.set(r.roadId, refs)
       }
@@ -717,15 +1487,11 @@ function attachShapesToRoads(
     // Regulatory layer: a crosswalk that names affected lanes attaches to the
     // nearest of those lanes' roads (no distance gate — the assignment is
     // explicit), mirroring the signal behavior above.
-    const affectedRoadIds = new Set<number>()
-    for (const laneShapeId of cw.props.affectedLaneIds ?? []) {
-      const rid = laneIdToRoadId.get(laneShapeId)
-      if (rid !== undefined) affectedRoadIds.add(rid)
-    }
+    const affectedByRoad = affectedLanesByRoad(cw.props.affectedLaneIds)
     let best: { roadId: number; proj: ReturnType<typeof projectToRoad> } | null = null
-    if (affectedRoadIds.size > 0) {
+    if (affectedByRoad.size > 0) {
       for (const r of roads) {
-        if (!affectedRoadIds.has(r.roadId)) continue
+        if (!affectedByRoad.has(r.roadId)) continue
         const proj = projectToRoad(r.geom, xG, yG)
         if (!best || proj.distance < best.proj.distance) best = { roadId: r.roadId, proj }
       }
@@ -755,13 +1521,19 @@ function attachShapesToRoads(
     // π/2 regardless of the user-drawn axis direction.
     void relativeHdg
     const crosswalkHdg = Math.PI / 2
-    // Regulatory links (affected roads + stop line polyline) ride along as
+    // Regulatory links (affected lanes + stop line polyline) ride along as
     // <userData> — OpenDRIVE's standard extension mechanism — so they survive
     // an .xodr round trip. Coordinates are ENU meters.
     const userData: { code: string; value: string }[] = []
-    if (affectedRoadIds.size > 0) {
-      const links: { affectedRoads: string[]; stopLine?: number[][] } = {
-        affectedRoads: [...affectedRoadIds].sort((a, b) => a - b).map(String),
+    if (affectedByRoad.size > 0) {
+      const affectedLanes: [string, string][] = []
+      for (const [rid, ids] of [...affectedByRoad.entries()].sort((a, b) => a[0] - b[0])) {
+        for (const oid of [...ids].sort((a, b) => a - b)) {
+          affectedLanes.push([String(rid), String(oid)])
+        }
+      }
+      const links: { affectedLanes: [string, string][]; stopLine?: number[][] } = {
+        affectedLanes,
       }
       if (cw.props.stopLineId) {
         const stopLs = shapeMap.get(cw.props.stopLineId) as unknown as LinestringShape | undefined
@@ -804,21 +1576,23 @@ function attachShapesToRoads(
     cy /= vertices.length
     const xG = pxToEnuX(cx)
     const yG = pxToEnuY(cy)
-    let best: { roadId: number; proj: ReturnType<typeof projectToRoad> } | null = null
-    let fallback: { roadId: number; proj: ReturnType<typeof projectToRoad> } | null = null
+    let best: { roadId: number; geom: BundleGeometry; proj: ReturnType<typeof projectToRoad> } | null = null
+    let fallback: { roadId: number; geom: BundleGeometry; proj: ReturnType<typeof projectToRoad> } | null = null
     for (const r of roads) {
       const proj = projectToRoad(r.geom, xG, yG)
       if (proj.clampedAtEnd) {
-        if (!fallback || proj.distance < fallback.proj.distance) fallback = { roadId: r.roadId, proj }
+        if (!fallback || proj.distance < fallback.proj.distance) {
+          fallback = { roadId: r.roadId, geom: r.geom, proj }
+        }
         continue
       }
-      if (!best || proj.distance < best.proj.distance) best = { roadId: r.roadId, proj }
+      if (!best || proj.distance < best.proj.distance) best = { roadId: r.roadId, geom: r.geom, proj }
     }
     if (!best) best = fallback
     if (!best || best.proj.distance > maxAttachDistanceMeter) continue
     const cosH = Math.cos(best.proj.hdg)
     const sinH = Math.sin(best.proj.hdg)
-    const samples = laneToGeom.get([...laneToGeom.keys()].find((k) => laneIdToRoadId.get(k) === best!.roadId)!)!.odrSamples
+    const samples = best.geom.samplePoses
     const anchorPoint = best.proj.clampedAtEnd && best.proj.s >= samples[samples.length - 1].s - 1e-6
       ? samples[samples.length - 1]
       : samples[0]
@@ -865,12 +1639,10 @@ function emitSignals(signals: SignalEntry[], references: SignalReferenceEntry[])
   lines.push(`    <signals>`)
   for (const s of signals) {
     const attrs = `id="${s.id}" s="${fmt(s.s)}" t="${fmt(s.t)}" zOffset="${fmt(s.zOffset)}" name="${escapeXml(s.name)}" dynamic="${s.dynamic}" orientation="${s.orientation}" type="${s.type}" subtype="${s.subtype}" country="OpenDRIVE" value="0" height="${fmt(s.height)}" width="${fmt(s.width)}"`
-    if (s.validity || s.stopLinePoints) {
+    if (s.validity?.length || s.stopLinePoints) {
       lines.push(`      <signal ${attrs}>`)
-      if (s.validity) {
-        lines.push(
-          `        <validity fromLane="${s.validity.fromLane}" toLane="${s.validity.toLane}"/>`
-        )
+      for (const v of s.validity ?? []) {
+        lines.push(`        <validity fromLane="${v.fromLane}" toLane="${v.toLane}"/>`)
       }
       if (s.stopLinePoints) {
         const json = JSON.stringify(
@@ -887,7 +1659,9 @@ function emitSignals(signals: SignalEntry[], references: SignalReferenceEntry[])
     lines.push(
       `      <signalReference s="${fmt(ref.s)}" t="${fmt(ref.t)}" id="${ref.id}" orientation="${ref.orientation}">`
     )
-    lines.push(`        <validity fromLane="-1" toLane="-1"/>`)
+    for (const v of ref.validity) {
+      lines.push(`        <validity fromLane="${v.fromLane}" toLane="${v.toLane}"/>`)
+    }
     lines.push(`      </signalReference>`)
   }
   lines.push(`    </signals>`)
@@ -940,38 +1714,89 @@ function emitObjects(objects: ObjectEntry[]): string {
 /**
  * Lane attributes that have no OpenDRIVE representation (speed_limit only
  * partially maps, one_way / turn_direction / location and custom tags not at
- * all) are stashed verbatim as JSON in <userData code="laneAttributes"> —
- * OpenDRIVE's standard extension mechanism — and restored by the importer.
+ * all) are stashed as JSON in <userData code="laneAttributes"> — OpenDRIVE's
+ * standard extension mechanism — keyed by the lane's ODR id so per-lane
+ * attributes stay separate in multi-lane roads, and restored by the importer.
  * `odr_*` meta attributes are excluded: they are regenerated on import.
  */
-function emitLaneAttributesUserData(lane: LaneShape): string | null {
-  const stash: Record<string, string> = {}
-  for (const [k, v] of Object.entries(lane.props.attributes ?? {})) {
-    if (k === 'type' || k.startsWith('odr_')) continue
-    if (v === undefined || v === null || v === '') continue
-    stash[k] = String(v)
-  }
-  if (Object.keys(stash).length === 0) return null
-  return `    <userData code="laneAttributes" value="${escapeXml(JSON.stringify(stash))}"/>`
+function emitLaneAttributesUserData(bundleLanes: LaneShape[]): string | null {
+  const byLane: Record<string, Record<string, string>> = {}
+  bundleLanes.forEach((lane, i) => {
+    const stash: Record<string, string> = {}
+    for (const [k, v] of Object.entries(lane.props.attributes ?? {})) {
+      if (k === 'type' || k.startsWith('odr_')) continue
+      if (v === undefined || v === null || v === '') continue
+      stash[k] = String(v)
+    }
+    if (Object.keys(stash).length > 0) byLane[String(-(i + 1))] = stash
+  })
+  if (Object.keys(byLane).length === 0) return null
+  return `    <userData code="laneAttributes" value="${escapeXml(JSON.stringify(byLane))}"/>`
 }
 
 /**
- * Right-of-way links (`yieldLaneIds`) have no canonical OpenDRIVE road-level
- * representation in this exporter (junction <priority> mapping is out of
- * scope), so the yielding lanes' road ids are stashed in
- * <userData code="yieldRoads"> and restored by the importer.
+ * Right-of-way links (`yieldLaneIds`) between two lanes that both feed a
+ * connecting road of the same junction are expressed as standard junction
+ * <priority> records (see planConnectivity); every remaining link is stashed
+ * in <userData code="yieldLanes"> as { ownLaneId: [[roadId, laneId], ...] }
+ * and restored by the importer.
  */
-function emitYieldRoadsUserData(lane: LaneShape, laneIdToRoadId: Map<string, number>): string | null {
-  const yieldRoadIds: number[] = []
-  for (const yieldShapeId of lane.props.yieldLaneIds ?? []) {
-    const rid = laneIdToRoadId.get(yieldShapeId)
-    if (rid !== undefined && !yieldRoadIds.includes(rid)) yieldRoadIds.push(rid)
-  }
-  if (yieldRoadIds.length === 0) return null
-  const json = JSON.stringify(yieldRoadIds.sort((a, b) => a - b).map(String))
-  return `    <userData code="yieldRoads" value="${escapeXml(json)}"/>`
+function emitYieldLanesUserData(
+  bundleLanes: LaneShape[],
+  laneIdToRoadId: Map<string, number>,
+  laneIdToOdrLaneId: Map<string, number>,
+  handledYieldPairs: Set<string>
+): string | null {
+  const byLane: Record<string, [string, string][]> = {}
+  bundleLanes.forEach((lane, i) => {
+    const targets: [string, string][] = []
+    for (const yieldShapeId of lane.props.yieldLaneIds ?? []) {
+      if (handledYieldPairs.has(`${lane.id}|${yieldShapeId}`)) continue
+      const rid = laneIdToRoadId.get(yieldShapeId)
+      const oid = laneIdToOdrLaneId.get(yieldShapeId)
+      if (rid === undefined || oid === undefined) continue
+      if (!targets.some(t => t[0] === String(rid) && t[1] === String(oid))) {
+        targets.push([String(rid), String(oid)])
+      }
+    }
+    if (targets.length > 0) {
+      targets.sort((a, b) => Number(a[0]) - Number(b[0]) || Number(a[1]) - Number(b[1]))
+      byLane[String(-(i + 1))] = targets
+    }
+  })
+  if (Object.keys(byLane).length === 0) return null
+  return `    <userData code="yieldLanes" value="${escapeXml(JSON.stringify(byLane))}"/>`
 }
 
+/**
+ * Zero-width-contact lane edges homed on this road (see
+ * ConnectivityPlan.hiddenLaneEdges), stashed as
+ * <userData code="hiddenLaneLinks"> records of
+ * { fr, fl, tr, tl } = from road id / from ODR lane id / to road id /
+ * to ODR lane id (from end -> to start in travel direction), and restored
+ * into next/prev by the importer.
+ */
+function emitHiddenLinksUserData(
+  bundleLanes: LaneShape[],
+  plan: ConnectivityPlan,
+  laneIdToRoadId: Map<string, number>,
+  laneIdToOdrLaneId: Map<string, number>
+): string | null {
+  const inBundle = new Set(bundleLanes.map(l => l.id))
+  const recs: { fr: number; fl: number; tr: number; tl: number }[] = []
+  for (const e of plan.hiddenLaneEdges) {
+    if (!inBundle.has(e.home)) continue
+    const fr = laneIdToRoadId.get(e.from)
+    const fl = laneIdToOdrLaneId.get(e.from)
+    const tr = laneIdToRoadId.get(e.to)
+    const tl = laneIdToOdrLaneId.get(e.to)
+    if (fr === undefined || fl === undefined || tr === undefined || tl === undefined) continue
+    recs.push({ fr, fl, tr, tl })
+  }
+  if (recs.length === 0) return null
+  recs.sort((a, b) => a.fr - b.fr || a.fl - b.fl || a.tr - b.tr || a.tl - b.tl)
+  return `    <userData code="hiddenLaneLinks" value="${escapeXml(JSON.stringify(recs))}"/>`
+}
 
 /**
  * Road length attribute. The plan-view geometries are emitted with rounded
@@ -979,72 +1804,399 @@ function emitYieldRoadsUserData(lane: LaneShape, laneIdToRoadId: Map<string, num
  * road length by ~1e-6, which strict consumers flag as "s too large". Use the
  * emitted extent plus a tiny pad so the length always covers the geometry.
  */
-function emittedRoadLength(geom: RoadGeometry): number {
+function emittedRoadLength(geom: BundleGeometry): number {
   let extent = geom.length
-  for (let i = 0; i < geom.odrSamples.length - 1; i++) {
-    const a = geom.odrSamples[i]
-    const b = geom.odrSamples[i + 1]
-    const segLen = Math.hypot(b.x - a.x, b.y - a.y)
-    if (segLen < 1e-9) continue
-    const end = parseFloat(fmt(a.s)) + parseFloat(fmt(segLen))
+  for (const g of geom.planView) {
+    const end = parseFloat(fmt(g.s)) + parseFloat(fmt(g.length))
     if (end > extent) extent = end
   }
   return extent + 1e-4
 }
 
 function emitRoad(
-  lane: LaneShape,
-  geom: RoadGeometry,
+  bundle: ExportBundle,
   roadId: number,
-  laneIdToRoadId: Map<string, number>,
-  junctionPlan: JunctionPlan,
+  plan: ConnectivityPlan,
   signals: SignalEntry[],
   signalRefs: SignalReferenceEntry[],
   objects: ObjectEntry[],
-  shapeMap: Map<string, BaseShape>
+  shapeMap: Map<string, BaseShape>,
+  laneIdToRoadId: Map<string, number>,
+  laneIdToOdrLaneId: Map<string, number>
 ): string {
-  const speed = lane.props.attributes?.speed_limit
-  const name = escapeXml(lane.props.attributes?.subtype || 'road')
-  const hasPrev = (lane.props.prev ?? []).some((id) => laneIdToRoadId.has(id))
-  const hasNext = (lane.props.next ?? []).some((id) => laneIdToRoadId.has(id))
-  const junctionAttr = junctionPlan.roadJunction.get(lane.id) ?? -1
+  const first = bundle.lanes[0]
+  const speed = bundle.lanes.find(l => l.props.attributes?.speed_limit)?.props.attributes?.speed_limit
+  const name = escapeXml(first.props.attributes?.subtype || 'road')
   const lines: string[] = []
+  // Mainline (bundle) roads never belong to a junction; junction membership
+  // is carried by the synthesized connecting roads (emitConnectingRoad).
   lines.push(
-    `  <road name="${name}" length="${fmt(emittedRoadLength(geom))}" id="${roadId}" junction="${junctionAttr}">`
+    `  <road name="${name}" length="${fmt(emittedRoadLength(bundle.geom))}" id="${roadId}" junction="-1">`
   )
-  lines.push(emitLink(lane, laneIdToRoadId, junctionPlan))
+  lines.push(emitLink(roadId, plan))
   if (speed) {
     lines.push(`    <type s="0" type="town">`)
     lines.push(`      <speed max="${escapeXml(speed)}" unit="km/h"/>`)
     lines.push(`    </type>`)
   }
-  lines.push(emitPlanView(geom))
+  lines.push(emitPlanView(bundle.geom))
   lines.push(`    <elevationProfile/>`)
   lines.push(`    <lateralProfile/>`)
-  lines.push(
-    emitLanes(
-      geom,
-      hasPrev,
-      hasNext,
-      odrLaneTypeFor(lane),
-      roadMarkTypeFor(shapeMap, lane.props.leftBoundaryId),
-      roadMarkTypeFor(shapeMap, lane.props.rightBoundaryId)
-    )
-  )
+  lines.push(emitLanes(bundle, plan, shapeMap))
   lines.push(emitObjects(objects))
   lines.push(emitSignals(signals, signalRefs))
-  const userData = emitLaneAttributesUserData(lane)
+  const userData = emitLaneAttributesUserData(bundle.lanes)
   if (userData) lines.push(userData)
-  const yieldUserData = emitYieldRoadsUserData(lane, laneIdToRoadId)
+  const yieldUserData = emitYieldLanesUserData(
+    bundle.lanes,
+    laneIdToRoadId,
+    laneIdToOdrLaneId,
+    plan.handledYieldPairs
+  )
   if (yieldUserData) lines.push(yieldUserData)
+  const hiddenLinksUserData = emitHiddenLinksUserData(
+    bundle.lanes,
+    plan,
+    laneIdToRoadId,
+    laneIdToOdrLaneId
+  )
+  if (hiddenLinksUserData) lines.push(hiddenLinksUserData)
   lines.push(`  </road>`)
   return lines.join('\n')
 }
 
+/** Empty point-override map (raw stored coordinates). */
+const NO_OVERRIDES: Map<string, Point2D> = new Map()
+
+export interface OpenDriveExportOptions {
+  /**
+   * Sidecar captured by the OpenDRIVE importer. When present (with road
+   * records), roads whose shapes were not edited since import are re-emitted
+   * verbatim from the original XML (carry-through) and only edited roads are
+   * regenerated. Without a sidecar the export is fully regenerated.
+   */
+  sidecar?: OdrSidecar | null
+}
+
+/** Carry-through plan: which original elements stay verbatim. */
+interface CarryPlan {
+  doc: OdrDocument
+  records: Record<string, OdrRoadRecord>
+  /** Recorded road ids whose state hash still matches (emitted verbatim). */
+  cleanRoadIds: Set<string>
+  /** Recorded road ids that must be regenerated. */
+  dirtyRecordedIds: Set<string>
+  /** Lane shape ids covered by verbatim roads (excluded from regeneration). */
+  verbatimLaneIds: Set<string>
+  /** Traffic light / crosswalk shape ids covered by verbatim roads. */
+  consumedShapeIds: Set<string>
+  headerText: string | null
+  verbatimRoads: OdrDocRoad[]
+  /** Original junction ids that must be regenerated (members changed). */
+  dirtyJunctionIds: Set<string>
+  verbatimJunctionTexts: string[]
+  verbatimControllerTexts: string[]
+  /** First id for regenerated roads / junctions (above every original id). */
+  idBase: number
+  signalIdBase: number
+  controllerIdBase: number
+}
+
+/**
+ * Decide which original roads can be re-emitted verbatim.
+ *
+ * A recorded road is clean when every lane shape it produced still exists and
+ * the state hash recomputed from the live shapes equals the import-time hash
+ * (geometry, attributes, connectivity, right-of-way, and the regulatory
+ * shapes touching the road — see odrCarryThrough.ts).
+ *
+ * Dirtiness then propagates until stable:
+ * - A junction is dirty when any member road (connecting roads, incoming /
+ *   outgoing roads, roads linking to the junction) is dirty or unrecorded.
+ *   A dirty junction regenerates together with its CONNECTING
+ *   (junction-stamped) roads, whose connection table it replaces; clean
+ *   incoming / outgoing roads stay verbatim and their junction link
+ *   elementIds are re-pointed at the regenerated junction on emission.
+ * - Regulatory shapes are atomic: a traffic light / crosswalk touching a
+ *   dirty road dirties every road it touches, so its signal + references are
+ *   either all verbatim or all regenerated.
+ *
+ * Roads referencing unrecorded elements (e.g. a selective import) are never
+ * carried verbatim, so verbatim output cannot dangle into missing roads.
+ */
+function planCarryThrough(
+  sidecar: OdrSidecar | null | undefined,
+  shapeMap: Map<string, BaseShape>,
+  trafficLights: TrafficLightShape[],
+  crosswalks: CrosswalkShape[]
+): CarryPlan | null {
+  const records = sidecar?.roadRecords
+  if (!sidecar || !records || Object.keys(records).length === 0) return null
+  const doc = extractOdrDocument(sidecar.rawXml)
+  if (!doc) return null
+  const docRoadById = new Map(doc.roads.map(r => [r.id, r]))
+  const docJunctionById = new Map(doc.junctions.map(j => [j.id, j]))
+
+  // laneShapeId -> recorded road id (over every record).
+  const laneRoadOf = new Map<string, string>()
+  for (const [rid, rec] of Object.entries(records)) {
+    for (const lid of rec.laneShapeIds) laneRoadOf.set(lid, rid)
+  }
+
+  const stopLinePts = (lsId: string | null | undefined): Point2D[] | null => {
+    if (!lsId) return null
+    const ls = shapeMap.get(lsId) as unknown as LinestringShape | undefined
+    if (!ls) return null
+    const pts = collectPoints(shapeMap, ls.props.pointIds, false, NO_OVERRIDES)
+    return pts.length >= 2 ? pts : null
+  }
+
+  // Regulatory shapes: state + the set of recorded roads each one touches
+  // (mirrors the importer's record builder).
+  const regStatesByRoad = new Map<string, CarryRegulatoryState[]>()
+  const regShapes: { shapeId: string; touching: Set<string> }[] = []
+  const addRegState = (
+    state: CarryRegulatoryState,
+    affected: readonly string[],
+    own: string | undefined
+  ): void => {
+    const touching = new Set<string>()
+    if (own && records[own]) touching.add(own)
+    for (const lid of affected) {
+      const rid = laneRoadOf.get(lid)
+      if (rid) touching.add(rid)
+    }
+    for (const rid of touching) {
+      const list = regStatesByRoad.get(rid) ?? []
+      list.push(state)
+      regStatesByRoad.set(rid, list)
+    }
+    regShapes.push({ shapeId: state.shapeId, touching })
+  }
+  for (const tl of trafficLights) {
+    addRegState(
+      {
+        kind: 'traffic_light',
+        shapeId: tl.id,
+        numbers: [tl.x, tl.y, tl.props.w, tl.props.h, tl.rotation || 0],
+        attributes: tl.props.attributes ?? {},
+        affectedLaneIds: tl.props.affectedLaneIds ?? [],
+        stopLinePts: stopLinePts(tl.props.stopLineId),
+        controllerId: tl.props.controllerId ?? '',
+      },
+      tl.props.affectedLaneIds ?? [],
+      tl.props.attributes?.odr_road_id
+    )
+  }
+  for (const cw of crosswalks) {
+    addRegState(
+      {
+        kind: 'crosswalk',
+        shapeId: cw.id,
+        numbers: [
+          cw.x,
+          cw.y,
+          cw.props.startX,
+          cw.props.startY,
+          cw.props.endX,
+          cw.props.endY,
+          cw.props.crosswalkWidth,
+          cw.rotation || 0,
+        ],
+        attributes: cw.props.attributes ?? {},
+        affectedLaneIds: cw.props.affectedLaneIds ?? [],
+        stopLinePts: stopLinePts(cw.props.stopLineId),
+        controllerId: '',
+      },
+      cw.props.affectedLaneIds ?? [],
+      cw.props.attributes?.odr_road_id
+    )
+  }
+
+  // Export-side lane states (null when any recorded lane shape is missing).
+  const exportLaneStates = (rec: OdrRoadRecord): CarryLaneState[] | null => {
+    const states: CarryLaneState[] = []
+    for (const lid of rec.laneShapeIds) {
+      const shape = shapeMap.get(lid)
+      if (!shape || shape.type !== 'lane') return null
+      const lane = shape as unknown as LaneShape
+      states.push({
+        leftPts: boundaryPointsOf(shapeMap, lane.props.leftBoundaryId, lane.props.invertLeft, NO_OVERRIDES),
+        rightPts: boundaryPointsOf(shapeMap, lane.props.rightBoundaryId, lane.props.invertRight, NO_OVERRIDES),
+        attributes: lane.props.attributes ?? {},
+        next: lane.props.next ?? [],
+        prev: lane.props.prev ?? [],
+        yieldLaneIds: lane.props.yieldLaneIds ?? [],
+      })
+    }
+    return states
+  }
+
+  // Seed dirtiness: hash mismatch, missing shapes, or references that leave
+  // the recorded set.
+  const dirty = new Set<string>()
+  for (const [rid, rec] of Object.entries(records)) {
+    const docRoad = docRoadById.get(rid)
+    if (!docRoad) {
+      dirty.add(rid)
+      continue
+    }
+    if (
+      docRoad.linkRoadRefs.some(ref => !records[ref]) ||
+      docRoad.linkJunctionRefs.some(ref => !docJunctionById.has(ref))
+    ) {
+      dirty.add(rid)
+      continue
+    }
+    const laneStates = exportLaneStates(rec)
+    if (!laneStates || hashRoadState(laneStates, regStatesByRoad.get(rid) ?? []) !== rec.stateHash) {
+      dirty.add(rid)
+    }
+  }
+
+  // Junction membership: connection roads, junction-stamped roads (plus
+  // their link targets — the maneuver's incoming/outgoing roads), and roads
+  // whose link references the junction.
+  const members = new Map<string, Set<string>>()
+  const junctionStamped = new Map<string, Set<string>>()
+  for (const j of doc.junctions) {
+    members.set(j.id, new Set(j.memberRoadIds))
+    junctionStamped.set(j.id, new Set())
+  }
+  for (const r of doc.roads) {
+    if (r.junction !== '-1') {
+      const set = members.get(r.junction)
+      if (set) {
+        set.add(r.id)
+        for (const ref of r.linkRoadRefs) set.add(ref)
+        junctionStamped.get(r.junction)!.add(r.id)
+      }
+    }
+    for (const jref of r.linkJunctionRefs) members.get(jref)?.add(r.id)
+  }
+
+  // Propagate to a fixpoint. A dirty junction drags only its connecting
+  // (junction-stamped) roads into regeneration — clean incoming / outgoing
+  // roads keep their verbatim text (with the junction link id rewritten) —
+  // so a single edited road regenerates its own junctions, not the whole
+  // junction graph. Regulatory shapes are atomic across the roads they touch.
+  const dirtyJunctionIds = new Set<string>()
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const [jid, memberSet] of members) {
+      let bad = false
+      for (const m of memberSet) {
+        if (!records[m] || dirty.has(m)) {
+          bad = true
+          break
+        }
+      }
+      if (!bad) continue
+      if (!dirtyJunctionIds.has(jid)) {
+        dirtyJunctionIds.add(jid)
+        changed = true
+      }
+      for (const m of junctionStamped.get(jid) ?? []) {
+        if (records[m] && !dirty.has(m)) {
+          dirty.add(m)
+          changed = true
+        }
+      }
+    }
+    for (const reg of regShapes) {
+      let bad = false
+      for (const rid of reg.touching) {
+        if (dirty.has(rid)) {
+          bad = true
+          break
+        }
+      }
+      if (!bad) continue
+      for (const rid of reg.touching) {
+        if (!dirty.has(rid)) {
+          dirty.add(rid)
+          changed = true
+        }
+      }
+    }
+  }
+
+  const cleanRoadIds = new Set<string>()
+  for (const rid of Object.keys(records)) {
+    if (!dirty.has(rid) && docRoadById.has(rid)) cleanRoadIds.add(rid)
+  }
+
+  const verbatimLaneIds = new Set<string>()
+  for (const rid of cleanRoadIds) {
+    for (const lid of records[rid].laneShapeIds) verbatimLaneIds.add(lid)
+  }
+
+  const consumedShapeIds = new Set<string>()
+  for (const reg of regShapes) {
+    if (reg.touching.size === 0) continue
+    let allClean = true
+    for (const rid of reg.touching) {
+      if (!cleanRoadIds.has(rid)) {
+        allClean = false
+        break
+      }
+    }
+    if (allClean) consumedShapeIds.add(reg.shapeId)
+  }
+
+  const verbatimRoads: OdrDocRoad[] = []
+  for (const r of doc.roads) {
+    if (cleanRoadIds.has(r.id)) verbatimRoads.push(r)
+  }
+
+  const verbatimJunctionTexts: string[] = []
+  for (const j of doc.junctions) {
+    if (!dirtyJunctionIds.has(j.id)) verbatimJunctionTexts.push(j.text)
+  }
+
+  // A controller stays verbatim when every signal it controls is defined in
+  // a verbatim road.
+  const signalRoadOf = new Map<string, string>()
+  for (const r of doc.roads) {
+    for (const sid of r.signalIds) signalRoadOf.set(sid, r.id)
+  }
+  const verbatimControllerTexts: string[] = []
+  for (const c of doc.controllers) {
+    const ok =
+      c.signalIds.length > 0 &&
+      c.signalIds.every(sid => {
+        const rid = signalRoadOf.get(sid)
+        return rid !== undefined && cleanRoadIds.has(rid)
+      })
+    if (ok) verbatimControllerTexts.push(c.text)
+  }
+
+  return {
+    doc,
+    records,
+    cleanRoadIds,
+    dirtyRecordedIds: dirty,
+    verbatimLaneIds,
+    consumedShapeIds,
+    headerText: doc.headerText,
+    verbatimRoads,
+    dirtyJunctionIds,
+    verbatimJunctionTexts,
+    verbatimControllerTexts,
+    idBase: Math.max(doc.maxNumericElementId, 0) + 1,
+    signalIdBase: Math.max(doc.maxNumericSignalId, 0) + 1,
+    controllerIdBase: Math.max(doc.maxNumericControllerId, 0) + 1,
+  }
+}
+
 /**
  * Build an OpenDRIVE 1.8 XML document from a snapshot.
+ *
+ * With `options.sidecar` (captured by the OpenDRIVE importer), unedited
+ * roads are re-emitted verbatim from the original XML; see planCarryThrough.
  */
-export function exportToOpenDrive(snapshot: DrawtonomySnapshot): string {
+export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDriveExportOptions = {}): string {
   const shapes = snapshot.shapes
   const shapeMap = buildShapeMap(shapes)
   const lanes: LaneShape[] = []
@@ -1066,9 +2218,16 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot): string {
     }
   }
 
-  // Road ids are assigned after geometry construction so degenerate lanes
-  // (zero-length centerlines) neither emit empty roads nor occupy link ids.
-  const laneIdToRoadId = new Map<string, number>()
+  // Carry-through: with an importer sidecar, unedited original roads are
+  // re-emitted verbatim and excluded from regeneration.
+  const carry = planCarryThrough(options.sidecar, shapeMap, trafficLights, crosswalks)
+  const regenLanes = carry ? lanes.filter(l => !carry.verbatimLaneIds.has(l.id)) : lanes
+  const regenTrafficLights = carry
+    ? trafficLights.filter(t => !carry.consumedShapeIds.has(t.id))
+    : trafficLights
+  const regenCrosswalks = carry
+    ? crosswalks.filter(c => !carry.consumedShapeIds.has(c.id))
+    : crosswalks
 
   const dateStr = new Date().toISOString()
   const bbox = computeEnuBoundingBox(shapeMap)
@@ -1076,58 +2235,304 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot): string {
   const lines: string[] = []
   lines.push(`<?xml version="1.0" encoding="UTF-8"?>`)
   lines.push(`<OpenDRIVE>`)
-  // OpenDRIVE 1.8 expects <geoReference> inside <header>. We always emit one —
-  // tmerc-at-origin when snapshot.origin is set, WGS84 longlat as a fallback —
-  // so downstream tools (esmini, RoadRunner, asam-qc-opendrive) see a defined
-  // coordinate reference system rather than nothing. The N/S/E/W attributes
-  // are populated from the actual point cloud so the header bbox reflects the
-  // map extent in ENU metres.
-  lines.push(
-    `  <header revMajor="1" revMinor="8" name="drawtonomy" version="1.0" date="${dateStr}" ` +
-      `north="${fmt(bbox.north)}" south="${fmt(bbox.south)}" east="${fmt(bbox.east)}" west="${fmt(bbox.west)}" vendor="drawtonomy">`
-  )
-  lines.push(`    <geoReference><![CDATA[${escapeCdata(geoRefProj)}]]></geoReference>`)
-  lines.push(`  </header>`)
+  if (carry?.headerText) {
+    // Carry-through keeps the original header (geoReference, bbox, vendor)
+    // so an unedited round trip preserves the source coordinate frame.
+    lines.push(carry.headerText)
+  } else {
+    // OpenDRIVE 1.8 expects <geoReference> inside <header>. We always emit one —
+    // tmerc-at-origin when snapshot.origin is set, WGS84 longlat as a fallback —
+    // so downstream tools (esmini, RoadRunner, asam-qc-opendrive) see a defined
+    // coordinate reference system rather than nothing. The N/S/E/W attributes
+    // are populated from the actual point cloud so the header bbox reflects the
+    // map extent in ENU metres.
+    lines.push(
+      `  <header revMajor="1" revMinor="8" name="drawtonomy" version="1.0" date="${dateStr}" ` +
+        `north="${fmt(bbox.north)}" south="${fmt(bbox.south)}" east="${fmt(bbox.east)}" west="${fmt(bbox.west)}" vendor="drawtonomy">`
+    )
+    lines.push(`    <geoReference><![CDATA[${escapeCdata(geoRefProj)}]]></geoReference>`)
+    lines.push(`  </header>`)
+  }
 
   const pointOverrides = buildBoundaryAlignmentOverrides(shapeMap, lanes)
 
-  const laneToGeom = new Map<string, RoadGeometry>()
-  for (const lane of lanes) {
-    const geom = buildRoadGeometry(shapeMap, lane, pointOverrides)
-    if (geom && geom.length >= 0.01 && geom.odrSamples.length >= 2) {
-      laneToGeom.set(lane.id, geom)
+  // Group laterally adjacent lanes into road bundles and build their
+  // geometry. Degenerate bundles (zero-length reference lines) are dropped;
+  // a multi-lane bundle whose geometry cannot be built (broken boundary
+  // references) degrades to per-lane bundles so one bad lane does not drop
+  // its neighbours.
+  const exportBundles: ExportBundle[] = []
+  for (const bundleLanes of detectBundles(regenLanes)) {
+    const geom = buildBundleGeometry(shapeMap, bundleLanes, pointOverrides)
+    if (geom && geom.length >= 0.01) {
+      exportBundles.push({ lanes: bundleLanes, geom })
+    } else if (bundleLanes.length > 1) {
+      for (const lane of bundleLanes) {
+        const g = buildBundleGeometry(shapeMap, [lane], pointOverrides)
+        if (g && g.length >= 0.01) exportBundles.push({ lanes: [lane], geom: g })
+      }
     }
   }
-  let nextRoadId = 1
-  for (const lane of lanes) {
-    if (laneToGeom.has(lane.id)) laneIdToRoadId.set(lane.id, nextRoadId++)
+
+  // Stable road id assignment: bundles ordered by their first lane's position
+  // in the snapshot. Lane ids count -1, -2, ... left→right within a bundle.
+  // Carry-through: a regenerated bundle covering exactly the lane set of a
+  // dirty original road keeps that road's id, so links inside verbatim
+  // neighbours stay valid without rewriting; other bundles take fresh ids
+  // above every original id.
+  const laneOrder = new Map<string, number>()
+  lanes.forEach((lane, i) => laneOrder.set(lane.id, i))
+  exportBundles.sort(
+    (a, b) => Math.min(...a.lanes.map(l => laneOrder.get(l.id)!)) - Math.min(...b.lanes.map(l => laneOrder.get(l.id)!))
+  )
+  const reuseKey = (ids: readonly string[]): string => [...ids].sort().join('\n')
+  const reusableRoadIds = new Map<string, number>()
+  if (carry) {
+    for (const rid of carry.dirtyRecordedIds) {
+      const rec = carry.records[rid]
+      if (!rec || rec.laneShapeIds.length === 0 || !/^\d+$/.test(rid)) continue
+      reusableRoadIds.set(reuseKey(rec.laneShapeIds), parseInt(rid, 10))
+    }
   }
-  const junctionPlan = planJunctions(lanes, laneIdToRoadId, nextRoadId)
+  const laneIdToRoadId = new Map<string, number>()
+  const laneIdToOdrLaneId = new Map<string, number>()
+  const roadIdByBundle = new Map<ExportBundle, number>()
+  let nextRoadId = carry ? carry.idBase : 1
+  for (const bundle of exportBundles) {
+    const key = reuseKey(bundle.lanes.map(l => l.id))
+    const reused = reusableRoadIds.get(key)
+    if (reused !== undefined) reusableRoadIds.delete(key)
+    const roadId = reused ?? nextRoadId++
+    roadIdByBundle.set(bundle, roadId)
+    bundle.lanes.forEach((lane, i) => {
+      laneIdToRoadId.set(lane.id, roadId)
+      laneIdToOdrLaneId.set(lane.id, -(i + 1))
+    })
+  }
+
+  // Carry-through: lanes of verbatim roads join the connectivity id maps as
+  // external endpoints, so regenerated roads link to / from them.
+  const externalLanes = new Map<string, LaneShape>()
+  if (carry) {
+    for (const rid of carry.cleanRoadIds) {
+      if (!/^\d+$/.test(rid)) continue
+      for (const lid of carry.records[rid].laneShapeIds) {
+        const shape = shapeMap.get(lid) as unknown as LaneShape | undefined
+        if (!shape) continue
+        const odrLaneId = parseInt(shape.props.attributes?.odr_lane_id ?? '', 10)
+        if (!Number.isFinite(odrLaneId)) continue
+        laneIdToRoadId.set(lid, parseInt(rid, 10))
+        laneIdToOdrLaneId.set(lid, odrLaneId)
+        externalLanes.set(lid, shape)
+      }
+    }
+  }
+
+  // Geometry seed for synthesized connecting roads: bundle lanes read it off
+  // their fitted bundle geometry; external (verbatim) lanes off their drawn
+  // boundary endpoints.
+  const laneLocation = new Map<string, { bundle: ExportBundle; index: number }>()
+  for (const bundle of exportBundles) {
+    bundle.lanes.forEach((lane, index) => laneLocation.set(lane.id, { bundle, index }))
+  }
+  const connectingSourceFor = (laneShapeId: string): ConnectingSource | null => {
+    const loc = laneLocation.get(laneShapeId)
+    if (loc) {
+      const geom = loc.bundle.geom
+      const lastGeom = geom.planView[geom.planView.length - 1]
+      const endPose = evalGeometry(lastGeom, lastGeom.length)
+      // Lane boundaries sit toward -t (right of the reference direction): the
+      // inner boundary of lane -(i+1) is offset by the widths of lanes 0..i-1.
+      const lastIdx = geom.samplePoses.length - 1
+      let offset = 0
+      for (let m = 0; m < loc.index; m++) offset += geom.laneWidths[m][lastIdx]
+      return {
+        x: endPose.x + Math.sin(endPose.hdg) * offset,
+        y: endPose.y - Math.cos(endPose.hdg) * offset,
+        hdg: endPose.hdg,
+        width: geom.laneWidths[loc.index][lastIdx],
+        laneType: odrLaneTypeFor(loc.bundle.lanes[loc.index]),
+      }
+    }
+    const lane = externalLanes.get(laneShapeId)
+    if (!lane) return null
+    const left = boundaryPointsOf(shapeMap, lane.props.leftBoundaryId, lane.props.invertLeft, NO_OVERRIDES)
+    const right = boundaryPointsOf(shapeMap, lane.props.rightBoundaryId, lane.props.invertRight, NO_OVERRIDES)
+    if (!left || !right) return null
+    const ex = pxToEnuX(left[left.length - 1].x)
+    const ey = pxToEnuY(left[left.length - 1].y)
+    const px = pxToEnuX(left[left.length - 2].x)
+    const py = pxToEnuY(left[left.length - 2].y)
+    const rx = pxToEnuX(right[right.length - 1].x)
+    const ry = pxToEnuY(right[right.length - 1].y)
+    return {
+      x: ex,
+      y: ey,
+      hdg: Math.atan2(ey - py, ex - px),
+      width: Math.hypot(rx - ex, ry - ey),
+      laneType: odrLaneTypeFor(lane),
+    }
+  }
+
+  // Travel heading / width of a connecting road's target lane at its start,
+  // for blending the stub onto the outgoing road (see ConnectingTarget).
+  const connectingTargetFor = (laneShapeId: string): ConnectingTarget | null => {
+    const loc = laneLocation.get(laneShapeId)
+    if (loc) {
+      const geom = loc.bundle.geom
+      if (geom.samplePoses.length === 0) return null
+      const pose = geom.samplePoses[0]
+      // Lane boundaries sit toward -t (right of the reference direction).
+      let offset = 0
+      for (let m = 0; m < loc.index; m++) offset += geom.laneWidths[m][0]
+      return {
+        x: pose.x + Math.sin(pose.hdg) * offset,
+        y: pose.y - Math.cos(pose.hdg) * offset,
+        hdg: pose.hdg,
+        width: geom.laneWidths[loc.index][0],
+      }
+    }
+    const lane = externalLanes.get(laneShapeId)
+    if (!lane) return null
+    const left = boundaryPointsOf(shapeMap, lane.props.leftBoundaryId, lane.props.invertLeft, NO_OVERRIDES)
+    const right = boundaryPointsOf(shapeMap, lane.props.rightBoundaryId, lane.props.invertRight, NO_OVERRIDES)
+    if (!left || !right || left.length < 2 || right.length < 1) return null
+    const ax = pxToEnuX(left[0].x)
+    const ay = pxToEnuY(left[0].y)
+    const bx = pxToEnuX(left[1].x)
+    const by = pxToEnuY(left[1].y)
+    const rx = pxToEnuX(right[0].x)
+    const ry = pxToEnuY(right[0].y)
+    return {
+      x: ax,
+      y: ay,
+      hdg: Math.atan2(by - ay, bx - ax),
+      width: Math.hypot(rx - ax, ry - ay),
+    }
+  }
+
+  // Full lane width at a linked contact, for the zero-width link rules:
+  // bundle lanes read their fitted width samples, external (verbatim) lanes
+  // measure their drawn boundary endpoints.
+  const contactWidth = (laneShapeId: string, contact: 'start' | 'end'): number | null => {
+    const loc = laneLocation.get(laneShapeId)
+    if (loc) {
+      const widths = loc.bundle.geom.laneWidths[loc.index]
+      if (!widths || widths.length === 0) return null
+      return contact === 'start' ? widths[0] : widths[widths.length - 1]
+    }
+    const lane = externalLanes.get(laneShapeId)
+    if (!lane) return null
+    const left = boundaryPointsOf(shapeMap, lane.props.leftBoundaryId, lane.props.invertLeft, NO_OVERRIDES)
+    const right = boundaryPointsOf(shapeMap, lane.props.rightBoundaryId, lane.props.invertRight, NO_OVERRIDES)
+    if (!left || !right || left.length === 0 || right.length === 0) return null
+    const li = contact === 'start' ? left[0] : left[left.length - 1]
+    const ri = contact === 'start' ? right[0] : right[right.length - 1]
+    return pxToMeter(Math.hypot(ri.x - li.x, ri.y - li.y))
+  }
+
+  const plan = planConnectivity(
+    exportBundles,
+    laneIdToRoadId,
+    laneIdToOdrLaneId,
+    nextRoadId,
+    connectingSourceFor,
+    connectingTargetFor,
+    contactWidth,
+    externalLanes
+  )
+  const roads = exportBundles.map(b => ({ roadId: roadIdByBundle.get(b)!, geom: b.geom }))
   const { roadSignals, roadObjects, roadSignalRefs, signalIdByShape } = attachShapesToRoads(
     shapeMap,
-    trafficLights,
-    crosswalks,
+    regenTrafficLights,
+    regenCrosswalks,
     polygons,
-    laneToGeom,
-    laneIdToRoadId
+    roads,
+    laneIdToRoadId,
+    laneIdToOdrLaneId,
+    undefined,
+    carry?.signalIdBase
   )
 
-  for (const lane of lanes) {
-    const geom = laneToGeom.get(lane.id)
-    if (!geom) continue
-    const roadId = laneIdToRoadId.get(lane.id)!
-    const signals = roadSignals.get(roadId) ?? []
-    const signalRefs = roadSignalRefs.get(roadId) ?? []
-    const objects = roadObjects.get(roadId) ?? []
+  // Verbatim road blocks first (original document order). Two minimal
+  // rewrites keep their links valid; nothing else is touched:
+  // - road links to a dirty road whose lanes regenerated into exactly one
+  //   bundle under a different id are re-pointed at that bundle;
+  // - junction links to a dirty (regenerated) junction are re-pointed at the
+  //   synthesized junction this road participates in (junction-routed pairs
+  //   sharing a road always merge, so the target is unique per road).
+  if (carry) {
+    const rewriteMap = new Map<string, string>()
+    const bundleRoadOfLane = new Map<string, number>()
+    for (const bundle of exportBundles) {
+      const rid = roadIdByBundle.get(bundle)!
+      for (const l of bundle.lanes) bundleRoadOfLane.set(l.id, rid)
+    }
+    for (const rid of carry.dirtyRecordedIds) {
+      const rec = carry.records[rid]
+      if (!rec) continue
+      const newIds = new Set<number>()
+      for (const lid of rec.laneShapeIds) {
+        const nid = bundleRoadOfLane.get(lid)
+        if (nid !== undefined) newIds.add(nid)
+      }
+      if (newIds.size === 1) {
+        const nid = String([...newIds][0])
+        if (nid !== rid) rewriteMap.set(rid, nid)
+      }
+    }
+    const newJunctionOfRoad = new Map<number, number>()
+    for (const spec of plan.connectingRoads) {
+      newJunctionOfRoad.set(spec.incomingRoadId, spec.junctionId)
+      newJunctionOfRoad.set(spec.outgoingRoadId, spec.junctionId)
+    }
+    for (const r of carry.verbatimRoads) {
+      let junctionMap: Map<string, string> | undefined
+      for (const jref of r.linkJunctionRefs) {
+        if (!carry.dirtyJunctionIds.has(jref)) continue
+        const exportedId = /^\d+$/.test(r.id) ? parseInt(r.id, 10) : NaN
+        const replacement = newJunctionOfRoad.get(exportedId)
+        if (replacement !== undefined) {
+          junctionMap = junctionMap ?? new Map()
+          junctionMap.set(jref, String(replacement))
+        }
+      }
+      lines.push(rewriteRoadLinkTargets(r.text, rewriteMap, junctionMap ?? new Map()))
+    }
+  }
+
+  for (const bundle of exportBundles) {
+    const roadId = roadIdByBundle.get(bundle)!
     lines.push(
-      emitRoad(lane, geom, roadId, laneIdToRoadId, junctionPlan, signals, signalRefs, objects, shapeMap)
+      emitRoad(
+        bundle,
+        roadId,
+        plan,
+        roadSignals.get(roadId) ?? [],
+        roadSignalRefs.get(roadId) ?? [],
+        roadObjects.get(roadId) ?? [],
+        shapeMap,
+        laneIdToRoadId,
+        laneIdToOdrLaneId
+      )
     )
+  }
+
+  // Synthesized junction connecting roads (standard incoming -> connecting ->
+  // outgoing structure; see planConnectivity).
+  for (const spec of plan.connectingRoads) {
+    lines.push(emitConnectingRoad(spec))
+  }
+
+  // Verbatim controllers (every controlled signal lives in a verbatim road).
+  if (carry) {
+    for (const text of carry.verbatimControllerTexts) lines.push(text)
   }
 
   // Signal groups: traffic lights sharing a controllerId (one intersection)
   // become a <controller> listing their emitted signals as <control> records.
   const controllerGroups = new Map<string, number[]>()
-  for (const tl of trafficLights) {
+  for (const tl of regenTrafficLights) {
     const groupId = tl.props.controllerId
     if (!groupId) continue
     const signalId = signalIdByShape.get(tl.id)
@@ -1136,7 +2541,7 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot): string {
     group.push(signalId)
     controllerGroups.set(groupId, group)
   }
-  let controllerIdCounter = 1
+  let controllerIdCounter = carry ? carry.controllerIdBase : 1
   for (const [groupId, signalIds] of controllerGroups) {
     lines.push(`  <controller id="${controllerIdCounter++}" name="${escapeXml(groupId)}" sequence="0">`)
     for (const signalId of signalIds) {
@@ -1145,16 +2550,26 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot): string {
     lines.push(`  </controller>`)
   }
 
-  // Synthesized junctions for branch / merge connectivity (see planJunctions).
-  for (const junction of junctionPlan.junctions) {
+  // Verbatim junctions (all member roads verbatim).
+  if (carry) {
+    for (const text of carry.verbatimJunctionTexts) lines.push(text)
+  }
+
+  // Synthesized junctions for branch / merge connectivity (see planConnectivity).
+  for (const junction of plan.junctions) {
     lines.push(`  <junction id="${junction.id}" name="junction${junction.id}">`)
     junction.connections.forEach((conn, idx) => {
       lines.push(
         `    <connection id="${idx}" incomingRoad="${conn.incoming}" connectingRoad="${conn.connecting}" contactPoint="start">`
       )
-      lines.push(`      <laneLink from="-1" to="-1"/>`)
+      for (const ll of conn.laneLinks) {
+        lines.push(`      <laneLink from="${ll.from}" to="${ll.to}"/>`)
+      }
       lines.push(`    </connection>`)
     })
+    for (const pr of junction.priorities) {
+      lines.push(`    <priority high="${pr.high}" low="${pr.low}"/>`)
+    }
     lines.push(`  </junction>`)
   }
 
