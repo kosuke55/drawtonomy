@@ -31,6 +31,7 @@ import type {
   PointProps,
   PolygonProps,
   TrafficLightProps,
+  TrafficSignProps,
 } from '../types'
 import { sampleAtParam, type Point2D } from './laneCenterline'
 import { evalGeometry } from './odrGeometry'
@@ -49,11 +50,13 @@ import {
   type OdrRoadRecord,
 } from './odrCarryThrough'
 import type { OdrSidecar } from './odrToShapes'
+import { trafficSignCode } from './lanelet2'
 
 type LaneShape = BaseShape<'lane', LaneProps>
 type LinestringShape = BaseShape<'linestring', LinestringProps>
 type PointShape = BaseShape<'point', PointProps>
 type TrafficLightShape = BaseShape<'traffic_light', TrafficLightProps>
+type TrafficSignShape = BaseShape<'traffic_sign', TrafficSignProps>
 type CrosswalkShape = BaseShape<'crosswalk', CrosswalkProps>
 type PolygonShape = BaseShape<'polygon', PolygonProps>
 
@@ -1281,6 +1284,8 @@ interface SignalEntry {
   name: string
   type: string
   subtype: string
+  /** Signal type catalog country; "OpenDRIVE" when omitted. */
+  country?: string
   dynamic: 'yes' | 'no'
   orientation: '+' | '-'
   /** Lane ranges the signal applies to (regulatory layer); omitted = whole road. */
@@ -1290,6 +1295,8 @@ interface SignalEntry {
    * so the importer can rebuild the stop-line linestring and re-link it.
    */
   stopLinePoints?: { x: number; y: number }[]
+  /** Additional <userData code value> records carried on the signal. */
+  userData?: { code: string; value: string }[]
 }
 
 /**
@@ -1324,6 +1331,7 @@ interface ObjectEntry {
 function attachShapesToRoads(
   shapeMap: Map<string, BaseShape>,
   trafficLights: TrafficLightShape[],
+  trafficSigns: TrafficSignShape[],
   crosswalks: CrosswalkShape[],
   polygons: { shape: PolygonShape; vertices: { x: number; y: number }[] }[],
   roads: { roadId: number; geom: BundleGeometry }[],
@@ -1363,7 +1371,17 @@ function attachShapesToRoads(
     return byRoad
   }
 
-  for (const tl of trafficLights) {
+  // Traffic lights (dynamic signals) and traffic signs (static signals)
+  // attach to roads through the same projection / validity machinery; only
+  // the emitted <signal> attributes differ per kind.
+  const signalShapes: (
+    | { kind: 'traffic_light'; shape: TrafficLightShape }
+    | { kind: 'traffic_sign'; shape: TrafficSignShape }
+  )[] = [
+    ...trafficLights.map(shape => ({ kind: 'traffic_light' as const, shape })),
+    ...trafficSigns.map(shape => ({ kind: 'traffic_sign' as const, shape })),
+  ]
+  for (const { kind, shape: tl } of signalShapes) {
     const xG = pxToEnuX(tl.x)
     const yG = pxToEnuY(tl.y)
 
@@ -1388,25 +1406,57 @@ function attachShapesToRoads(
       if (best && best.proj.distance > maxAttachDistanceMeter) best = null
     }
     if (!best) continue
-    const style = tl.props.style ?? ''
-    const isPed = style.startsWith('pedestrian') || style.includes('ped')
-    // Conventional signal type codes: 1000001 = vehicle, 1000002 = pedestrian.
-    const sigType = isPed ? '1000002' : '1000001'
     const heightM = pxToMeter(tl.props.h)
     const widthM = pxToMeter(tl.props.w)
     const list = roadSignals.get(best.roadId) ?? []
-    const entry: SignalEntry = {
-      id: signalIdCounter++,
-      s: best.proj.s,
-      t: best.proj.t,
-      zOffset: isPed ? 1.5 : 4.5,
-      height: heightM,
-      width: widthM,
-      name: style,
-      type: sigType,
-      subtype: '-1',
-      dynamic: 'yes',
-      orientation: best.proj.t >= 0 ? '+' : '-',
+    let entry: SignalEntry
+    if (kind === 'traffic_light') {
+      const style = (tl.props as TrafficLightProps).style ?? ''
+      const isPed = style.startsWith('pedestrian') || style.includes('ped')
+      // Conventional signal type codes: 1000001 = vehicle, 1000002 = pedestrian.
+      const sigType = isPed ? '1000002' : '1000001'
+      entry = {
+        id: signalIdCounter++,
+        s: best.proj.s,
+        t: best.proj.t,
+        zOffset: isPed ? 1.5 : 4.5,
+        height: heightM,
+        width: widthM,
+        name: style,
+        type: sigType,
+        subtype: '-1',
+        dynamic: 'yes',
+        orientation: best.proj.t >= 0 ? '+' : '-',
+      }
+    } else {
+      // Static traffic sign: reuse the exact OpenDRIVE type / subtype /
+      // country recorded at import time; fresh signs fall back to type "-1"
+      // with the sign code as the name. Full attribute round-trip rides on
+      // <userData code="signAttributes">.
+      const attrs = (tl.props.attributes ?? {}) as Record<string, string | undefined>
+      entry = {
+        id: signalIdCounter++,
+        s: best.proj.s,
+        t: best.proj.t,
+        zOffset: 2,
+        height: heightM,
+        width: widthM,
+        name: trafficSignCode(attrs),
+        type: attrs.odr_signal_type || '-1',
+        subtype: attrs.odr_signal_subtype || '-1',
+        country: attrs.odr_country || undefined,
+        dynamic: 'no',
+        orientation: best.proj.t >= 0 ? '+' : '-',
+      }
+      const stash: Record<string, string> = {}
+      for (const [k, v] of Object.entries(attrs)) {
+        if (k === 'type' || k === 'refers_osm_id' || k.startsWith('odr_')) continue
+        if (v === undefined || v === null || v === '') continue
+        stash[k] = String(v)
+      }
+      if (Object.keys(stash).length > 0) {
+        entry.userData = [{ code: 'signAttributes', value: JSON.stringify(stash) }]
+      }
     }
     if (affectedByRoad.size > 0) {
       entry.validity = laneIdRanges(affectedByRoad.get(best.roadId)!)
@@ -1638,8 +1688,8 @@ function emitSignals(signals: SignalEntry[], references: SignalReferenceEntry[])
   const lines: string[] = []
   lines.push(`    <signals>`)
   for (const s of signals) {
-    const attrs = `id="${s.id}" s="${fmt(s.s)}" t="${fmt(s.t)}" zOffset="${fmt(s.zOffset)}" name="${escapeXml(s.name)}" dynamic="${s.dynamic}" orientation="${s.orientation}" type="${s.type}" subtype="${s.subtype}" country="OpenDRIVE" value="0" height="${fmt(s.height)}" width="${fmt(s.width)}"`
-    if (s.validity?.length || s.stopLinePoints) {
+    const attrs = `id="${s.id}" s="${fmt(s.s)}" t="${fmt(s.t)}" zOffset="${fmt(s.zOffset)}" name="${escapeXml(s.name)}" dynamic="${s.dynamic}" orientation="${s.orientation}" type="${s.type}" subtype="${s.subtype}" country="${escapeXml(s.country ?? 'OpenDRIVE')}" value="0" height="${fmt(s.height)}" width="${fmt(s.width)}"`
+    if (s.validity?.length || s.stopLinePoints || s.userData?.length) {
       lines.push(`      <signal ${attrs}>`)
       for (const v of s.validity ?? []) {
         lines.push(`        <validity fromLane="${v.fromLane}" toLane="${v.toLane}"/>`)
@@ -1649,6 +1699,9 @@ function emitSignals(signals: SignalEntry[], references: SignalReferenceEntry[])
           s.stopLinePoints.map((p) => [roundMm(p.x), roundMm(p.y)])
         )
         lines.push(`        <userData code="stopLine" value="${escapeXml(json)}"/>`)
+      }
+      for (const ud of s.userData ?? []) {
+        lines.push(`        <userData code="${escapeXml(ud.code)}" value="${escapeXml(ud.value)}"/>`)
       }
       lines.push(`      </signal>`)
     } else {
@@ -1928,6 +1981,7 @@ function planCarryThrough(
   sidecar: OdrSidecar | null | undefined,
   shapeMap: Map<string, BaseShape>,
   trafficLights: TrafficLightShape[],
+  trafficSigns: TrafficSignShape[],
   crosswalks: CrosswalkShape[]
 ): CarryPlan | null {
   const records = sidecar?.roadRecords
@@ -1986,6 +2040,21 @@ function planCarryThrough(
       },
       tl.props.affectedLaneIds ?? [],
       tl.props.attributes?.odr_road_id
+    )
+  }
+  for (const ts of trafficSigns) {
+    addRegState(
+      {
+        kind: 'traffic_sign',
+        shapeId: ts.id,
+        numbers: [ts.x, ts.y, ts.props.w, ts.props.h, ts.rotation || 0],
+        attributes: ts.props.attributes ?? {},
+        affectedLaneIds: ts.props.affectedLaneIds ?? [],
+        stopLinePts: stopLinePts(ts.props.stopLineId),
+        controllerId: '',
+      },
+      ts.props.affectedLaneIds ?? [],
+      ts.props.attributes?.odr_road_id
     )
   }
   for (const cw of crosswalks) {
@@ -2201,11 +2270,13 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
   const shapeMap = buildShapeMap(shapes)
   const lanes: LaneShape[] = []
   const trafficLights: TrafficLightShape[] = []
+  const trafficSigns: TrafficSignShape[] = []
   const crosswalks: CrosswalkShape[] = []
   const polygons: { shape: PolygonShape; vertices: { x: number; y: number }[] }[] = []
   for (const s of shapes) {
     if (s.type === 'lane') lanes.push(s as unknown as LaneShape)
     else if (s.type === 'traffic_light') trafficLights.push(s as unknown as TrafficLightShape)
+    else if (s.type === 'traffic_sign') trafficSigns.push(s as unknown as TrafficSignShape)
     else if (s.type === 'crosswalk') crosswalks.push(s as unknown as CrosswalkShape)
     else if (s.type === 'polygon') {
       const poly = s as unknown as PolygonShape
@@ -2220,11 +2291,14 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
 
   // Carry-through: with an importer sidecar, unedited original roads are
   // re-emitted verbatim and excluded from regeneration.
-  const carry = planCarryThrough(options.sidecar, shapeMap, trafficLights, crosswalks)
+  const carry = planCarryThrough(options.sidecar, shapeMap, trafficLights, trafficSigns, crosswalks)
   const regenLanes = carry ? lanes.filter(l => !carry.verbatimLaneIds.has(l.id)) : lanes
   const regenTrafficLights = carry
     ? trafficLights.filter(t => !carry.consumedShapeIds.has(t.id))
     : trafficLights
+  const regenTrafficSigns = carry
+    ? trafficSigns.filter(t => !carry.consumedShapeIds.has(t.id))
+    : trafficSigns
   const regenCrosswalks = carry
     ? crosswalks.filter(c => !carry.consumedShapeIds.has(c.id))
     : crosswalks
@@ -2445,6 +2519,7 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
   const { roadSignals, roadObjects, roadSignalRefs, signalIdByShape } = attachShapesToRoads(
     shapeMap,
     regenTrafficLights,
+    regenTrafficSigns,
     regenCrosswalks,
     polygons,
     roads,

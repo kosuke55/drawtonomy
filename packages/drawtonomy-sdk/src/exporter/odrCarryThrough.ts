@@ -13,7 +13,7 @@
 //    road, the shape ids it materialized plus a hash over their editable
 //    state: boundary point sequences (in travel order), lane attributes,
 //    next/prev connectivity, right-of-way links, and every regulatory shape
-//    (traffic light / crosswalk) touching the road. At export time the same
+//    (traffic light / sign / crosswalk) touching the road. At export time the same
 //    hash is recomputed from the live shapes; equality means "unedited".
 //
 // 2. Raw document access. <header> / <road> / <junction> / <controller>
@@ -45,9 +45,9 @@ export interface CarryLaneState {
   yieldLaneIds: readonly string[]
 }
 
-/** Editable state of a regulatory shape (traffic light / crosswalk). */
+/** Editable state of a regulatory shape (traffic light / sign / crosswalk). */
 export interface CarryRegulatoryState {
-  kind: 'traffic_light' | 'crosswalk'
+  kind: 'traffic_light' | 'traffic_sign' | 'crosswalk'
   shapeId: string
   /** Positional numeric fields (position, size, rotation). */
   numbers: readonly number[]

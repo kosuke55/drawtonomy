@@ -40,6 +40,8 @@ export { sanitizeFileBaseName } from './sanitize'
 export { PIXELS_PER_METER } from './units'
 export {
   exportToLanelet2,
+  trafficSignCode,
+  trafficSignRelationSubtype,
   DEFAULT_ORIGIN_LAT,
   DEFAULT_ORIGIN_LON,
   type Lanelet2ExportOptions,
@@ -64,6 +66,7 @@ export {
   type ImportedLinestring,
   type ImportedLane,
   type ImportedTrafficLight,
+  type ImportedTrafficSign,
   type ImportedCrosswalk,
   type ImportBounds,
   type OsmToShapesOptions,

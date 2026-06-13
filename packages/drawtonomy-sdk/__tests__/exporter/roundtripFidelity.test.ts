@@ -427,6 +427,25 @@ function snapshotFrom(imported: ImportedShapes): DrawtonomySnapshot {
       },
     })
   }
+  for (const ts of imported.trafficSigns ?? []) {
+    shapes.push({
+      id: ts.id,
+      type: 'traffic_sign',
+      x: ts.x,
+      y: ts.y,
+      rotation: 0,
+      zIndex: 0,
+      props: {
+        w: ts.w,
+        h: ts.h,
+        color: 'default',
+        attributes: ts.attributes,
+        osmId: ts.osmId,
+        affectedLaneIds: ts.affectedLaneIds,
+        stopLineId: ts.stopLineId,
+      },
+    })
+  }
   for (const cw of imported.crosswalks ?? []) {
     shapes.push({
       id: cw.id,
