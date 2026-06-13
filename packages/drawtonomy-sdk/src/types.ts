@@ -162,6 +162,33 @@ export interface TrafficLightProps {
   controllerId?: string
 }
 
+export interface TrafficSignProps {
+  w: number
+  h: number
+  color: string
+  size?: string
+  /**
+   * Sign metadata. `sign_code` carries the Lanelet2 traffic sign subtype
+   * (ISO 3166 region code + sign number, e.g. "de274" / "usR1-1");
+   * `sign_type` carries a speed limit value with unit (e.g. "50 km/h") for
+   * speed limit regulatory elements that do not originate from a sign code.
+   */
+  attributes: { type?: string; subtype?: string; sign_code?: string; sign_type?: string } & Record<
+    string,
+    string
+  >
+  osmId: string
+  /**
+   * Lane shape ids whose traffic this sign regulates (regulatory layer).
+   * Exported as a Lanelet2 `traffic_sign` / `speed_limit` regulatory element
+   * referenced by the affected lanelets, and as an OpenDRIVE static signal
+   * (`dynamic="no"`) with per-lane validity.
+   */
+  affectedLaneIds?: string[]
+  /** Linestring shape id of the associated stop line, or null when absent. */
+  stopLineId?: string | null
+}
+
 export interface CrosswalkProps {
   /** Crosswalk axis start in shape-local coordinates. */
   startX: number

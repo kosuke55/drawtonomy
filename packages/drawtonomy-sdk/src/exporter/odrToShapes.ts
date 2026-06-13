@@ -1,5 +1,6 @@
 // Convert a parsed OpenDRIVE model (`OdrMap`) into the shape primitives that
-// the drawtonomy editor consumes (points, linestrings, lanes, traffic lights).
+// the drawtonomy editor consumes (points, linestrings, lanes, traffic lights,
+// traffic signs, crosswalks).
 //
 // Mirrors the Lanelet2 OSM import path (`osmToShapes`): the output is the
 // same intermediate `ImportedShapes` structure, extended with a sidecar (the
@@ -45,6 +46,7 @@ import {
   type ImportedPoint,
   type ImportedShapes,
   type ImportedTrafficLight,
+  type ImportedTrafficSign,
   type ShapeIdAllocator,
 } from './osmToShapes'
 import { PIXELS_PER_METER } from './units'
@@ -295,6 +297,7 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
     linestrings: [],
     lanes: [],
     trafficLights: [],
+    trafficSigns: [],
     crosswalks: [],
     bounds: emptyBounds(),
     sidecar: {
@@ -588,17 +591,22 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
   }
 
   /**
-   * Convert traffic light signals (type 1000001/1000002) into traffic light
-   * shapes. The position is the (s, t) station evaluated on the reference
-   * line; `affectedLaneIds` resolves the <validity> lane range against the
-   * lane section containing s (falling back to every driving lane of the
-   * road), merged with the lanes of any road that re-applies the signal via
+   * Convert signals into shapes: type 1000001/1000002 become traffic lights,
+   * any other type with dynamic != "yes" becomes a static traffic sign. The
+   * position is the (s, t) station evaluated on the reference line;
+   * `affectedLaneIds` resolves the <validity> lane range against the lane
+   * section containing s (falling back to every driving lane of the road),
+   * merged with the lanes of any road that re-applies the signal via
    * <signalReference>. A <userData code="stopLine"> record is rebuilt into a
-   * stop-line linestring and linked through `stopLineId`.
+   * stop-line linestring and linked through `stopLineId`; sign attributes
+   * stashed in <userData code="signAttributes"> (sign_code etc.) are restored.
    */
   function materializeSignals(road: OdrRoad, samples: ReferenceSample[]): void {
     for (const sig of road.signals) {
-      if (!TRAFFIC_LIGHT_SIGNAL_TYPES.has(sig.type)) continue
+      const isTrafficLight = TRAFFIC_LIGHT_SIGNAL_TYPES.has(sig.type)
+      // Dynamic signals of unknown type cannot be represented as static
+      // signs; they stay sidecar-only (counted in the warnings).
+      if (!isTrafficLight && sig.dynamic === 'yes') continue
       const pose = poseAt(samples, sig.s)
       // Unit normal toward +t (left of the reference direction in ENU).
       const ex = pose.x - Math.sin(pose.hdg) * sig.t
@@ -611,25 +619,68 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
         resolveAffectedLanes(ref.road, ref.s, ref.validity, affected)
       }
 
-      const data: ImportedTrafficLight = {
-        id: idAllocator.next('traffic_light'),
+      if (isTrafficLight) {
+        const data: ImportedTrafficLight = {
+          id: idAllocator.next('traffic_light'),
+          x: enuToCanvasX(ex),
+          y: enuToCanvasY(ey),
+          // Default editor proportions (30x60 px) when the signal carries no size.
+          w: sig.width > 0 ? sig.width * PIXELS_PER_METER : 30,
+          h: sig.height > 0 ? sig.height * PIXELS_PER_METER : 60,
+          osmId: '',
+          affectedLaneIds: affected,
+          stopLineId: materializeStopLine(sig.userData['stopLine']),
+          attributes: {
+            type: 'traffic_light',
+            odr_signal_id: sig.id,
+            odr_road_id: road.id,
+            odr_signal_type: sig.type,
+            odr_signal_subtype: sig.subtype,
+          },
+        }
+        result.trafficLights.push(data)
+        convertedSignalCount++
+        continue
+      }
+
+      // Static traffic sign. Attributes stashed by the exporter in
+      // <userData code="signAttributes"> (sign_code, sign_type, regulatory
+      // element subtype, custom tags) are restored verbatim; third-party
+      // signs fall back to the signal name as the sign code.
+      const attributes: Record<string, string> = { type: 'traffic_sign' }
+      const rawSignAttrs = sig.userData['signAttributes']
+      if (rawSignAttrs) {
+        try {
+          const obj = JSON.parse(rawSignAttrs) as unknown
+          if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+            for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+              if (typeof v !== 'string' || k === 'type' || k.startsWith('odr_')) continue
+              attributes[k] = v
+            }
+          }
+        } catch {
+          // Malformed userData JSON is ignored (third-party files).
+        }
+      }
+      if (!attributes.sign_code && sig.name) attributes.sign_code = sig.name
+      attributes.odr_signal_id = sig.id
+      attributes.odr_road_id = road.id
+      attributes.odr_signal_type = sig.type
+      attributes.odr_signal_subtype = sig.subtype
+      if (sig.country) attributes.odr_country = sig.country
+      const data: ImportedTrafficSign = {
+        id: idAllocator.next('traffic_sign'),
         x: enuToCanvasX(ex),
         y: enuToCanvasY(ey),
-        // Default editor proportions (30x60 px) when the signal carries no size.
+        // Default editor proportions (30x30 px) when the signal carries no size.
         w: sig.width > 0 ? sig.width * PIXELS_PER_METER : 30,
-        h: sig.height > 0 ? sig.height * PIXELS_PER_METER : 60,
+        h: sig.height > 0 ? sig.height * PIXELS_PER_METER : 30,
         osmId: '',
         affectedLaneIds: affected,
         stopLineId: materializeStopLine(sig.userData['stopLine']),
-        attributes: {
-          type: 'traffic_light',
-          odr_signal_id: sig.id,
-          odr_road_id: road.id,
-          odr_signal_type: sig.type,
-          odr_signal_subtype: sig.subtype,
-        },
+        attributes,
       }
-      result.trafficLights.push(data)
+      result.trafficSigns.push(data)
       convertedSignalCount++
     }
   }
@@ -1314,6 +1365,21 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
         },
         tl.affectedLaneIds,
         tl.attributes['odr_road_id']
+      )
+    }
+    for (const ts of result.trafficSigns) {
+      addRegState(
+        {
+          kind: 'traffic_sign',
+          shapeId: ts.id as string,
+          numbers: [ts.x, ts.y, ts.w, ts.h, 0],
+          attributes: ts.attributes,
+          affectedLaneIds: ts.affectedLaneIds,
+          stopLinePts: boundaryPts(ts.stopLineId, false),
+          controllerId: '',
+        },
+        ts.affectedLaneIds,
+        ts.attributes['odr_road_id']
       )
     }
     for (const cw of result.crosswalks) {

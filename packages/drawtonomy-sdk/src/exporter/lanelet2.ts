@@ -11,6 +11,11 @@
 //   member is a synthesized 2-node way at the signal position and whose
 //   "ref_line" member is the stop line way; affected lanelet relations gain a
 //   `role=regulatory_element` member pointing back at it
+// - Each TrafficSignShape carrying `affectedLaneIds` becomes a
+//   `<relation type=regulatory_element subtype=traffic_sign>` (or
+//   `subtype=speed_limit` for speed limit signs, carrying the standard
+//   `sign_type` tag) with the same refers / ref_line structure; the refers
+//   way is tagged `type=traffic_sign subtype=<sign code>`
 // - Each LaneShape carrying `yieldLaneIds` additionally emits a
 //   `<relation type=regulatory_element subtype=right_of_way>` whose
 //   "right_of_way" member is the lane's lanelet and whose "yield" members are
@@ -36,6 +41,7 @@ import type {
   LinestringProps,
   PointProps,
   TrafficLightProps,
+  TrafficSignProps,
 } from '../types'
 import { canvasToLatLon, parseOsmXml, type OsmData } from './osmParser'
 
@@ -43,7 +49,32 @@ type LaneShape = BaseShape<'lane', LaneProps>
 type LinestringShape = BaseShape<'linestring', LinestringProps>
 type PointShape = BaseShape<'point', PointProps>
 type TrafficLightShape = BaseShape<'traffic_light', TrafficLightProps>
+type TrafficSignShape = BaseShape<'traffic_sign', TrafficSignProps>
 type CrosswalkShape = BaseShape<'crosswalk', CrosswalkProps>
+
+/**
+ * Sign code (Lanelet2 traffic sign subtype, e.g. "de274" / "usR1-1") of a
+ * traffic sign shape. `sign_code` wins; a `subtype` that is not one of the
+ * regulatory element subtypes (round-trip metadata) is accepted as a code.
+ */
+export function trafficSignCode(attrs: Record<string, string | undefined>): string {
+  if (attrs.sign_code) return attrs.sign_code
+  if (attrs.subtype && attrs.subtype !== 'traffic_sign' && attrs.subtype !== 'speed_limit') {
+    return attrs.subtype
+  }
+  return 'unknown'
+}
+
+/**
+ * Regulatory element subtype of a traffic sign shape: `speed_limit` when the
+ * shape came from / represents a speed limit (recorded RE subtype or a
+ * lanelet2 `sign_type` value such as "50 km/h"), otherwise `traffic_sign`.
+ */
+export function trafficSignRelationSubtype(
+  attrs: Record<string, string | undefined>
+): 'traffic_sign' | 'speed_limit' {
+  return attrs.subtype === 'speed_limit' || attrs.sign_type ? 'speed_limit' : 'traffic_sign'
+}
 
 /** Sidecar captured at OSM import time. Used to round-trip tags / `ele`. */
 export interface OsmSidecar {
@@ -134,12 +165,14 @@ function buildFromShapes(
   const linestrings: LinestringShape[] = []
   const lanes: LaneShape[] = []
   const trafficLights: TrafficLightShape[] = []
+  const trafficSigns: TrafficSignShape[] = []
   const crosswalks: CrosswalkShape[] = []
   for (const s of shapes) {
     if (s.type === 'point') points.push(s as unknown as PointShape)
     else if (s.type === 'linestring') linestrings.push(s as unknown as LinestringShape)
     else if (s.type === 'lane') lanes.push(s as unknown as LaneShape)
     else if (s.type === 'traffic_light') trafficLights.push(s as unknown as TrafficLightShape)
+    else if (s.type === 'traffic_sign') trafficSigns.push(s as unknown as TrafficSignShape)
     else if (s.type === 'crosswalk') crosswalks.push(s as unknown as CrosswalkShape)
   }
 
@@ -152,8 +185,26 @@ function buildFromShapes(
   const shapeRelationOsmIds = new Set<string>()
 
   // Resolve a shape -> OSM ID. Empty `osmId` (newly drawn shape) gets a fresh
-  // negative ID, matching the OSM convention for unsubmitted edits.
+  // negative ID, matching the OSM convention for unsubmitted edits. Fresh IDs
+  // must never collide with negative IDs already taken by imported shapes or
+  // sidecar elements (maps previously exported from here use negative IDs),
+  // so allocation starts below every reserved ID.
   let nextNewId = -1
+  const reserveId = (id: string | undefined): void => {
+    if (!id) return
+    const n = Number(id)
+    if (Number.isInteger(n) && n <= nextNewId) nextNewId = n - 1
+  }
+  for (const s of shapes) {
+    const props = s.props as { osmId?: string; attributes?: Record<string, string | undefined> }
+    reserveId(props.osmId)
+    reserveId(props.attributes?.refers_osm_id)
+  }
+  if (sidecarData) {
+    for (const id of sidecarData.nodes.keys()) reserveId(id)
+    for (const id of sidecarData.ways.keys()) reserveId(id)
+    for (const r of sidecarData.relations) reserveId(r.id)
+  }
   const newIdFor = new Map<string, string>()
   const resolveOsmId = (shapeId: string, propsOsmId: string | undefined): string => {
     if (propsOsmId && propsOsmId.length > 0) return propsOsmId
@@ -246,8 +297,9 @@ function buildFromShapes(
     laneRelationByShapeId.set(lane.id, relationOut)
   }
 
-  // Traffic lights with affected lanes -> relations (type=regulatory_element,
-  // subtype=traffic_light). The signal itself is represented as a 2-node
+  // Traffic lights / signs with affected lanes -> relations
+  // (type=regulatory_element, subtype=traffic_light / traffic_sign /
+  // speed_limit). The signal or sign itself is represented as a 2-node
   // "refers" way spanning the shape's width; the stop line (when present)
   // joins as the "ref_line" way, and each affected lanelet references the
   // regulatory element back.
@@ -266,11 +318,19 @@ function buildFromShapes(
     }
   }
 
-  for (const tl of trafficLights) {
-    const affected = tl.props.affectedLaneIds ?? []
-    if (affected.length === 0) continue
+  // Shared emission for refers-way-based regulatory elements (traffic lights
+  // and traffic signs). The two callbacks finalize the format-specific tags
+  // of the synthesized refers way and of the regulatory element relation.
+  const emitRefersRegulatoryElement = (
+    shape: TrafficLightShape | TrafficSignShape,
+    finishRefersTags: (tags: Record<string, string>, attrs: Record<string, string | undefined>) => void,
+    finishRelationTags: (tags: Record<string, string>, attrs: Record<string, string | undefined>) => void
+  ): void => {
+    const affected = shape.props.affectedLaneIds ?? []
+    if (affected.length === 0) return
 
-    const reOsmId = resolveOsmId(tl.id, tl.props.osmId)
+    const attrs = (shape.props.attributes ?? {}) as Record<string, string | undefined>
+    const reOsmId = resolveOsmId(shape.id, shape.props.osmId)
     shapeRelationOsmIds.add(reOsmId)
 
     // Round-trip fidelity: a signal imported from this sidecar and left
@@ -278,12 +338,12 @@ function buildFromShapes(
     // The 2-node synthesis below would otherwise lose the original way's
     // orientation, elevation and any extra members (light_bulbs etc.).
     const originalRelation = sidecarData?.relations.find(r => r.id === reOsmId)
-    const recordedRefersId = tl.props.attributes?.refers_osm_id
+    const recordedRefersId = attrs.refers_osm_id
     const originalRefers = recordedRefersId ? sidecarData?.ways.get(recordedRefersId) : undefined
     if (originalRelation && originalRefers && originalRefers.nodeRefs.length >= 2) {
       const nodeA = sidecarData?.nodes.get(originalRefers.nodeRefs[0])
       const nodeB = sidecarData?.nodes.get(originalRefers.nodeRefs[originalRefers.nodeRefs.length - 1])
-      const current = canvasToLatLon(tl.x, tl.y, originLat, originLon)
+      const current = canvasToLatLon(shape.x, shape.y, originLat, originLon)
       // Unmoved = the shape still sits at the refers way midpoint (import
       // placed it there; ~1e-9 deg covers projection round-trip fp error).
       const unmoved =
@@ -294,8 +354,8 @@ function buildFromShapes(
       const originalRefLine = originalRelation.members.find(
         m => m.type === 'way' && m.role === 'ref_line'
       )?.ref
-      const stopLs = tl.props.stopLineId
-        ? (shapeMap.get(tl.props.stopLineId) as unknown as LinestringShape | undefined)
+      const stopLs = shape.props.stopLineId
+        ? (shapeMap.get(shape.props.stopLineId) as unknown as LinestringShape | undefined)
         : undefined
       const currentRefLine = stopLs ? resolveOsmId(stopLs.id, stopLs.props.osmId) : undefined
       if (unmoved && originalRefLine === currentRefLine) {
@@ -317,26 +377,25 @@ function buildFromShapes(
           tags: { ...originalRelation.tags },
         })
         linkAffectedLanelets(reOsmId, affected)
-        continue
+        return
       }
     }
 
     // "refers" way: reuse the way / node IDs recorded at import time (the
     // `refers_osm_id` attribute) so the sidecar copies are overridden rather
     // than duplicated; otherwise allocate fresh negative IDs.
-    const refersWayId =
-      tl.props.attributes?.refers_osm_id || resolveOsmId(`${tl.id}#refers`, undefined)
+    const refersWayId = attrs.refers_osm_id || resolveOsmId(`${shape.id}#refers`, undefined)
     const sidecarRefers = sidecarData?.ways.get(refersWayId)
     const reuseNodes = !!sidecarRefers && sidecarRefers.nodeRefs.length >= 2
     const nodeIdA = reuseNodes
       ? sidecarRefers.nodeRefs[0]
-      : resolveOsmId(`${tl.id}#refers_a`, undefined)
+      : resolveOsmId(`${shape.id}#refers_a`, undefined)
     const nodeIdB = reuseNodes
       ? sidecarRefers.nodeRefs[sidecarRefers.nodeRefs.length - 1]
-      : resolveOsmId(`${tl.id}#refers_b`, undefined)
-    const halfW = (tl.props.w ?? 0) / 2
-    const a = canvasToLatLon(tl.x - halfW, tl.y, originLat, originLon)
-    const b = canvasToLatLon(tl.x + halfW, tl.y, originLat, originLon)
+      : resolveOsmId(`${shape.id}#refers_b`, undefined)
+    const halfW = (shape.props.w ?? 0) / 2
+    const a = canvasToLatLon(shape.x - halfW, shape.y, originLat, originLon)
+    const b = canvasToLatLon(shape.x + halfW, shape.y, originLat, originLon)
     for (const [nid, ll] of [[nodeIdA, a], [nodeIdB, b]] as const) {
       shapeNodeOsmIds.add(nid)
       const originalNode = sidecarData?.nodes.get(nid)
@@ -350,13 +409,7 @@ function buildFromShapes(
     }
     shapeWayOsmIds.add(refersWayId)
     const refersTags: Record<string, string> = sidecarRefers ? { ...sidecarRefers.tags } : {}
-    refersTags.type = 'traffic_light'
-    // Autoware requires subtype and height on the traffic light way; keep
-    // sidecar values when present, allow shape attributes to override, and
-    // fall back to the common defaults.
-    const tlAttrs = (tl.props.attributes ?? {}) as Record<string, string | undefined>
-    if (!refersTags.subtype) refersTags.subtype = tlAttrs.subtype || 'red_yellow_green'
-    if (!refersTags.height) refersTags.height = tlAttrs.height || '0.5'
+    finishRefersTags(refersTags, attrs)
     waysOut.set(refersWayId, { id: refersWayId, nodeRefs: [nodeIdA, nodeIdB], tags: refersTags })
 
     const members: { type: string; ref: string; role: string }[] = [
@@ -365,8 +418,8 @@ function buildFromShapes(
 
     // "ref_line": the stop line linestring, already exported as a way above.
     // Ensure the way carries type=stop_line so consumers recognize it.
-    if (tl.props.stopLineId) {
-      const stopLs = shapeMap.get(tl.props.stopLineId) as unknown as LinestringShape | undefined
+    if (shape.props.stopLineId) {
+      const stopLs = shapeMap.get(shape.props.stopLineId) as unknown as LinestringShape | undefined
       if (stopLs) {
         const stopWayId = resolveOsmId(stopLs.id, stopLs.props.osmId)
         const stopWay = waysOut.get(stopWayId)
@@ -376,11 +429,49 @@ function buildFromShapes(
     }
 
     const tags: Record<string, string> = originalRelation ? { ...originalRelation.tags } : {}
-    tags.type = 'regulatory_element'
-    tags.subtype = 'traffic_light'
+    finishRelationTags(tags, attrs)
     relationsOut.push({ id: reOsmId, members, tags })
 
     linkAffectedLanelets(reOsmId, affected)
+  }
+
+  for (const tl of trafficLights) {
+    emitRefersRegulatoryElement(
+      tl,
+      (refersTags, attrs) => {
+        refersTags.type = 'traffic_light'
+        // Autoware requires subtype and height on the traffic light way; keep
+        // sidecar values when present, allow shape attributes to override, and
+        // fall back to the common defaults.
+        if (!refersTags.subtype) refersTags.subtype = attrs.subtype || 'red_yellow_green'
+        if (!refersTags.height) refersTags.height = attrs.height || '0.5'
+      },
+      tags => {
+        tags.type = 'regulatory_element'
+        tags.subtype = 'traffic_light'
+      }
+    )
+  }
+
+  for (const ts of trafficSigns) {
+    emitRefersRegulatoryElement(
+      ts,
+      (refersTags, attrs) => {
+        refersTags.type = 'traffic_sign'
+        // The refers way carries the sign code as its subtype (ISO 3166
+        // region code + sign number). A sidecar subtype only survives when
+        // the shape has no code of its own.
+        const code = trafficSignCode(attrs)
+        if (!refersTags.subtype || code !== 'unknown') refersTags.subtype = code
+      },
+      (tags, attrs) => {
+        tags.type = 'regulatory_element'
+        tags.subtype = trafficSignRelationSubtype(attrs)
+        // Lanelet2 speed_limit convention: the value with unit (e.g.
+        // "50 km/h") rides on the relation as `sign_type`.
+        if (attrs.sign_type) tags.sign_type = attrs.sign_type
+      }
+    )
   }
 
   // Lanes with yieldLaneIds -> relations (type=regulatory_element,

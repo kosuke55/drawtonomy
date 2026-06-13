@@ -125,6 +125,10 @@ export interface OdrSignal {
   type: string
   subtype: string
   name: string
+  /** "yes" for dynamic signals (traffic lights); "" when absent (= static). */
+  dynamic: string
+  /** Country code of the signal type catalog ("" when absent). */
+  country: string
   /** Physical size (m); 0 when absent. */
   width: number
   height: number
@@ -582,6 +586,8 @@ function parseRoad(el: XmlNode): OdrRoad {
         type: sig.attrs.type ?? '',
         subtype: sig.attrs.subtype ?? '',
         name: sig.attrs.name ?? '',
+        dynamic: sig.attrs.dynamic ?? '',
+        country: sig.attrs.country ?? '',
         width: numAttr(sig, 'width', 0),
         height: numAttr(sig, 'height', 0),
         validity: parseValidity(sig),
