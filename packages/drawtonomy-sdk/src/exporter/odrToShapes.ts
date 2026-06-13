@@ -1933,6 +1933,7 @@ function removeOrphanLinestrings(result: ImportedShapes): void {
     used.add(lane.rightBoundaryId)
   }
   for (const tl of result.trafficLights) if (tl.stopLineId) used.add(tl.stopLineId)
+  for (const ts of result.trafficSigns) if (ts.stopLineId) used.add(ts.stopLineId)
   for (const cw of result.crosswalks) if (cw.stopLineId) used.add(cw.stopLineId)
   if (used.size === result.linestrings.length) return
   result.linestrings = result.linestrings.filter(l => used.has(l.id as string))
