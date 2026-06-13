@@ -7,10 +7,16 @@ parser/conversion fixtures:
 - `fabriksgatan.xodr`
 - `two_plus_one.xodr`
 
-A self-contained slice of CARLA's Town04 (licensed under MIT), used by the
-issue #494 regression for degenerate junction sliver-lane pruning:
+A regression fixture for degenerate junction sliver-lane pruning:
 
-- `town04-junction106.xodr` — junction 106 with its 12 connecting roads and
-  4 linked mainlines (elevation / lateral profiles and RoadRunner `userData`
-  stripped). Regenerate with
+- `town04-junction106.xodr` — a self-contained slice of the **Town04** map from
+  the [CARLA simulator](https://github.com/carla-simulator/carla): junction 106
+  with its 12 connecting roads and 4 linked mainlines, with elevation / lateral
+  profiles and RoadRunner `userData` stripped. Regenerate with
   `scripts/extract-junction-fixture.py <town04.xodr>` from a full Town04 source.
+
+  CARLA assets (maps, including OpenDRIVE `.xodr` files) are licensed under
+  [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/) by the CARLA team
+  (© Computer Vision Center, CARLA Simulator project). This file is a modified
+  excerpt of Town04 (a subset of roads, with elevation / lateral profiles and
+  `userData` removed); changes were made for this test fixture.

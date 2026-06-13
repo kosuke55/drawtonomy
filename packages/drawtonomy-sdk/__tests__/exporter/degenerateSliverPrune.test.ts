@@ -1,4 +1,4 @@
-// Regression for issue #494: degenerate sliver-lane pruning on import.
+// Regression for degenerate sliver-lane pruning on import.
 //
 // CARLA Town04 junction connecting roads (e.g. road 107 in junction 106) pack
 // lane-count transitions into chains of centimetre-scale lane sections. After
@@ -123,7 +123,7 @@ function snapshotFrom(imported: ImportedShapes): DrawtonomySnapshot {
   return snapshot
 }
 
-describe('degenerate sliver-lane pruning (issue #494)', () => {
+describe('degenerate sliver-lane pruning', () => {
   const present = existsSync(FIXTURE)
   const itIf = present ? it : it.skip
   if (!present) {
