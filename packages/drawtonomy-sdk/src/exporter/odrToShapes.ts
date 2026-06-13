@@ -1019,6 +1019,76 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
   }
 
   /**
+   * Drop wedge-shaped sliver lanes whose inner boundary has collapsed to a
+   * point. Generated junction maps (e.g. CARLA towns) route turns through
+   * short lane sections whose inner edge converges on the corner; after weld,
+   * one boundary degenerates to a single coincident pair of endpoints. Such a
+   * triangle cannot be expressed by OpenDRIVE's offset-along-normal width
+   * model (its apex is displaced longitudinally, not laterally, so the width
+   * collapses to zero) and the exporter would silently drop it, losing the
+   * lane round-trip. The sliver carries no usable area and only chains
+   * connectivity (every one has a full-size sibling lane that already covers
+   * the maneuver), so it is removed and its `prev`/`next` are stitched
+   * directly, bridging the connection across it.
+   */
+  function pruneDegenerateSliverLanes(): void {
+    const lsById = new Map(result.linestrings.map(l => [l.id as string, l]))
+    const ptById = new Map(result.points.map(p => [p.id as string, p]))
+    const boundaryLengthM = (lsId: string): number => {
+      const ls = lsById.get(lsId)
+      if (!ls) return 0
+      let total = 0
+      for (let i = 1; i < ls.pointIds.length; i++) {
+        const a = ptById.get(ls.pointIds[i - 1])
+        const b = ptById.get(ls.pointIds[i])
+        if (a && b) total += Math.hypot(a.x - b.x, a.y - b.y)
+      }
+      return total / PIXELS_PER_METER
+    }
+    // A boundary shorter than this (m) counts as collapsed. The shortest
+    // legitimate boundary in practice clears the micro-section threshold by an
+    // order of magnitude, so this only ever catches true point-collapses.
+    const SLIVER_EPS_M = 0.05
+    const degenerate = result.lanes.filter(
+      lane =>
+        boundaryLengthM(lane.leftBoundaryId) < SLIVER_EPS_M ||
+        boundaryLengthM(lane.rightBoundaryId) < SLIVER_EPS_M
+    )
+    if (degenerate.length === 0) return
+
+    const removedIds = new Set(degenerate.map(l => l.id as string))
+    // Stitch connectivity across each removed sliver: every predecessor links
+    // directly to every successor.
+    for (const lane of degenerate) {
+      for (const fromId of lane.prev) {
+        if (removedIds.has(fromId)) continue
+        for (const toId of lane.next) {
+          if (removedIds.has(toId)) continue
+          connect(fromId, toId)
+        }
+      }
+    }
+    // Drop the slivers from the lane list, every lane's next/prev, and the
+    // registries the carry-through hash builder reads.
+    result.lanes = result.lanes.filter(l => !removedIds.has(l.id as string))
+    for (const lane of result.lanes) {
+      lane.next = lane.next.filter(id => !removedIds.has(id))
+      lane.prev = lane.prev.filter(id => !removedIds.has(id))
+    }
+    for (const lane of degenerate) laneShapeById.delete(lane.id as string)
+    // Purge the slivers from laneRegistry / lanesByRoad (keyed by road/section).
+    for (const [roadId, regs] of lanesByRoad) {
+      const kept = regs.filter(r => !removedIds.has(r.shapeId))
+      if (kept.length !== regs.length) lanesByRoad.set(roadId, kept)
+      for (const r of regs) {
+        if (removedIds.has(r.shapeId)) {
+          laneRegistry.delete(registryKey(r.roadId, r.sectionIdx, r.odrLaneId))
+        }
+      }
+    }
+  }
+
+  /**
    * Registered lanes at a road's start (first section) or end (last
    * section). When the outermost section is a skipped micro section, the
    * lane reference is resolved through it along the lane-level links to the
@@ -1309,6 +1379,8 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
   //    shared-node connection detection both depend on this).
   dedupeSharedBoundaries(result)
   weldConnectedLaneContacts(result)
+  pruneDegenerateSliverLanes()
+  removeOrphanLinestrings(result)
   removeOrphanPoints(result)
 
   // ---- Carry-through records ----
@@ -1848,6 +1920,23 @@ function weldConnectedLaneContacts(result: ImportedShapes): void {
       lane.y = ls.y
     }
   }
+}
+
+/**
+ * Drop linestrings that no lane references (boundaries orphaned by sliver-lane
+ * pruning). Run before `removeOrphanPoints` so their points are freed too.
+ */
+function removeOrphanLinestrings(result: ImportedShapes): void {
+  const used = new Set<string>()
+  for (const lane of result.lanes) {
+    used.add(lane.leftBoundaryId)
+    used.add(lane.rightBoundaryId)
+  }
+  for (const tl of result.trafficLights) if (tl.stopLineId) used.add(tl.stopLineId)
+  for (const ts of result.trafficSigns) if (ts.stopLineId) used.add(ts.stopLineId)
+  for (const cw of result.crosswalks) if (cw.stopLineId) used.add(cw.stopLineId)
+  if (used.size === result.linestrings.length) return
+  result.linestrings = result.linestrings.filter(l => used.has(l.id as string))
 }
 
 /** Drop Point records no longer referenced by any linestring. */
