@@ -159,7 +159,12 @@ Place typeset LaTeX equations anywhere on the canvas with the `fx` tool. The sou
 
 #### [Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2) Import / Export
 
-Import Lanelet2 OSM format maps for editing, and export the lanes you draw back out as a Lanelet2 OSM map. Round-trips preserve original IDs and tags. Sample maps: [Autoware Documentation](https://autowarefoundation.github.io/autoware-documentation/main/demos/planning-sim/#download-the-sample-map). You can also import only specific lanes (keep it under 500 for best performance).
+**Import** Lanelet2 OSM format maps for editing. Load the whole map, or pick out
+only the lanes you need before importing — handy for working on a small part of a
+large map. Sample maps: [Autoware Documentation](https://autowarefoundation.github.io/autoware-documentation/main/demos/planning-sim/#download-the-sample-map).
+
+**Export** the lanes you draw back out as a Lanelet2 OSM map. Round-trips
+preserve the original IDs and tags, so maps survive an import/edit/export cycle.
 
 <video src="https://github.com/user-attachments/assets/92cf1c66-b7d4-4142-b637-7dd9eb0a156f" width="80%" controls></video>
 
@@ -167,7 +172,13 @@ Import Lanelet2 OSM format maps for editing, and export the lanes you draw back 
 
 #### OpenDRIVE (.xodr) Import / Export
 
-Import ASAM OpenDRIVE (.xodr) maps for editing and export them back out, with lane types, road marks, and junction connectivity preserved for high-fidelity round-trips (verified in esmini 3.3.0). The converter is implemented in `@drawtonomy/sdk` — see the [Exporter Developer Guide](docs/exporter.md).
+**Import** ASAM OpenDRIVE (.xodr) maps for editing. As with Lanelet2, load the
+whole map or select only the lanes you need. Plan-view geometry (line / arc /
+clothoid) is evaluated analytically and lane/junction connectivity is rebuilt.
+
+**Export** your scene back out as an OpenDRIVE map. Lane types, road marks, and
+junction connectivity are preserved for high-fidelity round-trips, verified by
+playback in esmini 3.3.0. Implemented in `@drawtonomy/sdk` — see the [Exporter Developer Guide](docs/exporter.md).
 
 <video src="https://github.com/user-attachments/assets/84e16e91-e267-433b-9bd8-94eecf3124a8" width="80%" controls></video>
 
