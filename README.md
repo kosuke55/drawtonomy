@@ -169,9 +169,9 @@ You can also select and import only specific lanes. For optimal performance, we 
 
 #### OpenDRIVE (.xodr) Import / Export
 
-Import ASAM OpenDRIVE maps for editing and export them back out. The dependency-free parser evaluates plan-view geometry analytically (line / arc / clothoid via Fresnel integrals / paramPoly3 / poly3) with adaptive chord-error sampling, and the importer reconstructs shared lane boundaries, lane and junction connectivity. On export, lane types, road marks, and synthesized `<junction>` elements are preserved, and a sidecar captured at import time enables high-fidelity round-trips (verified by loading the output in esmini 3.3.0). Lane attributes with no OpenDRIVE vocabulary carry through `<userData>`, so maps survive both OpenDRIVE and Lanelet2 round-trips. The converter is implemented in `@drawtonomy/sdk` — see the [Exporter Developer Guide](docs/exporter.md).
+Import ASAM OpenDRIVE (.xodr) maps for editing and export them back out, with lane/junction connectivity and high-fidelity round-trips (verified in esmini 3.3.0). The converter is implemented in `@drawtonomy/sdk` — see the [Exporter Developer Guide](docs/exporter.md).
 
-<video src="https://github.com/user-attachments/assets/c8a8f59a-a7ff-4c3b-ba47-f93b2400738e" width="80%" controls></video>
+<video src="https://github.com/user-attachments/assets/84e16e91-e267-433b-9bd8-94eecf3124a8" width="80%" controls></video>
 
 #### [Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2) Export
 
