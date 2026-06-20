@@ -36,6 +36,7 @@
 - 🗺️ **[Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2) Support** - Import and export OSM format maps
 - 🤖 **ROS Map Support** - Import OccupancyGrid maps (.pgm + .yaml) from SLAM
 - 🚗 **[ASAM Export](docs/exporter.md)** - Export OpenDRIVE / OpenSCENARIO and esmini-ready zip bundles
+- ▶️ **Scenario Simulator** - Drop a `.xosc` + `.xodr` and play it back in the browser (powered by [esmini](https://github.com/esmini/esmini) WebAssembly)
 - 🤖 **[AI Scene Generator](extensions/ai-scene-generator/)** - Generate editable scenes from natural language, OpenSCENARIO XML, or DSL
 
 ## 🎯 Main Features
@@ -212,6 +213,14 @@ back in esmini — the vehicle follows the trajectory built from the path.
 <video src="https://github.com/user-attachments/assets/1a32b360-5ffc-4967-9c28-e424c1f47aaf" width="80%" controls></video>
 
 📖 **[Exporter Developer Guide](docs/exporter.md)** | [日本語](docs/exporter.ja.md) | 🧪 **[Exporter Playground extension](extensions/exporter-playground/)** for canvas-driven verification
+
+### ▶️ Scenario Simulator
+
+Drop an OpenSCENARIO `.xosc` together with its OpenDRIVE `.xodr` onto the canvas and the storyboard plays back in the browser — seek the timeline, follow the ego vehicle, show ghost trails, and export the run as `.webm`.
+
+The simulation core is [esmini](https://github.com/esmini/esmini) compiled to WebAssembly, used here under [MPL-2.0](https://github.com/esmini/esmini/blob/master/LICENSE) with all credit for the OpenSCENARIO 1.x runtime going to the esmini maintainers.
+
+<video src="https://github.com/user-attachments/assets/98c85e84-b4a3-408e-afa4-f7a6961b345d" width="80%" controls></video>
 
 ### 🤖 [AI Scene Generator](extensions/ai-scene-generator/)
 
