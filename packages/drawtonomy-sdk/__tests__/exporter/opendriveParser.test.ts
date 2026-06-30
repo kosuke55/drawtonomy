@@ -119,6 +119,33 @@ describe('parseOpenDriveXml', () => {
     expect(sec1.right[1].widths[0].b).toBeCloseTo(-0.07, 12)
   })
 
+  it('parses roadMark weight/width/material/laneChange when present', () => {
+    const xml = `<?xml version="1.0"?>
+<OpenDRIVE>
+  <header revMajor="1" revMinor="6"/>
+  <road name="r" length="10" id="1" junction="-1">
+    <planView><geometry s="0" x="0" y="0" hdg="0" length="10"><line/></geometry></planView>
+    <lanes>
+      <laneSection s="0">
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+            <roadMark sOffset="0" type="solid solid" weight="bold" color="yellow" width="0.25" material="custom" laneChange="none"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+</OpenDRIVE>`
+    const rm = parseOpenDriveXml(xml).roads[0].laneSections[0].right[0].roadMarks[0]
+    expect(rm.type).toBe('solid solid')
+    expect(rm.weight).toBe('bold')
+    expect(rm.color).toBe('yellow')
+    expect(rm.width).toBeCloseTo(0.25, 6)
+    expect(rm.material).toBe('custom')
+    expect(rm.laneChange).toBe('none')
+  })
+
   it('flags elevation and keeps minimal signal/object records', () => {
     const road = parseOpenDriveXml(SAMPLE).roads[0]
     expect(road.hasElevation).toBe(true)

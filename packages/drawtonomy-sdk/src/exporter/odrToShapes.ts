@@ -914,17 +914,29 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
         result.points.push(data)
         pointIds.push(pointId)
       })
+      const attributes: Record<string, string> = {
+        type: 'line_thin',
+        subtype: roadMarkToSubtype(rm),
+        width: '0.2',
+      }
+      // OpenDRIVE roadMark carry-through. These are read back at export time
+      // when a road has been edited (and therefore cannot be emitted verbatim),
+      // and by the app's display-mode-aware boundary color resolver.
+      if (rm) {
+        attributes.odr_road_mark_type = rm.type
+        if (rm.color !== undefined) attributes.odr_road_mark_color = rm.color
+        if (rm.weight !== undefined) attributes.odr_road_mark_weight = rm.weight
+        if (rm.width !== undefined) attributes.odr_road_mark_width = String(rm.width)
+        if (rm.material !== undefined) attributes.odr_road_mark_material = rm.material
+        if (rm.laneChange !== undefined) attributes.odr_road_mark_lane_change = rm.laneChange
+      }
       const data: ImportedLinestring = {
         id: idAllocator.next('linestring'),
         x: firstX,
         y: firstY,
         pointIds,
         osmId: '',
-        attributes: {
-          type: 'line_thin',
-          subtype: roadMarkToSubtype(rm),
-          width: '0.2',
-        },
+        attributes,
       }
       result.linestrings.push(data)
       lsCache.set(key, data)
