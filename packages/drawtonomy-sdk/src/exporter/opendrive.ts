@@ -584,7 +584,38 @@ function odrLaneTypeFor(lane: LaneShape): string {
 function roadMarkTypeFor(shapeMap: Map<string, BaseShape>, boundaryId: string | null): string {
   if (!boundaryId) return 'solid'
   const ls = shapeMap.get(boundaryId) as unknown as LinestringShape | undefined
+  // OpenDRIVE round-trip: prefer the carry-through value captured at import.
+  const carried = ls?.props?.attributes?.odr_road_mark_type
+  if (carried) return carried
   return ls?.props?.attributes?.subtype === 'dashed' ? 'broken' : 'solid'
+}
+
+/**
+ * Emit a `<roadMark>` element for a boundary linestring. Honors carry-through
+ * attributes (`odr_road_mark_*`) so an imported road that has been edited
+ * (and therefore cannot be re-emitted verbatim) still retains its original
+ * color / weight / width information.
+ */
+function roadMarkElementFor(
+  shapeMap: Map<string, BaseShape>,
+  boundaryId: string | null
+): string {
+  const ls = boundaryId ? (shapeMap.get(boundaryId) as unknown as LinestringShape | undefined) : undefined
+  const attrs: Record<string, string | undefined> = ls?.props?.attributes ?? {}
+  const type = roadMarkTypeFor(shapeMap, boundaryId)
+  const color = attrs.odr_road_mark_color ?? 'white'
+  const weight = attrs.odr_road_mark_weight ?? 'standard'
+  const width = attrs.odr_road_mark_width ?? '0.13'
+  const parts = [
+    'sOffset="0"',
+    `type="${type}"`,
+    `weight="${weight}"`,
+    `color="${color}"`,
+    `width="${width}"`,
+  ]
+  if (attrs.odr_road_mark_material !== undefined) parts.push(`material="${attrs.odr_road_mark_material}"`)
+  if (attrs.odr_road_mark_lane_change !== undefined) parts.push(`laneChange="${attrs.odr_road_mark_lane_change}"`)
+  return `<roadMark ${parts.join(' ')}/>`
 }
 
 function emitLanes(
@@ -603,8 +634,7 @@ function emitLanes(
   lines.push(`        <center>`)
   lines.push(`          <lane id="0" type="none" level="false">`)
   lines.push(`            <link/>`)
-  const centerMark = roadMarkTypeFor(shapeMap, bundle.lanes[0].props.leftBoundaryId)
-  lines.push(`            <roadMark sOffset="0" type="${centerMark}" weight="standard" color="white" width="0.13"/>`)
+  lines.push(`            ${roadMarkElementFor(shapeMap, bundle.lanes[0].props.leftBoundaryId)}`)
   lines.push(`          </lane>`)
   lines.push(`        </center>`)
   lines.push(`        <right>`)
@@ -613,8 +643,7 @@ function emitLanes(
     lines.push(`          <lane id="${odrId}" type="${odrLaneTypeFor(lane)}" level="false">`)
     emitLaneLink(lines, plan.lanePredecessor.get(lane.id), plan.laneSuccessor.get(lane.id))
     emitWidthEntries(geom, i, lines)
-    const outerMark = roadMarkTypeFor(shapeMap, lane.props.rightBoundaryId)
-    lines.push(`            <roadMark sOffset="0" type="${outerMark}" weight="standard" color="white" width="0.13"/>`)
+    lines.push(`            ${roadMarkElementFor(shapeMap, lane.props.rightBoundaryId)}`)
     lines.push(`          </lane>`)
   })
   lines.push(`        </right>`)

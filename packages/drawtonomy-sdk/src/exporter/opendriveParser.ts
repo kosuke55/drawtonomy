@@ -81,6 +81,10 @@ export interface OdrRoadMark {
   sOffset: number
   type: string
   color?: string
+  weight?: string
+  width?: number
+  material?: string
+  laneChange?: string
 }
 
 export interface OdrLane {
@@ -505,11 +509,18 @@ function parseLane(el: XmlNode, roadId: string): OdrLane {
     d: numAttr(w, 'd', 0),
   }))
   widths.sort((a, b) => a.sOffset - b.sOffset)
-  const roadMarks: OdrRoadMark[] = children(el, 'roadMark').map(rm => ({
-    sOffset: numAttr(rm, 'sOffset', 0),
-    type: rm.attrs.type ?? 'none',
-    color: rm.attrs.color,
-  }))
+  const roadMarks: OdrRoadMark[] = children(el, 'roadMark').map(rm => {
+    const widthAttr = rm.attrs.width
+    return {
+      sOffset: numAttr(rm, 'sOffset', 0),
+      type: rm.attrs.type ?? 'none',
+      color: rm.attrs.color,
+      weight: rm.attrs.weight,
+      width: widthAttr !== undefined ? Number(widthAttr) : undefined,
+      material: rm.attrs.material,
+      laneChange: rm.attrs.laneChange,
+    }
+  })
   roadMarks.sort((a, b) => a.sOffset - b.sOffset)
   return {
     id,

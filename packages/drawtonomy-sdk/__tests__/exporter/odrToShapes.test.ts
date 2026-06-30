@@ -241,6 +241,104 @@ describe('round-trip smoke (import -> export)', () => {
   })
 })
 
+describe('roadMark carry-through', () => {
+  const TWO_LANE_WITH_MARKS = `<?xml version="1.0"?>
+<OpenDRIVE>
+  <header revMajor="1" revMinor="6"/>
+  <road name="r" length="100" id="1" junction="-1">
+    <planView><geometry s="0" x="0" y="0" hdg="0" length="100"><line/></geometry></planView>
+    <lanes>
+      <laneSection s="0">
+        <center>
+          <lane id="0" type="none" level="false">
+            <roadMark sOffset="0" type="solid solid" weight="bold" color="yellow" width="0.25"/>
+          </lane>
+        </center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+            <roadMark sOffset="0" type="broken" weight="standard" color="white" width="0.13" laneChange="both"/>
+          </lane>
+          <lane id="-2" type="driving" level="false">
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+            <roadMark sOffset="0" type="solid" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+</OpenDRIVE>`
+
+  it('imports roadMark type/color/weight/width into linestring attributes', () => {
+    const result = odrToShapes(parseOpenDriveXml(TWO_LANE_WITH_MARKS))
+    // 3 boundaries: center (lane id 0), shared between -1/-2, outer of -2
+    expect(result.linestrings).toHaveLength(3)
+
+    const lsById = new Map(result.linestrings.map(ls => [ls.id, ls]))
+    const [lane1, lane2] = result.lanes
+    const centerLs = lsById.get(lane1.leftBoundaryId)!
+    const sharedLs = lsById.get(lane1.rightBoundaryId)!
+    const outerLs = lsById.get(lane2.rightBoundaryId)!
+
+    expect(centerLs.attributes.odr_road_mark_type).toBe('solid solid')
+    expect(centerLs.attributes.odr_road_mark_color).toBe('yellow')
+    expect(centerLs.attributes.odr_road_mark_weight).toBe('bold')
+    expect(centerLs.attributes.odr_road_mark_width).toBe('0.25')
+
+    expect(sharedLs.attributes.odr_road_mark_type).toBe('broken')
+    expect(sharedLs.attributes.odr_road_mark_color).toBe('white')
+    expect(sharedLs.attributes.odr_road_mark_lane_change).toBe('both')
+    // subtype は描画用に潰されているはず (broken -> dashed)
+    expect(sharedLs.attributes.subtype).toBe('dashed')
+
+    expect(outerLs.attributes.odr_road_mark_type).toBe('solid')
+    expect(outerLs.attributes.subtype).toBe('solid')
+  })
+
+  it('re-exports preserved roadMark attributes for edited roads', () => {
+    const imported = odrToShapes(parseOpenDriveXml(TWO_LANE_WITH_MARKS))
+    const shapes: unknown[] = []
+    for (const p of imported.points) {
+      shapes.push({
+        id: p.id, type: 'point', x: p.x, y: p.y, rotation: 0, zIndex: 0,
+        props: { color: 'black', visible: true, osmId: p.osmId },
+      })
+    }
+    for (const ls of imported.linestrings) {
+      shapes.push({
+        id: ls.id, type: 'linestring', x: ls.x, y: ls.y, rotation: 0, zIndex: 0,
+        props: { pointIds: ls.pointIds, color: 'black', strokeWidth: 2, attributes: ls.attributes, osmId: ls.osmId },
+      })
+    }
+    for (const lane of imported.lanes) {
+      shapes.push({
+        id: lane.id, type: 'lane', x: lane.x, y: lane.y, rotation: 0, zIndex: 0,
+        props: {
+          leftBoundaryId: lane.leftBoundaryId, rightBoundaryId: lane.rightBoundaryId,
+          invertLeft: lane.invertLeft, invertRight: lane.invertRight,
+          color: 'default', size: 'm', attributes: lane.attributes,
+          next: lane.next, prev: lane.prev, osmId: lane.osmId,
+        },
+      })
+    }
+    // sidecar を渡さずに export することで未編集 carry-through ではなく
+    // fitting exporter 経路を強制する (= roadMarkElementFor を通る)。
+    const snapshot: DrawtonomySnapshot = {
+      version: '1.1',
+      timestamp: new Date().toISOString(),
+      shapes: shapes as DrawtonomySnapshot['shapes'],
+    }
+    const xml = exportToOpenDrive(snapshot)
+    // ↓ 中央線 (solid solid + yellow + bold + 0.25) が出力されているか
+    expect(xml).toContain('type="solid solid"')
+    expect(xml).toContain('color="yellow"')
+    expect(xml).toContain('weight="bold"')
+    expect(xml).toContain('width="0.25"')
+    // ↓ -1 と -2 の間 (broken + white)
+    expect(xml).toMatch(/type="broken"[^>]*color="white"/)
+  })
+})
+
 describe('round-trip smoke (import -> Lanelet2)', () => {
   it('re-imports an OpenDRIVE map exported as Lanelet2 with the same lane count', async () => {
     const { exportToLanelet2 } = await import('../../src/exporter/lanelet2')

@@ -25,7 +25,7 @@ export interface LinestringProps {
   color: string
   strokeWidth: number
   opacity?: number | null
-  attributes: { type: string; subtype: string }
+  attributes: { type: string; subtype: string } & Record<string, string | undefined>
   osmId: string
   isPath?: boolean
   arrowHead?: string | null
