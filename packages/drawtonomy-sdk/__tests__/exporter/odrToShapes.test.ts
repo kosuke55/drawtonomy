@@ -368,6 +368,65 @@ describe('round-trip smoke (import -> Lanelet2)', () => {
   })
 })
 
+// Self-contained synthetic map whose reference line is a curved paramPoly3
+// (no external fixture dependency). U(p) ≈ arc length, V(p) = 6e-3·p² bends the
+// road laterally, so a correct sampler produces a visibly curved lane rather
+// than a straight chord.
+const PARAM_POLY3_CURVE = `<?xml version="1.0"?>
+<OpenDRIVE>
+  <header revMajor="1" revMinor="6"/>
+  <road name="curve" length="40" id="1" junction="-1">
+    <planView>
+      <geometry s="0" x="0" y="0" hdg="0" length="40">
+        <paramPoly3 aU="0" bU="1" cU="0" dU="0" aV="0" bV="0" cV="6e-3" dV="0" pRange="arcLength"/>
+      </geometry>
+    </planView>
+    <lanes>
+      <laneSection s="0">
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+</OpenDRIVE>`
+
+describe('paramPoly3 reference line (synthetic)', () => {
+  it('converts a curved paramPoly3 road into a finite, actually-curved lane', () => {
+    const result = odrToShapes(parseOpenDriveXml(PARAM_POLY3_CURVE))
+    expect(result.lanes).toHaveLength(1)
+    // Every emitted boundary point is finite.
+    for (const p of result.points) {
+      expect(Number.isFinite(p.x)).toBe(true)
+      expect(Number.isFinite(p.y)).toBe(true)
+    }
+    // Pick the lane's longest boundary and verify it bends: the midpoint must
+    // deviate from the straight chord between its endpoints (a straight sampler
+    // or a dropped paramPoly3 would collapse this to ~0).
+    const boundary = result.linestrings.reduce((best, ls) =>
+      ls.pointIds.length > best.pointIds.length ? ls : best
+    , result.linestrings[0])
+    const pts = boundary.pointIds.map(id => result.points.find(p => p.id === id)!)
+    expect(pts.length).toBeGreaterThan(3)
+    const a = pts[0]
+    const b = pts[pts.length - 1]
+    const mid = pts[Math.floor(pts.length / 2)]
+    const dx = b.x - a.x
+    const dy = b.y - a.y
+    const chord = Math.hypot(dx, dy)
+    const dev = Math.abs((mid.x - a.x) * dy - (mid.y - a.y) * dx) / chord
+    // In pixels: cV·(L/2)² = 6e-3·400 = 2.4 m ≈ 2.4·PIXELS_PER_METER px of bend.
+    expect(dev).toBeGreaterThan(1 * PIXELS_PER_METER)
+  })
+
+  it('does not warn about the paramPoly3 primitive (it is fully supported)', () => {
+    const result = odrToShapes(parseOpenDriveXml(PARAM_POLY3_CURVE))
+    expect(result.warnings.some(w => /paramPoly3/i.test(w))).toBe(false)
+  })
+})
+
 describe('esmini sample map (fixture)', () => {
   const fixturePath = join(__dirname, '..', 'fixtures', 'fabriksgatan.xodr')
   it.skipIf(!existsSync(fixturePath))('parses and converts fabriksgatan.xodr', () => {

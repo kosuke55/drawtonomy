@@ -141,6 +141,55 @@ describe('evalGeometry', () => {
     expect(p.x).toBeCloseTo(0, 9)
     expect(p.y).toBeCloseTo(10, 9)
   })
+
+  it('evaluates a genuinely cubic paramPoly3 against hand-computed values', () => {
+    // U(p) = 20p (linear abscissa), V(p) = 4p² − 2p³ (a real S-shaped lateral
+    // polynomial). Local frame at (0,0,hdg=0), so inertial == local.
+    // At p = 1:   U = 20, V = 4 − 2 = 2,  U' = 20, V' = 8 − 6 = 2
+    // At p = 0.5: U = 10, V = 1 − 0.25 = 0.75, U' = 20, V' = 4 − 1.5 = 2.5
+    const g: OdrGeometry = {
+      kind: 'paramPoly3',
+      s: 0, x: 0, y: 0, hdg: 0, length: 20,
+      aU: 0, bU: 20, cU: 0, dU: 0,
+      aV: 0, bV: 0, cV: 4, dV: -2,
+      pRange: 'normalized',
+    }
+    const end = evalGeometry(g, 20) // p = 1
+    expect(end.x).toBeCloseTo(20, 12)
+    expect(end.y).toBeCloseTo(2, 12)
+    expect(end.hdg).toBeCloseTo(Math.atan2(2, 20), 12)
+    const mid = evalGeometry(g, 10) // p = 0.5
+    expect(mid.x).toBeCloseTo(10, 12)
+    expect(mid.y).toBeCloseTo(0.75, 12)
+    expect(mid.hdg).toBeCloseTo(Math.atan2(2.5, 20), 12)
+  })
+
+  it('is invariant under the normalized↔arcLength parametrization', () => {
+    // The same physical curve expressed in both pRange conventions must trace
+    // the same points: scaling each coefficient of order n by L^n converts a
+    // normalized polynomial (p ∈ [0,1]) into an arcLength one (p ∈ [0,L]).
+    const L = 20
+    const norm: OdrGeometry = {
+      kind: 'paramPoly3',
+      s: 0, x: 3, y: -1, hdg: 0.4, length: L,
+      aU: 0, bU: 20, cU: 0, dU: 0,
+      aV: 0, bV: 0, cV: 4, dV: -2,
+      pRange: 'normalized',
+    }
+    const arc: OdrGeometry = {
+      ...norm,
+      bU: 20 / L, cU: 0, dU: 0,
+      cV: 4 / (L * L), dV: -2 / (L * L * L),
+      pRange: 'arcLength',
+    }
+    for (const ds of [0, 5, 10, 15, 20]) {
+      const a = evalGeometry(norm, ds)
+      const b = evalGeometry(arc, ds)
+      expect(b.x).toBeCloseTo(a.x, 10)
+      expect(b.y).toBeCloseTo(a.y, 10)
+      expect(b.hdg).toBeCloseTo(a.hdg, 10)
+    }
+  })
 })
 
 describe('evalPoly3', () => {
@@ -194,5 +243,35 @@ describe('sampleReferenceLine', () => {
     const stations = samples.map(s => s.s)
     expect(stations).toContain(30)
     expect(stations).toContain(42.5)
+  })
+
+  it('respects the chord error bound on a curved paramPoly3 (arcLength)', () => {
+    // A curved paramPoly3: U ≈ arc length, V bends laterally. Coefficients keep
+    // |U'| ≈ 1 so the arcLength parameter tracks true arc length closely, which
+    // is exactly what the sampler assumes when it feeds station s as p.
+    const len = 40
+    const g: OdrGeometry = {
+      kind: 'paramPoly3',
+      s: 0, x: 0, y: 0, hdg: 0, length: len,
+      aU: 0, bU: 1, cU: 0, dU: 0,
+      aV: 0, bV: 0, cV: 6e-3, dV: -1e-4,
+      pRange: 'arcLength',
+    }
+    const r = road([g], len)
+    const tol = 0.05
+    const samples = sampleReferenceLine(r, { maxChordErrorMeters: tol })
+    expect(samples[0].s).toBe(0)
+    expect(samples[samples.length - 1].s).toBeCloseTo(len, 9)
+    // Sagitta check: every step's midpoint lies within tol of its chord.
+    for (let i = 0; i < samples.length - 1; i++) {
+      const a = samples[i]
+      const b = samples[i + 1]
+      const mid = evalGeometry(g, (a.s + b.s) / 2)
+      const dx = b.x - a.x
+      const dy = b.y - a.y
+      const lenSeg = Math.hypot(dx, dy)
+      const dev = Math.abs((mid.x - a.x) * dy - (mid.y - a.y) * dx) / lenSeg
+      expect(dev).toBeLessThanOrEqual(tol * 1.0001)
+    }
   })
 })
