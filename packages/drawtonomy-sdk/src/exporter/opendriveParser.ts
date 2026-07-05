@@ -201,7 +201,15 @@ export interface OdrJunctionLaneLink {
 export interface OdrJunctionConnection {
   id: string
   incomingRoad: string
+  /**
+   * Target road id: the `connectingRoad` attribute or, for OpenDRIVE 1.7+
+   * direct/virtual connections that omit it, the `linkedRoad` attribute.
+   */
   connectingRoad: string
+  /** Raw `type` attribute ("default" / "virtual" / "direct"); undefined when absent. */
+  type?: string
+  /** Set when the target road id came from the `linkedRoad` attribute. */
+  linkedRoad?: string
   contactPoint: 'start' | 'end'
   laneLinks: OdrJunctionLaneLink[]
 }
@@ -227,6 +235,11 @@ export interface OdrMap {
   junctions: OdrJunction[]
   /** Original XML, captured for sidecar/round-trip workflows. */
   rawXml: string
+  /**
+   * Non-fatal parse notes: malformed junction records that were skipped
+   * instead of failing the whole document (surfaced by `odrToShapes`).
+   */
+  warnings: string[]
 }
 
 // ---------------------------------------------------------------------------
@@ -649,21 +662,57 @@ function parseRoad(el: XmlNode): OdrRoad {
   }
 }
 
-function parseJunction(el: XmlNode): OdrJunction {
-  const id = requireStrAttr(el, 'id', '<junction>')
-  const connections: OdrJunctionConnection[] = children(el, 'connection').map(conn => {
-    const ctx = `junction ${id}, <connection>`
-    return {
-      id: conn.attrs.id ?? '',
-      incomingRoad: requireStrAttr(conn, 'incomingRoad', ctx),
-      connectingRoad: requireStrAttr(conn, 'connectingRoad', ctx),
-      contactPoint: parseContactPoint(conn.attrs.contactPoint) ?? 'start',
-      laneLinks: children(conn, 'laneLink').map(ll => ({
-        from: requireNumAttr(ll, 'from', ctx),
-        to: requireNumAttr(ll, 'to', ctx),
-      })),
+/**
+ * Parse a <junction>. Junction records are topology metadata — the roads
+ * themselves render fine without them — so malformed connections degrade
+ * gracefully: each bad record is skipped with a warning instead of failing
+ * the whole document (plan-view geometry, by contrast, stays strict because
+ * a road without valid geometry attributes cannot be drawn at all).
+ * Returns null (with a warning) when the junction has no usable id.
+ */
+function parseJunction(el: XmlNode, warnings: string[]): OdrJunction | null {
+  const id = el.attrs.id
+  if (id === undefined || id === '') {
+    warnings.push('Junction with missing id was skipped.')
+    return null
+  }
+  const connections: OdrJunctionConnection[] = []
+  for (const conn of children(el, 'connection')) {
+    const ctx = `Junction ${id}, connection ${conn.attrs.id ?? '?'}`
+    const incomingRoad = conn.attrs.incomingRoad
+    const connecting = conn.attrs.connectingRoad
+    const linked = conn.attrs.linkedRoad
+    // OpenDRIVE 1.7+ direct/virtual connections carry linkedRoad instead of
+    // connectingRoad; either attribute identifies the road to link lanes to.
+    const target = connecting !== undefined && connecting !== '' ? connecting : linked
+    if (incomingRoad === undefined || incomingRoad === '' || target === undefined || target === '') {
+      const missing =
+        incomingRoad === undefined || incomingRoad === ''
+          ? 'incomingRoad'
+          : 'connectingRoad/linkedRoad'
+      warnings.push(`${ctx}: missing "${missing}"; connection skipped.`)
+      continue
     }
-  })
+    const laneLinks: OdrJunctionLaneLink[] = []
+    for (const ll of children(conn, 'laneLink')) {
+      const from = parseFloat(ll.attrs.from ?? '')
+      const to = parseFloat(ll.attrs.to ?? '')
+      if (!Number.isFinite(from) || !Number.isFinite(to)) {
+        warnings.push(`${ctx}: malformed <laneLink>; laneLink skipped.`)
+        continue
+      }
+      laneLinks.push({ from, to })
+    }
+    connections.push({
+      id: conn.attrs.id ?? '',
+      incomingRoad,
+      connectingRoad: target,
+      ...(conn.attrs.type !== undefined ? { type: conn.attrs.type } : {}),
+      ...(connecting === undefined || connecting === '' ? { linkedRoad: target } : {}),
+      contactPoint: parseContactPoint(conn.attrs.contactPoint) ?? 'start',
+      laneLinks,
+    })
+  }
   const priorities = children(el, 'priority')
     .map(pr => ({ high: pr.attrs.high ?? '', low: pr.attrs.low ?? '' }))
     .filter(pr => pr.high !== '' && pr.low !== '')
@@ -687,7 +736,12 @@ export function parseOpenDriveXml(xmlString: string): OdrMap {
   }
 
   const roads = children(root, 'road').map(parseRoad)
-  const junctions = children(root, 'junction').map(parseJunction)
+  const warnings: string[] = []
+  const junctions: OdrJunction[] = []
+  for (const j of children(root, 'junction')) {
+    const parsed = parseJunction(j, warnings)
+    if (parsed) junctions.push(parsed)
+  }
 
-  return { header, roads, junctions, rawXml: xmlString }
+  return { header, roads, junctions, rawXml: xmlString, warnings }
 }

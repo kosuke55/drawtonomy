@@ -178,3 +178,87 @@ describe('parseOpenDriveXml', () => {
     expect(() => parseOpenDriveXml('<notOpenDrive/>')).toThrow(/OpenDRIVE/)
   })
 })
+
+// Junction records are topology metadata: a malformed <connection> must not
+// fail the whole document (which would prevent every road from rendering).
+const junctionXml = (connections: string) => `<?xml version="1.0"?>
+<OpenDRIVE>
+  <header revMajor="1" revMinor="7"/>
+  <road name="a" length="50" id="1" junction="-1">
+    <link><successor elementType="junction" elementId="8"/></link>
+    <planView><geometry s="0" x="0" y="0" hdg="0" length="50"><line/></geometry></planView>
+    <lanes><laneSection s="0"><right>
+      <lane id="-1" type="driving" level="false"><width sOffset="0" a="3.5" b="0" c="0" d="0"/></lane>
+    </right></laneSection></lanes>
+  </road>
+  <road name="b" length="50" id="2" junction="-1">
+    <link><predecessor elementType="junction" elementId="8"/></link>
+    <planView><geometry s="0" x="50" y="0" hdg="0" length="50"><line/></geometry></planView>
+    <lanes><laneSection s="0"><right>
+      <lane id="-1" type="driving" level="false"><width sOffset="0" a="3.5" b="0" c="0" d="0"/></lane>
+    </right></laneSection></lanes>
+  </road>
+  <junction id="8" name="j">${connections}</junction>
+</OpenDRIVE>`
+
+describe('junction connection tolerance', () => {
+  it('parses a direct connection that uses linkedRoad instead of connectingRoad', () => {
+    const map = parseOpenDriveXml(
+      junctionXml(`<connection id="0" type="direct" incomingRoad="1" linkedRoad="2" contactPoint="start">
+        <laneLink from="-1" to="-1"/>
+      </connection>`)
+    )
+    expect(map.warnings).toEqual([])
+    const conn = map.junctions[0].connections[0]
+    expect(conn.connectingRoad).toBe('2')
+    expect(conn.linkedRoad).toBe('2')
+    expect(conn.type).toBe('direct')
+    expect(conn.laneLinks).toEqual([{ from: -1, to: -1 }])
+  })
+
+  it('skips a connection missing both connectingRoad and linkedRoad, with a warning', () => {
+    const map = parseOpenDriveXml(
+      junctionXml(`<connection id="0" incomingRoad="1" contactPoint="start">
+        <laneLink from="-1" to="-1"/>
+      </connection>
+      <connection id="1" incomingRoad="1" connectingRoad="2" contactPoint="start">
+        <laneLink from="-1" to="-1"/>
+      </connection>`)
+    )
+    // The broken connection is dropped; the healthy sibling survives.
+    expect(map.junctions[0].connections).toHaveLength(1)
+    expect(map.junctions[0].connections[0].connectingRoad).toBe('2')
+    expect(map.warnings).toHaveLength(1)
+    expect(map.warnings[0]).toMatch(/Junction 8, connection 0/)
+    expect(map.warnings[0]).toMatch(/connectingRoad\/linkedRoad/)
+  })
+
+  it('skips a connection missing incomingRoad, with a warning', () => {
+    const map = parseOpenDriveXml(
+      junctionXml(`<connection id="0" connectingRoad="2" contactPoint="start"/>`)
+    )
+    expect(map.junctions[0].connections).toHaveLength(0)
+    expect(map.warnings).toHaveLength(1)
+    expect(map.warnings[0]).toMatch(/missing "incomingRoad"/)
+  })
+
+  it('skips malformed laneLink records without dropping the connection', () => {
+    const map = parseOpenDriveXml(
+      junctionXml(`<connection id="0" incomingRoad="1" connectingRoad="2" contactPoint="start">
+        <laneLink from="-1"/>
+        <laneLink from="-1" to="-1"/>
+      </connection>`)
+    )
+    const conn = map.junctions[0].connections[0]
+    expect(conn.laneLinks).toEqual([{ from: -1, to: -1 }])
+    expect(map.warnings).toHaveLength(1)
+    expect(map.warnings[0]).toMatch(/laneLink/)
+  })
+
+  it('keeps classic connectingRoad connections warning-free (regression)', () => {
+    const map = parseOpenDriveXml(SAMPLE)
+    expect(map.warnings).toEqual([])
+    expect(map.junctions[0].connections[0].connectingRoad).toBe('2')
+    expect(map.junctions[0].connections[0].linkedRoad).toBeUndefined()
+  })
+})

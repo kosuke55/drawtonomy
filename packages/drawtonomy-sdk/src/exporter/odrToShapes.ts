@@ -283,7 +283,8 @@ function poseAt(samples: ReferenceSample[], s: number): { x: number; y: number; 
  */
 export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrImportResult {
   const idAllocator = options.idAllocator ?? createShapeIdAllocator()
-  const warnings: string[] = []
+  // Seed with non-fatal parser notes (skipped malformed junction records).
+  const warnings: string[] = [...(map.warnings ?? [])]
 
   const origin = parseGeoReferenceOrigin(map.header.geoReference)
   if (origin?.approximate) {

@@ -391,3 +391,18 @@ describe('esmini sample map (fixture)', () => {
     }
   })
 })
+
+describe('junction connection tolerance (end to end)', () => {
+  it('still converts all roads when a connection lacks connectingRoad', () => {
+    // Same topology as JUNCTION_MAP, but the junction's connection record is
+    // broken (no connectingRoad/linkedRoad). The roads themselves must still
+    // import — a malformed junction record may cost connectivity, never geometry.
+    const brokenConn = JUNCTION_MAP.replace(
+      'incomingRoad="1" connectingRoad="5"',
+      'incomingRoad="1"'
+    )
+    const result = odrToShapes(parseOpenDriveXml(brokenConn))
+    expect(result.lanes).toHaveLength(3) // in / conn / out all materialize
+    expect(result.warnings.some(w => /connection/.test(w))).toBe(true)
+  })
+})
