@@ -181,6 +181,45 @@ describe('fitPlanView', () => {
     }
   })
 
+  it('keeps every non-corner primitive boundary heading-continuous', () => {
+    // A straight run followed by a gentle curve, sampled coarsely enough that
+    // the single-step primitive candidates reject on tolerance and the fit
+    // falls through to the degrade path. None of the transition vertices turn
+    // past the corner threshold, so no primitive boundary may inject a heading
+    // discontinuity: a raw chord <line> at each such vertex would connect two
+    // straights at a spurious road angle (physically a car snaps its heading at
+    // that station). Every adjacent-primitive joint must stay C1.
+    const pts: FitPoint[] = [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+      { x: 42, y: 0 },
+    ]
+    let x = 42
+    let y = 0
+    const angleDeg = [6.55, 20, 30, 34, 36.4]
+    const legLen = [3.66, 6.78, 4, 4, 3]
+    for (let k = 0; k < legLen.length; k++) {
+      const h = (angleDeg[k] * Math.PI) / 180
+      x += Math.cos(h) * legLen[k]
+      y += Math.sin(h) * legLen[k]
+      pts.push({ x, y })
+    }
+    const fit = fitPlanView(pts)
+    // No vertex deflects past the corner threshold, so no legitimate corner
+    // break exists: every boundary heading difference must be ~0.
+    for (let i = 0; i < fit.geometries.length - 1; i++) {
+      const end = evalGeometry(fit.geometries[i], fit.geometries[i].length)
+      const next = fit.geometries[i + 1]
+      expect(Math.abs(end.hdg - next.hdg)).toBeLessThan(0.01)
+    }
+    expectC1(fit.geometries)
+    // Deviation is looser here only because the reproduction is deliberately
+    // coarse (metre-scale chords) to force the degrade path; the arc through
+    // each pair of endpoints bulges off the straight chord by its sagitta. The
+    // fit still tracks the polyline to well under a quarter metre.
+    expect(maxDeviation(fit.geometries, pts)).toBeLessThanOrEqual(0.25)
+  })
+
   it('handles degenerate inputs without geometries', () => {
     expect(fitPlanView([]).geometries).toHaveLength(0)
     expect(fitPlanView([{ x: 1, y: 2 }]).geometries).toHaveLength(0)
