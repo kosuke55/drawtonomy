@@ -15,10 +15,12 @@
 //   maximum position deviation <= posTol and end-heading deviation <= hdgTol.
 // - C1 continuity is guaranteed by construction: each primitive starts at the
 //   analytic end pose of the previous one, and end headings are constrained
-//   to the sampled tangents. When no primitive fits even a single step (sharp
-//   corner), the span degrades to the plain chord <line> — the same output
-//   the previous line-decomposition exporter produced — which keeps position
-//   continuity and confines the heading break to the corner itself.
+//   to the sampled tangents. When no primitive fits even a single step, the
+//   span degrades — but continuity is preserved wherever it is meaningful: a
+//   gentle (sub-corner-threshold) vertex degrades to a chain-heading arc
+//   through the endpoint, which is still C1; only a genuine corner (adjacent
+//   chords deflecting past the corner threshold) degrades to the plain chord
+//   <line>, confining the heading break to the corner itself.
 //
 // No external dependencies.
 
@@ -483,8 +485,22 @@ export function fitPlanView(
         break
       }
     } else {
-      // Sharp corner / pathological step: degrade to the plain chord line
-      // (position-continuous; the heading break stays at the corner).
+      // No primitive fit even a single step. Two very different situations
+      // reach here and must be resolved differently:
+      //
+      //  - A genuine corner (adjacent chords deflect past CORNER_TURN_RAD): its
+      //    tangent is undefined, so a heading break at the vertex is correct.
+      //    Degrade to the plain chord <line> (position-continuous; the break
+      //    stays confined to the corner).
+      //
+      //  - A gentle transition vertex (deflection below the corner threshold)
+      //    that the primitive candidates rejected only on tolerance — e.g. a
+      //    cubic whose sampled-tangent endpoint condition makes it bulge just
+      //    past posTol on a coarse step. Here a raw chord <line> would inject a
+      //    spurious heading discontinuity between two straights (a road angle
+      //    that is not a real corner). Keep C1 instead: emit the arc through
+      //    the endpoint tangent to the incoming heading, so the joint stays
+      //    continuous and the vertex reads as the smooth turn it is.
       const cdx = pts[i + 1].x - pose.x
       const cdy = pts[i + 1].y - pose.y
       const chord = Math.hypot(cdx, cdy)
@@ -496,7 +512,32 @@ export function fitPlanView(
         continue
       }
       const chordHdg = Math.atan2(cdy, cdx)
-      fit = { kind: 'line', s: 0, x: pose.x, y: pose.y, hdg: chordHdg, length: chord }
+      const deflection = wrapAngle(chordHdg - pose.hdg)
+      const isCorner = corner[i] || corner[i + 1]
+      if (!isCorner && Math.abs(deflection) > 1e-9 && Math.abs(2 * deflection) <= MAX_TURN_RAD) {
+        // Arc from the chain pose through the endpoint (same inscribed-angle
+        // construction as tryArc): κ = 2·sin(deflection)/chord, length =
+        // deflection·chord/sin(deflection). C1 by construction — starts at the
+        // incoming heading.
+        const curvature = (2 * Math.sin(deflection)) / chord
+        fit = {
+          kind: 'arc',
+          s: 0,
+          x: pose.x,
+          y: pose.y,
+          hdg: pose.hdg,
+          length: (deflection * chord) / Math.sin(deflection),
+          curvature,
+        }
+      } else if (!isCorner && Math.abs(deflection) <= 1e-9) {
+        // Endpoint already lies on the incoming ray: a chain-heading line keeps
+        // C1 (the raw chord heading would equal it here anyway).
+        fit = { kind: 'line', s: 0, x: pose.x, y: pose.y, hdg: pose.hdg, length: chord }
+      } else {
+        // Genuine corner (or a deflection too sharp for a single arc): plain
+        // chord line, heading break confined to the corner.
+        fit = { kind: 'line', s: 0, x: pose.x, y: pose.y, hdg: chordHdg, length: chord }
+      }
     }
     fit.s = sCum
     geometries.push(fit)
