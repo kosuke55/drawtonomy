@@ -220,6 +220,80 @@ describe('fitPlanView', () => {
     expect(maxDeviation(fit.geometries, pts)).toBeLessThanOrEqual(0.25)
   })
 
+  it('keeps G1 across coarse large-deflection vertices of a smooth curve (real trace)', () => {
+    // Real hand-drawn trace (canvas px at 16.67 px/m, y-down -> ENU y-up): a
+    // long straight into a bend captured with only six vertices. The third
+    // bend vertex deflects ~22 deg — past any reasonable per-vertex turn
+    // threshold — yet its implied turn radius (min adjacent chord /
+    // (2 sin(defl/2)) ~ 13.9 m) is ordinary road curvature, so it is a
+    // coarsely sampled smooth curve, NOT a corner. A corner classification
+    // here degrades the step to a raw chord <line> and injects a heading jump
+    // at the joint (13.7 deg before the fix). Every joint must stay G1.
+    const px: [number, number][] = [
+      [500, 618.68],
+      [1201.1, 618.72],
+      [1261.74, 611.76],
+      [1365.74, 570.84],
+      [1430.18, 509.62],
+      [1484.17, 423.24],
+    ]
+    const pts: FitPoint[] = px.map(([x, y]) => ({ x: x / 16.67, y: -y / 16.67 }))
+    const fit = fitPlanView(pts)
+    let worst = 0
+    for (let i = 0; i < fit.geometries.length - 1; i++) {
+      const end = evalGeometry(fit.geometries[i], fit.geometries[i].length)
+      worst = Math.max(worst, Math.abs(end.hdg - fit.geometries[i + 1].hdg))
+    }
+    // < 0.6 deg (heading-tolerance scale); before the fix the corner
+    // misclassification produced a 13.7 deg (0.2385 rad) joint break.
+    expect(worst).toBeLessThan(0.0105)
+    expectC1(fit.geometries)
+    // No chord-line degrade may appear inside the bend: after the initial
+    // straight, everything is curved primitives.
+    for (const g of fit.geometries.slice(1)) {
+      expect(g.kind === 'arc' || g.kind === 'paramPoly3').toBe(true)
+    }
+  })
+
+  it('keeps G1 through a coarse straight-to-bend transition (synthetic)', () => {
+    // Straight run into a coarsely sampled bend whose middle vertices deflect
+    // past the per-vertex angle threshold (21.6 / 19.3 deg) while their
+    // implied radii stay road-scale (9.6 / 23.6 m): no corner exists, so no
+    // joint may break heading (15.3 deg at s=45.6 before the fix).
+    const pts: FitPoint[] = [
+      [0, 0],
+      [14, 0],
+      [28, 0],
+      [42, 0],
+      [45.6, 0.4],
+      [52, 3.8],
+      [58, 9],
+      [62, 16],
+    ].map(([x, y]) => ({ x, y }))
+    const fit = fitPlanView(pts)
+    let worst = 0
+    for (let i = 0; i < fit.geometries.length - 1; i++) {
+      const end = evalGeometry(fit.geometries[i], fit.geometries[i].length)
+      worst = Math.max(worst, Math.abs(end.hdg - fit.geometries[i + 1].hdg))
+    }
+    expect(worst).toBeLessThan(0.0105)
+    expectC1(fit.geometries)
+  })
+
+  it('still corner-degrades a genuinely tight fold (implied radius < 4 m)', () => {
+    // A right-angle fold drawn with 2.5 m chords: deflection 90 deg with
+    // implied radius 2.5/(2 sin 45) ~ 1.8 m — tighter than any drivable road
+    // fold, i.e. a real corner. The heading break must stay confined to the
+    // corner chord lines; the two straight legs remain lines.
+    const pts: FitPoint[] = []
+    for (let i = 0; i <= 8; i++) pts.push({ x: i * 2.5, y: 0 })
+    for (let i = 1; i <= 8; i++) pts.push({ x: 20, y: i * 2.5 })
+    const fit = fitPlanView(pts)
+    expect(maxDeviation(fit.geometries, pts)).toBeLessThanOrEqual(POS_TOL)
+    for (const g of fit.geometries) expect(g.kind).toBe('line')
+    expect(fit.geometries.length).toBeLessThanOrEqual(3)
+  })
+
   it('handles degenerate inputs without geometries', () => {
     expect(fitPlanView([]).geometries).toHaveLength(0)
     expect(fitPlanView([{ x: 1, y: 2 }]).geometries).toHaveLength(0)

@@ -16,11 +16,13 @@
 // - C1 continuity is guaranteed by construction: each primitive starts at the
 //   analytic end pose of the previous one, and end headings are constrained
 //   to the sampled tangents. When no primitive fits even a single step, the
-//   span degrades — but continuity is preserved wherever it is meaningful: a
-//   gentle (sub-corner-threshold) vertex degrades to a chain-heading arc
-//   through the endpoint, which is still C1; only a genuine corner (adjacent
-//   chords deflecting past the corner threshold) degrades to the plain chord
-//   <line>, confining the heading break to the corner itself.
+//   span degrades — but G1 continuity is a hard invariant at every non-corner
+//   joint (it outranks the position tolerance): such a step takes the
+//   unverified Hermite (chain pose -> end sample + sampled tangent) or the
+//   chain-tangent arc through the endpoint. Only a genuine corner — a vertex
+//   whose implied turn radius is tighter than any drivable road fold —
+//   degrades to the plain chord <line>, confining the heading break to the
+//   corner itself.
 //
 // No external dependencies.
 
@@ -248,14 +250,26 @@ export function fitPlanView(
   }
 
   // --- Corner flags -----------------------------------------------------------
-  // A polyline vertex whose adjacent chords turn sharply is a deliberate
-  // corner, not a sampled smooth curve; its "tangent" is meaningless, so
-  // end-heading constraints are waived there (the segmentation naturally
-  // breaks at the corner and the heading discontinuity stays on it).
+  // A polyline vertex is a genuine corner only when its turn is both sharp
+  // AND tight. The deflection angle alone cannot tell a deliberate corner
+  // from a smooth curve that was merely sampled coarsely: a road-scale bend
+  // traced with long chords shows large per-vertex deflections too. The
+  // discriminator is the implied radius of the turn,
+  //   R = min(adjacent chord length) / (2·sin(deflection / 2)),
+  // the radius of the circle that would produce this deflection over the
+  // shorter adjacent chord. Coarsely sampled smooth curves keep R at road
+  // scale; only a real fold (an intersection-grade kink, R below a few
+  // meters) carries a genuine tangent discontinuity. Only there are
+  // end-heading constraints waived (the segmentation naturally breaks at the
+  // corner and the heading discontinuity stays on it).
   const CORNER_TURN_RAD = 0.3
+  const CORNER_MAX_RADIUS_M = 4
   const corner: boolean[] = new Array(m).fill(false)
   for (let i = 1; i < m - 1; i++) {
-    corner[i] = Math.abs(wrapAngle(chordAngle(i) - chordAngle(i - 1))) > CORNER_TURN_RAD
+    const defl = Math.abs(wrapAngle(chordAngle(i) - chordAngle(i - 1)))
+    if (defl <= CORNER_TURN_RAD) continue
+    const impliedRadius = Math.min(chordLen(i - 1), chordLen(i)) / (2 * Math.sin(defl / 2))
+    corner[i] = impliedRadius < CORNER_MAX_RADIUS_M
   }
 
   /**
@@ -336,13 +350,20 @@ export function fitPlanView(
   }
 
   /**
-   * Cubic Hermite from the chain pose to the end sample + sampled tangent,
-   * expressed in the start-pose frame and emitted as paramPoly3 with
+   * Structural cubic Hermite from the chain pose to the end sample + sampled
+   * tangent, expressed in the start-pose frame and emitted as paramPoly3 with
    * pRange="arcLength". The parameter domain is iterated to the curve's
    * actual arc length so evaluating at ds stays close to true arc length;
    * a unit-speed band check rejects fits where that approximation degrades.
+   * Returns the candidate plus its verification sampling; it does NOT check
+   * position deviation against the input samples — `tryParamPoly3` adds that,
+   * while the G1 degrade path deliberately skips it (see the greedy loop).
    */
-  const tryParamPoly3 = (pose: GeomPose, i: number, j: number): Candidate | null => {
+  const buildHermite = (
+    pose: GeomPose,
+    i: number,
+    j: number
+  ): { cand: Candidate; curve: FitPoint[] } | null => {
     const cosH = Math.cos(pose.hdg)
     const sinH = Math.sin(pose.hdg)
     const ex = pts[j].x - pose.x
@@ -414,31 +435,41 @@ export function fitPlanView(
       const speed = Math.hypot(du, dv)
       if (speed < 0.5 || speed > 1.6) return null
     }
+    return {
+      cand: {
+        kind: 'paramPoly3',
+        s: 0,
+        x: pose.x,
+        y: pose.y,
+        hdg: pose.hdg,
+        length: L,
+        aU: 0,
+        bU: 1,
+        cU,
+        dU,
+        aV: 0,
+        bV: 0,
+        cV,
+        dV,
+        pRange: 'arcLength',
+      },
+      curve,
+    }
+  }
+
+  /** Hermite candidate verified against the input samples (both directions). */
+  const tryParamPoly3 = (pose: GeomPose, i: number, j: number): Candidate | null => {
+    const h = buildHermite(pose, i, j)
+    if (!h) return null
     // Samples -> curve and curve -> samples (the latter catches wiggles
     // between sample stations).
     for (let k = i + 1; k < j; k++) {
-      if (distToPolyline(pts[k], curve, 0, curve.length - 1) > posTol) return null
+      if (distToPolyline(pts[k], h.curve, 0, h.curve.length - 1) > posTol) return null
     }
-    for (const cp of curve) {
+    for (const cp of h.curve) {
       if (distToPolyline(cp, pts, i, j) > posTol) return null
     }
-    return {
-      kind: 'paramPoly3',
-      s: 0,
-      x: pose.x,
-      y: pose.y,
-      hdg: pose.hdg,
-      length: L,
-      aU: 0,
-      bU: 1,
-      cU,
-      dU,
-      aV: 0,
-      bV: 0,
-      cV,
-      dV,
-      pRange: 'arcLength',
-    }
+    return h.cand
   }
 
   /** Simplest passing primitive for the span [i..j]. */
@@ -488,19 +519,23 @@ export function fitPlanView(
       // No primitive fit even a single step. Two very different situations
       // reach here and must be resolved differently:
       //
-      //  - A genuine corner (adjacent chords deflect past CORNER_TURN_RAD): its
-      //    tangent is undefined, so a heading break at the vertex is correct.
-      //    Degrade to the plain chord <line> (position-continuous; the break
-      //    stays confined to the corner).
+      //  - A genuine corner (implied turn radius below CORNER_MAX_RADIUS_M):
+      //    its tangent is undefined, so a heading break at the vertex is
+      //    correct. Degrade to the plain chord <line> (position-continuous;
+      //    the break stays confined to the corner).
       //
-      //  - A gentle transition vertex (deflection below the corner threshold)
-      //    that the primitive candidates rejected only on tolerance — e.g. a
-      //    cubic whose sampled-tangent endpoint condition makes it bulge just
-      //    past posTol on a coarse step. Here a raw chord <line> would inject a
-      //    spurious heading discontinuity between two straights (a road angle
-      //    that is not a real corner). Keep C1 instead: emit the arc through
-      //    the endpoint tangent to the incoming heading, so the joint stays
-      //    continuous and the vertex reads as the smooth turn it is.
+      //  - A non-corner vertex the primitive candidates rejected only on
+      //    tolerance — e.g. a cubic whose sampled-tangent endpoint condition
+      //    makes it bulge just past posTol on a coarse step. Here G1
+      //    continuity is a hard invariant that outranks the position
+      //    tolerance: a few centimeters of positional slack are invisible on
+      //    a road, but a heading jump of several degrees is a kink a vehicle
+      //    would snap its orientation across in a single frame. Emit the
+      //    unverified Hermite (starts at the chain pose, ends on the sampled
+      //    tangent, so BOTH joints stay G1 and the chain heading keeps
+      //    tracking the data tangents), falling back to the chain-tangent
+      //    arc through the endpoint (C1 at its start joint) and only then —
+      //    for pathological steps such as reversals — to the chord line.
       const cdx = pts[i + 1].x - pose.x
       const cdy = pts[i + 1].y - pose.y
       const chord = Math.hypot(cdx, cdy)
@@ -514,28 +549,34 @@ export function fitPlanView(
       const chordHdg = Math.atan2(cdy, cdx)
       const deflection = wrapAngle(chordHdg - pose.hdg)
       const isCorner = corner[i] || corner[i + 1]
-      if (!isCorner && Math.abs(deflection) > 1e-9 && Math.abs(2 * deflection) <= MAX_TURN_RAD) {
-        // Arc from the chain pose through the endpoint (same inscribed-angle
-        // construction as tryArc): κ = 2·sin(deflection)/chord, length =
-        // deflection·chord/sin(deflection). C1 by construction — starts at the
-        // incoming heading.
-        const curvature = (2 * Math.sin(deflection)) / chord
-        fit = {
-          kind: 'arc',
-          s: 0,
-          x: pose.x,
-          y: pose.y,
-          hdg: pose.hdg,
-          length: (deflection * chord) / Math.sin(deflection),
-          curvature,
+      fit = null
+      if (!isCorner) {
+        if (Math.abs(deflection) <= 1e-9) {
+          // Endpoint already lies on the incoming ray: a chain-heading line
+          // keeps C1 (the raw chord heading would equal it here anyway).
+          fit = { kind: 'line', s: 0, x: pose.x, y: pose.y, hdg: pose.hdg, length: chord }
+        } else {
+          fit = buildHermite(pose, i, i + 1)?.cand ?? null
+          if (!fit && Math.abs(2 * deflection) <= MAX_TURN_RAD) {
+            // Arc from the chain pose through the endpoint (same
+            // inscribed-angle construction as tryArc): κ = 2·sin(deflection)
+            // / chord, length = deflection·chord/sin(deflection).
+            const curvature = (2 * Math.sin(deflection)) / chord
+            fit = {
+              kind: 'arc',
+              s: 0,
+              x: pose.x,
+              y: pose.y,
+              hdg: pose.hdg,
+              length: (deflection * chord) / Math.sin(deflection),
+              curvature,
+            }
+          }
         }
-      } else if (!isCorner && Math.abs(deflection) <= 1e-9) {
-        // Endpoint already lies on the incoming ray: a chain-heading line keeps
-        // C1 (the raw chord heading would equal it here anyway).
-        fit = { kind: 'line', s: 0, x: pose.x, y: pose.y, hdg: pose.hdg, length: chord }
-      } else {
-        // Genuine corner (or a deflection too sharp for a single arc): plain
-        // chord line, heading break confined to the corner.
+      }
+      if (!fit) {
+        // Genuine corner (or a pathological step no continuous primitive can
+        // take): plain chord line, heading break confined to the vertex.
         fit = { kind: 'line', s: 0, x: pose.x, y: pose.y, hdg: chordHdg, length: chord }
       }
     }
