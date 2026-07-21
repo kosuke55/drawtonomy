@@ -1822,6 +1822,23 @@ describe('carry-through export (sidecar verbatim re-emission)', () => {
     expectVerbatimRoundTrip(readFileSync(TWO_PLUS_ONE, 'utf-8'))
   })
 
+  it('keeps <object type="parkingSpace"> verbatim for unedited roads', () => {
+    // W50: parking spaces are materialized as polygons only; the source
+    // <object> stays in the road's verbatim XML and re-emits unchanged when the
+    // road is not edited. The polygon does not participate in the road state
+    // hash, so importing it must not force regeneration of the carrying road.
+    const parkingFixture = join(FIXTURES, 'parking_demo.xodr')
+    if (!existsSync(parkingFixture)) return
+    const xml = readFileSync(parkingFixture, 'utf-8')
+    const imported = odrToShapesFull(parseOpenDriveXml(xml))
+    expect((imported.parkingSpaces ?? []).length).toBe(7)
+    const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
+    // Every original parkingSpace object survives the unedited round trip.
+    const before = (xml.match(/type="parkingSpace"/g) || []).length
+    const after = (out.match(/type="parkingSpace"/g) || []).length
+    expect(after).toBe(before)
+  })
+
   it('regenerates only the edited road and keeps its original id', () => {
     const imported = odrToShapesFull(parseOpenDriveXml(CHAIN_XODR))
     const records = imported.sidecar.roadRecords!

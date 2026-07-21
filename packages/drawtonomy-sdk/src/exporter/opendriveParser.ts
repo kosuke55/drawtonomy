@@ -153,6 +153,23 @@ export interface OdrSignalReference {
   validity: OdrSignalValidity[]
 }
 
+/**
+ * A single `<outline>/<cornerLocal>` or `<outline>/<cornerRoad>` corner. Exactly
+ * one coordinate pair is present: `u`/`v` for a corner relative to the object's
+ * local frame (origin at s/t, u axis along the object heading), or `s`/`t` for a
+ * corner on the road reference line.
+ */
+export interface OdrObjectCorner {
+  /** Local u coordinate (m) for a <cornerLocal>, else undefined. */
+  u?: number
+  /** Local v coordinate (m) for a <cornerLocal>, else undefined. */
+  v?: number
+  /** Reference-line station (m) for a <cornerRoad>, else undefined. */
+  s?: number
+  /** Reference-line offset (m) for a <cornerRoad>, else undefined. */
+  t?: number
+}
+
 /** Minimal object record (kept for later conversion phases). */
 export interface OdrObject {
   id: string
@@ -167,6 +184,12 @@ export interface OdrObject {
   length: number
   /** Extent along the object's local v axis (m). */
   width: number
+  /**
+   * Corners of the first `<outline>` (cornerLocal or cornerRoad). Empty when
+   * the object has no explicit outline (an oriented rectangle is derived from
+   * s/t/hdg/length/width instead).
+   */
+  outline: OdrObjectCorner[]
   /** <userData code value> records attached to the object (code -> value). */
   userData: Record<string, string>
 }
@@ -615,6 +638,20 @@ function parseRoad(el: XmlNode): OdrRoad {
     : []
 
   const objectsEl = child(el, 'objects')
+  const parseObjectOutline = (obj: XmlNode): OdrObjectCorner[] => {
+    const outlinesEl = child(obj, 'outlines')
+    // The first <outline> defines the footprint; markings reference its corners.
+    const outlineEl = outlinesEl ? child(outlinesEl, 'outline') : undefined
+    if (!outlineEl) return []
+    const corners: OdrObjectCorner[] = []
+    for (const c of children(outlineEl, 'cornerLocal')) {
+      corners.push({ u: numAttr(c, 'u', 0), v: numAttr(c, 'v', 0) })
+    }
+    for (const c of children(outlineEl, 'cornerRoad')) {
+      corners.push({ s: numAttr(c, 's', 0), t: numAttr(c, 't', 0) })
+    }
+    return corners
+  }
   const objects: OdrObject[] = objectsEl
     ? children(objectsEl, 'object').map(obj => ({
         id: obj.attrs.id ?? '',
@@ -626,6 +663,7 @@ function parseRoad(el: XmlNode): OdrRoad {
         hdg: numAttr(obj, 'hdg', 0),
         length: numAttr(obj, 'length', 0),
         width: numAttr(obj, 'width', 0),
+        outline: parseObjectOutline(obj),
         userData: parseUserData(obj),
       }))
     : []
