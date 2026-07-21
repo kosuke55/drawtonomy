@@ -390,6 +390,35 @@ describe('esmini sample map (fixture)', () => {
       expect(Number.isFinite(p.y)).toBe(true)
     }
   })
+
+  // soderleden.xodr uses a direct junction (linkedRoad). Before the parser
+  // tolerated it, the missing `connectingRoad` threw and the whole map failed
+  // to parse -> 0 lanes -> highway_merge had no road network / no actors.
+  const soderledenPath = join(__dirname, '..', 'fixtures', 'soderleden.xodr')
+  it.skipIf(!existsSync(soderledenPath))('parses soderleden.xodr (direct junction) and expands lanes', () => {
+    const xml = readFileSync(soderledenPath, 'utf-8')
+    const map = parseOpenDriveXml(xml)
+    expect(map.roads.length).toBeGreaterThan(0)
+    // The direct junction must be present and recognized.
+    const direct = map.junctions.find(j => j.type === 'direct')
+    expect(direct).toBeTruthy()
+    expect(direct!.connections.length).toBeGreaterThan(0)
+    // Direct-junction connections normalize linkedRoad into connectingRoad.
+    for (const conn of direct!.connections) {
+      expect(conn.connectingRoad).not.toBe('')
+    }
+
+    const result = odrToShapes(map)
+    // Road network must materialize (0 lanes -> N lanes).
+    expect(result.lanes.length).toBeGreaterThan(0)
+    // The direct junction must actually wire lanes across the linked roads.
+    const linked = result.lanes.filter(l => l.next.length + l.prev.length > 0)
+    expect(linked.length).toBeGreaterThan(0)
+    for (const p of result.points) {
+      expect(Number.isFinite(p.x)).toBe(true)
+      expect(Number.isFinite(p.y)).toBe(true)
+    }
+  })
 })
 
 // A straight road carrying a single <object type="parkingSpace"> with a

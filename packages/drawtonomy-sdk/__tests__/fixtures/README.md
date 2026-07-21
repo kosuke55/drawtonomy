@@ -6,6 +6,9 @@ parser/conversion fixtures:
 
 - `fabriksgatan.xodr`
 - `two_plus_one.xodr`
+- `soderleden.xodr` — uses a `<junction type="direct">` whose connections carry
+  `linkedRoad` (not `connectingRoad`); regression fixture for direct-junction
+  parse tolerance (highway_merge / highway_merge_advanced scenarios).
 
 A regression fixture for degenerate junction sliver-lane pruning:
 

@@ -224,6 +224,14 @@ export interface OdrJunctionLaneLink {
 export interface OdrJunctionConnection {
   id: string
   incomingRoad: string
+  /**
+   * The other road this connection links lanes to. For a standard junction
+   * this is the synthesized `connectingRoad`; for a direct junction
+   * (`<junction type="direct">`, OpenDRIVE 1.5+) the source attribute is
+   * `linkedRoad` instead and the value is the road the incoming road joins
+   * directly (no separate connecting road). Both are normalized here so the
+   * shape converter wires lane links uniformly.
+   */
   connectingRoad: string
   contactPoint: 'start' | 'end'
   laneLinks: OdrJunctionLaneLink[]
@@ -240,6 +248,8 @@ export interface OdrJunctionPriority {
 export interface OdrJunction {
   id: string
   name: string
+  /** Junction type; "default" when absent, "direct" for direct junctions. */
+  type: string
   connections: OdrJunctionConnection[]
   priorities: OdrJunctionPriority[]
 }
@@ -689,23 +699,33 @@ function parseRoad(el: XmlNode): OdrRoad {
 
 function parseJunction(el: XmlNode): OdrJunction {
   const id = requireStrAttr(el, 'id', '<junction>')
-  const connections: OdrJunctionConnection[] = children(el, 'connection').map(conn => {
+  const connections: OdrJunctionConnection[] = []
+  for (const conn of children(el, 'connection')) {
     const ctx = `junction ${id}, <connection>`
-    return {
+    // Standard junctions use `connectingRoad`; direct junctions
+    // (<junction type="direct">) use `linkedRoad`. Accept either so the whole
+    // map does not fail to parse over one unsupported junction flavor.
+    const connectingRoad = conn.attrs.connectingRoad ?? conn.attrs.linkedRoad
+    if (connectingRoad === undefined || connectingRoad === '') {
+      // Tolerant skip: a connection with no target road cannot wire lanes, but
+      // must not abort the whole document (road network stays importable).
+      continue
+    }
+    connections.push({
       id: conn.attrs.id ?? '',
       incomingRoad: requireStrAttr(conn, 'incomingRoad', ctx),
-      connectingRoad: requireStrAttr(conn, 'connectingRoad', ctx),
+      connectingRoad,
       contactPoint: parseContactPoint(conn.attrs.contactPoint) ?? 'start',
       laneLinks: children(conn, 'laneLink').map(ll => ({
         from: requireNumAttr(ll, 'from', ctx),
         to: requireNumAttr(ll, 'to', ctx),
       })),
-    }
-  })
+    })
+  }
   const priorities = children(el, 'priority')
     .map(pr => ({ high: pr.attrs.high ?? '', low: pr.attrs.low ?? '' }))
     .filter(pr => pr.high !== '' && pr.low !== '')
-  return { id, name: el.attrs.name ?? '', connections, priorities }
+  return { id, name: el.attrs.name ?? '', type: el.attrs.type ?? 'default', connections, priorities }
 }
 
 /** Parse an OpenDRIVE XML string into the intermediate `OdrMap` model. */
