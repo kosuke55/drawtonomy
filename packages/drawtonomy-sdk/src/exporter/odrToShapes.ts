@@ -43,6 +43,7 @@ import {
   type ImportedCrosswalk,
   type ImportedLane,
   type ImportedLinestring,
+  type ImportedParkingSpace,
   type ImportedPoint,
   type ImportedShapes,
   type ImportedTrafficLight,
@@ -299,6 +300,7 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
     trafficLights: [],
     trafficSigns: [],
     crosswalks: [],
+    parkingSpaces: [],
     bounds: emptyBounds(),
     sidecar: {
       rawXml: map.rawXml,
@@ -807,6 +809,92 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
 
   for (const { road, samples } of signalRoads) {
     materializeCrosswalks(road, samples)
+  }
+
+  /**
+   * Convert `<object type="parkingSpace">` into polygon footprints. Corner
+   * geometry follows the OpenDRIVE object outline model:
+   *   - <cornerLocal u v>: the object origin is the (s, t) station on the
+   *     reference line; each corner sits at (u, v) in the object's local frame,
+   *     whose u axis points along the road heading + the object's own `hdg`.
+   *   - <cornerRoad s t>: each corner is an independent (s, t) station on the
+   *     reference line (no object-local rotation).
+   * When an object carries no outline the footprint is an oriented rectangle
+   * derived from s/t/hdg/length/width (the crosswalk band construction reused,
+   * closed into four corners). Vertices are converted meters -> canvas pixels,
+   * matching every other imported shape. Only the footprint is materialized;
+   * the source <object> stays verbatim in the sidecar for carry-through export.
+   */
+  function materializeParkingSpaces(road: OdrRoad, samples: ReferenceSample[]): void {
+    for (const obj of road.objects) {
+      if (obj.type !== 'parkingSpace') continue
+      let enuCorners: EnuPoint[] = []
+      if (obj.outline.length >= 3) {
+        const localCorners = obj.outline.filter(c => c.u !== undefined && c.v !== undefined)
+        const roadCorners = obj.outline.filter(c => c.s !== undefined && c.t !== undefined)
+        if (localCorners.length >= 3) {
+          const pose = poseAt(samples, obj.s)
+          // Object origin: reference-line pose at s, shifted by t along +normal.
+          const ox = pose.x - Math.sin(pose.hdg) * obj.t
+          const oy = pose.y + Math.cos(pose.hdg) * obj.t
+          const axisHdg = pose.hdg + obj.hdg
+          const cu = Math.cos(axisHdg)
+          const su = Math.sin(axisHdg)
+          enuCorners = localCorners.map(c => ({
+            // Local u axis along axisHdg, v axis 90° to its left (+normal).
+            x: ox + cu * (c.u as number) - su * (c.v as number),
+            y: oy + su * (c.u as number) + cu * (c.v as number),
+          }))
+        } else if (roadCorners.length >= 3) {
+          enuCorners = roadCorners.map(c => {
+            const p = poseAt(samples, c.s as number)
+            return {
+              x: p.x - Math.sin(p.hdg) * (c.t as number),
+              y: p.y + Math.cos(p.hdg) * (c.t as number),
+            }
+          })
+        }
+      }
+      if (enuCorners.length < 3) {
+        // No usable outline: derive an oriented rectangle from s/t/hdg/l/w.
+        if (!(obj.length > 0) || !(obj.width > 0)) continue
+        const pose = poseAt(samples, obj.s)
+        const cx = pose.x - Math.sin(pose.hdg) * obj.t
+        const cy = pose.y + Math.cos(pose.hdg) * obj.t
+        const axisHdg = pose.hdg + obj.hdg
+        const ux = Math.cos(axisHdg)
+        const uy = Math.sin(axisHdg)
+        // Normal (left of the object axis) for the width direction.
+        const nx = -uy
+        const ny = ux
+        const hl = obj.length / 2
+        const hw = obj.width / 2
+        enuCorners = [
+          { x: cx - ux * hl - nx * hw, y: cy - uy * hl - ny * hw },
+          { x: cx + ux * hl - nx * hw, y: cy + uy * hl - ny * hw },
+          { x: cx + ux * hl + nx * hw, y: cy + uy * hl + ny * hw },
+          { x: cx - ux * hl + nx * hw, y: cy - uy * hl + ny * hw },
+        ]
+      }
+
+      const data: ImportedParkingSpace = {
+        id: idAllocator.next('polygon'),
+        points: enuCorners.map(p => ({ x: enuToCanvasX(p.x), y: enuToCanvasY(p.y) })),
+        osmId: '',
+        attributes: {
+          type: 'parking_space',
+          odr_object_id: obj.id,
+          odr_road_id: road.id,
+          odr_type: obj.type,
+        },
+      }
+      ;(result.parkingSpaces ??= []).push(data)
+      convertedObjectCount++
+    }
+  }
+
+  for (const { road, samples } of signalRoads) {
+    materializeParkingSpaces(road, samples)
   }
 
   // Restore right-of-way links stashed by the exporter.

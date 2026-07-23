@@ -390,4 +390,151 @@ describe('esmini sample map (fixture)', () => {
       expect(Number.isFinite(p.y)).toBe(true)
     }
   })
+
+  // soderleden.xodr uses a direct junction (linkedRoad). Before the parser
+  // tolerated it, the missing `connectingRoad` threw and the whole map failed
+  // to parse -> 0 lanes -> highway_merge had no road network / no actors.
+  const soderledenPath = join(__dirname, '..', 'fixtures', 'soderleden.xodr')
+  it.skipIf(!existsSync(soderledenPath))('parses soderleden.xodr (direct junction) and expands lanes', () => {
+    const xml = readFileSync(soderledenPath, 'utf-8')
+    const map = parseOpenDriveXml(xml)
+    expect(map.roads.length).toBeGreaterThan(0)
+    // The direct junction must be present and recognized.
+    const direct = map.junctions.find(j => j.type === 'direct')
+    expect(direct).toBeTruthy()
+    expect(direct!.connections.length).toBeGreaterThan(0)
+    // Direct-junction connections normalize linkedRoad into connectingRoad.
+    for (const conn of direct!.connections) {
+      expect(conn.connectingRoad).not.toBe('')
+    }
+
+    const result = odrToShapes(map)
+    // Road network must materialize (0 lanes -> N lanes).
+    expect(result.lanes.length).toBeGreaterThan(0)
+    // The direct junction must actually wire lanes across the linked roads.
+    const linked = result.lanes.filter(l => l.next.length + l.prev.length > 0)
+    expect(linked.length).toBeGreaterThan(0)
+    for (const p of result.points) {
+      expect(Number.isFinite(p.x)).toBe(true)
+      expect(Number.isFinite(p.y)).toBe(true)
+    }
+  })
+})
+
+// A straight road carrying a single <object type="parkingSpace"> with a
+// four-corner <cornerLocal> outline (the esmini parking_demo pattern).
+const PARKING_LOCAL = `<?xml version="1.0"?>
+<OpenDRIVE>
+  <header revMajor="1" revMinor="6"/>
+  <road name="r" length="100" id="1" junction="-1">
+    <planView><geometry s="0" x="0" y="0" hdg="0" length="100"><line/></geometry></planView>
+    <lanes>
+      <laneSection s="0">
+        <right><lane id="-1" type="driving" level="false"><width sOffset="0" a="3.5" b="0" c="0" d="0"/></lane></right>
+      </laneSection>
+    </lanes>
+    <objects>
+      <object type="parkingSpace" name="parkingSpace" id="7" s="10" t="-5" hdg="0" length="0" width="0">
+        <outlines>
+          <outline id="0" closed="true">
+            <cornerLocal u="0" v="0" z="0" height="4" id="0"/>
+            <cornerLocal u="2.5" v="0" z="0" height="4" id="1"/>
+            <cornerLocal u="2.5" v="5" z="0" height="4" id="2"/>
+            <cornerLocal u="0" v="5" z="0" height="4" id="3"/>
+          </outline>
+        </outlines>
+      </object>
+    </objects>
+  </road>
+</OpenDRIVE>`
+
+// A parking space with no <outlines>; the footprint is an oriented rectangle
+// derived from s/t/hdg/length/width.
+const PARKING_RECT = `<?xml version="1.0"?>
+<OpenDRIVE>
+  <header revMajor="1" revMinor="6"/>
+  <road name="r" length="100" id="1" junction="-1">
+    <planView><geometry s="0" x="0" y="0" hdg="0" length="100"><line/></geometry></planView>
+    <lanes>
+      <laneSection s="0">
+        <right><lane id="-1" type="driving" level="false"><width sOffset="0" a="3.5" b="0" c="0" d="0"/></lane></right>
+      </laneSection>
+    </lanes>
+    <objects>
+      <object type="parkingSpace" name="parkingSpace" id="8" s="20" t="-5" hdg="0" length="2.5" width="5"/>
+    </objects>
+  </road>
+</OpenDRIVE>`
+
+describe('odrToShapes parkingSpace objects', () => {
+  it('converts a <cornerLocal> parking space into a polygon footprint with origin markers', () => {
+    const result = odrToShapes(parseOpenDriveXml(PARKING_LOCAL))
+    expect(result.parkingSpaces).toBeDefined()
+    expect(result.parkingSpaces).toHaveLength(1)
+    const ps = result.parkingSpaces![0]
+    expect(ps.points).toHaveLength(4)
+    // Origin markers: type + odr_object_id / odr_road_id / odr_type.
+    expect(ps.attributes.type).toBe('parking_space')
+    expect(ps.attributes.odr_object_id).toBe('7')
+    expect(ps.attributes.odr_road_id).toBe('1')
+    expect(ps.attributes.odr_type).toBe('parkingSpace')
+    // Geometry: object origin at s=10, t=-5 (ENU y=-5 -> canvas y=+5m). The
+    // first corner (u=0,v=0) coincides with the origin.
+    expect(ps.points[0].x).toBeCloseTo(10 * PIXELS_PER_METER, 3)
+    expect(ps.points[0].y).toBeCloseTo(5 * PIXELS_PER_METER, 3)
+    // Corner (u=2.5,v=0) advances along the road heading (+x).
+    expect(ps.points[1].x).toBeCloseTo(12.5 * PIXELS_PER_METER, 3)
+    expect(ps.points[1].y).toBeCloseTo(5 * PIXELS_PER_METER, 3)
+    // All vertices finite.
+    for (const p of ps.points) {
+      expect(Number.isFinite(p.x)).toBe(true)
+      expect(Number.isFinite(p.y)).toBe(true)
+    }
+  })
+
+  it('derives an oriented-rectangle footprint when no outline is present', () => {
+    const result = odrToShapes(parseOpenDriveXml(PARKING_RECT))
+    expect(result.parkingSpaces).toHaveLength(1)
+    expect(result.parkingSpaces![0].points).toHaveLength(4)
+    expect(result.parkingSpaces![0].attributes.odr_object_id).toBe('8')
+  })
+
+  it('does not disturb the road carry-through hash (source object stays verbatim)', () => {
+    // A parking space is materialized as a polygon only; the road that carries
+    // it must still hash as unedited so the exporter re-emits it verbatim.
+    const withPs = odrToShapes(parseOpenDriveXml(PARKING_LOCAL))
+    const withoutPs = odrToShapes(
+      parseOpenDriveXml(PARKING_LOCAL.replace(/<objects>[\s\S]*<\/objects>/, ''))
+    )
+    const hashWith = withPs.sidecar.roadRecords?.['1'].stateHash
+    const hashWithout = withoutPs.sidecar.roadRecords?.['1'].stateHash
+    expect(hashWith).toBeDefined()
+    expect(hashWith).toBe(hashWithout)
+  })
+})
+
+describe('esmini parking_demo (fixture)', () => {
+  const fixturePath = join(__dirname, '..', 'fixtures', 'parking_demo.xodr')
+  it.skipIf(!existsSync(fixturePath))(
+    'materializes 7 parkingSpace polygons and keeps the existing crosswalks',
+    () => {
+      const xml = readFileSync(fixturePath, 'utf-8')
+      const result = odrToShapes(parseOpenDriveXml(xml))
+      expect(result.parkingSpaces).toHaveLength(7)
+      // Crosswalk conversion is unchanged by parkingSpace support: the fixture
+      // carries 3 <object type="crosswalk"> but one lacks length/width, so 2 are
+      // materialized (the pre-existing materializeCrosswalks guard).
+      expect(result.crosswalks).toHaveLength(2)
+      for (const ps of result.parkingSpaces!) {
+        expect(ps.points.length).toBeGreaterThanOrEqual(3)
+        expect(ps.attributes.type).toBe('parking_space')
+        expect(ps.attributes.odr_object_id).not.toBe('')
+        expect(ps.attributes.odr_road_id).not.toBe('')
+        for (const p of ps.points) {
+          expect(Number.isFinite(p.x)).toBe(true)
+          expect(Number.isFinite(p.y)).toBe(true)
+        }
+      }
+    }
+  )
 })

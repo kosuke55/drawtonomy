@@ -18,12 +18,12 @@ import { latLonToCanvas, type OsmData } from './osmParser'
  * a custom allocator to coordinate IDs with their own counters.
  */
 export interface ShapeIdAllocator {
-  next(kind: 'point' | 'linestring' | 'lane' | 'traffic_light' | 'traffic_sign' | 'crosswalk'): ShapeId
+  next(kind: 'point' | 'linestring' | 'lane' | 'traffic_light' | 'traffic_sign' | 'crosswalk' | 'polygon'): ShapeId
 }
 
 /** Default allocator: monotonic counter per shape kind. */
 export function createShapeIdAllocator(): ShapeIdAllocator {
-  const counters: Record<string, number> = { point: 0, linestring: 0, lane: 0, traffic_light: 0, traffic_sign: 0, crosswalk: 0 }
+  const counters: Record<string, number> = { point: 0, linestring: 0, lane: 0, traffic_light: 0, traffic_sign: 0, crosswalk: 0, polygon: 0 }
   return {
     next(kind) {
       const id = `shape:${kind}_${counters[kind]}` as ShapeId
@@ -138,6 +138,20 @@ export interface ImportedCrosswalk {
   attributes: Record<string, string>
 }
 
+export interface ImportedParkingSpace {
+  id: ShapeId
+  /** Polygon vertices in canvas coordinates (closed footprint, in order). */
+  points: { x: number; y: number }[]
+  /** OSM id ('' for non-OSM sources). */
+  osmId: string
+  /**
+   * Origin markers (odr_object_id / odr_road_id / odr_type) plus `type` so the
+   * host can re-associate the polygon with its source <object> if needed. Never
+   * stripped by snapshot compression (keyed off odr_* like other import shapes).
+   */
+  attributes: Record<string, string>
+}
+
 export interface ImportBounds {
   minX: number
   maxX: number
@@ -159,6 +173,8 @@ export interface ImportedShapes {
   trafficSigns: ImportedTrafficSign[]
   /** Crosswalks promoted from `crosswalk` regulatory elements / objects. */
   crosswalks: ImportedCrosswalk[]
+  /** Parking spaces promoted from `<object type="parkingSpace">` (OpenDRIVE only). */
+  parkingSpaces?: ImportedParkingSpace[]
   bounds: ImportBounds
   /**
    * Geographic center used as the canvas origin during projection. The host

@@ -169,6 +169,61 @@ describe('parseOpenDriveXml', () => {
     ])
   })
 
+  it('parses a direct junction (linkedRoad) without failing the whole document', () => {
+    // Minimal reproduction of soderleden.xodr: two incoming roads join a third
+    // through a <junction type="direct">, whose connections carry `linkedRoad`
+    // (not `connectingRoad`). The whole map must still parse.
+    const xml = `<?xml version="1.0"?>
+<OpenDRIVE>
+  <header revMajor="1" revMinor="5"/>
+  <road name="" length="10" id="0" junction="-1">
+    <planView><geometry s="0" x="0" y="0" hdg="0" length="10"><line/></geometry></planView>
+    <lanes><laneSection s="0"><right><lane id="-1" type="driving" level="false"><width sOffset="0" a="3.5" b="0" c="0" d="0"/></lane></right></laneSection></lanes>
+  </road>
+  <road name="" length="10" id="2" junction="-1">
+    <link><successor elementType="junction" elementId="8"/></link>
+    <planView><geometry s="0" x="10" y="0" hdg="0" length="10"><line/></geometry></planView>
+    <lanes><laneSection s="0"><right><lane id="-1" type="driving" level="false"><width sOffset="0" a="3.5" b="0" c="0" d="0"/></lane></right></laneSection></lanes>
+  </road>
+  <junction name="" id="8" type="direct">
+    <connection id="0" incomingRoad="2" linkedRoad="0" contactPoint="start">
+      <laneLink from="-1" to="-1"/>
+    </connection>
+  </junction>
+</OpenDRIVE>`
+    const map = parseOpenDriveXml(xml)
+    expect(map.roads).toHaveLength(2)
+    const junction = map.junctions[0]
+    expect(junction.id).toBe('8')
+    expect(junction.type).toBe('direct')
+    expect(junction.connections).toHaveLength(1)
+    const conn = junction.connections[0]
+    expect(conn.incomingRoad).toBe('2')
+    // linkedRoad is normalized into connectingRoad so the converter wires it.
+    expect(conn.connectingRoad).toBe('0')
+    expect(conn.contactPoint).toBe('start')
+    expect(conn.laneLinks).toEqual([{ from: -1, to: -1 }])
+  })
+
+  it('records junction type as "default" when the attribute is absent', () => {
+    expect(parseOpenDriveXml(SAMPLE).junctions[0].type).toBe('default')
+  })
+
+  it('skips a connection with neither connectingRoad nor linkedRoad without throwing', () => {
+    const xml = `<?xml version="1.0"?>
+<OpenDRIVE>
+  <header revMajor="1" revMinor="6"/>
+  <road name="" length="10" id="0" junction="-1">
+    <planView><geometry s="0" x="0" y="0" hdg="0" length="10"><line/></geometry></planView>
+  </road>
+  <junction name="" id="9">
+    <connection id="0" incomingRoad="0"><laneLink from="-1" to="-1"/></connection>
+  </junction>
+</OpenDRIVE>`
+    const map = parseOpenDriveXml(xml)
+    expect(map.junctions[0].connections).toHaveLength(0)
+  })
+
   it('throws with road context on malformed required attributes', () => {
     const bad = `<OpenDRIVE><header revMajor="1" revMinor="6"/><road id="7" length="abc"/></OpenDRIVE>`
     expect(() => parseOpenDriveXml(bad)).toThrow(/road 7/)
