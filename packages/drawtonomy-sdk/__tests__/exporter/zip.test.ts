@@ -129,8 +129,10 @@ describe('buildZip', () => {
     fs.writeFileSync(zipPath, Buffer.from(ab))
 
     const listing = execFileSync('unzip', ['-l', zipPath], { encoding: 'utf-8' })
-    // `unzip -l` renders MM-DD-YYYY.
-    expect(listing).toContain('07-20-2026')
+    // Info-ZIP renders the date as MM-DD-YYYY on macOS and YYYY-MM-DD on Linux,
+    // so assert the parts rather than one locale/platform-specific layout.
+    expect(listing).toMatch(/07-20-2026|2026-07-20/)
+    expect(listing).not.toMatch(/19(79|80)/)
 
     fs.rmSync(tmp, { recursive: true, force: true })
   })
