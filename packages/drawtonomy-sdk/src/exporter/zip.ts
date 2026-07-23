@@ -48,6 +48,43 @@ function writeU32(buf: Uint8Array, offset: number, value: number): void {
   buf[offset + 3] = (value >>> 24) & 0xff
 }
 
+export interface DosDateTime {
+  time: number
+  date: number
+}
+
+/**
+ * Convert a JS Date into the DOS date/time pair used by ZIP local file
+ * headers and central directory records.
+ *
+ * DOS date: bits 15-9 = year-1980, bits 8-5 = month (1-12), bits 4-0 = day (1-31).
+ * DOS time: bits 15-11 = hour (0-23), bits 10-5 = minute (0-59), bits 4-0 = second/2.
+ *
+ * The DOS format cannot represent years before 1980; such dates are
+ * clamped to 1980-01-01 00:00:00.
+ */
+export function toDosDateTime(d: Date): DosDateTime {
+  let year = d.getFullYear()
+  let month = d.getMonth() + 1
+  let day = d.getDate()
+  let hour = d.getHours()
+  let minute = d.getMinutes()
+  let second = d.getSeconds()
+
+  if (year < 1980) {
+    year = 1980
+    month = 1
+    day = 1
+    hour = 0
+    minute = 0
+    second = 0
+  }
+
+  const date = ((year - 1980) << 9) | (month << 5) | day
+  const time = (hour << 11) | (minute << 5) | (second >>> 1)
+  return { time, date }
+}
+
 interface PreparedEntry {
   path: string
   pathBytes: Uint8Array
@@ -63,8 +100,16 @@ function toBytes(d: string | Uint8Array): Uint8Array {
 
 /**
  * Bundle ZipEntry[] into a single application/zip Blob.
+ *
+ * @param modifiedAt - Timestamp written into each entry's local header and
+ *   central directory record (DOS date/time format). When omitted, entries
+ *   are written with a zero timestamp (DOS epoch, 1980-01-01).
  */
-export function buildZip(entries: ZipEntry[]): Blob {
+export function buildZip(entries: ZipEntry[], modifiedAt?: Date): Blob {
+  const { time: dosTime, date: dosDate } = modifiedAt
+    ? toDosDateTime(modifiedAt)
+    : { time: 0, date: 0 }
+
   // 1. Emit Local File Header + data for each entry, tracking offsets.
   const prepared: PreparedEntry[] = []
   let cursor = 0
@@ -80,8 +125,8 @@ export function buildZip(entries: ZipEntry[]): Blob {
     writeU16(localHeader, 4, 20)        // version needed to extract (2.0)
     writeU16(localHeader, 6, 0x0800)     // general purpose bit flag (UTF-8 filename)
     writeU16(localHeader, 8, 0)          // compression = store
-    writeU16(localHeader, 10, 0)         // last mod time
-    writeU16(localHeader, 12, 0)         // last mod date
+    writeU16(localHeader, 10, dosTime)   // last mod time
+    writeU16(localHeader, 12, dosDate)   // last mod date
     writeU32(localHeader, 14, crc)       // CRC-32
     writeU32(localHeader, 18, data.length) // compressed size
     writeU32(localHeader, 22, data.length) // uncompressed size
@@ -116,8 +161,8 @@ export function buildZip(entries: ZipEntry[]): Blob {
     writeU16(cdHeader, 6, 20)         // version needed to extract
     writeU16(cdHeader, 8, 0x0800)      // general purpose bit flag
     writeU16(cdHeader, 10, 0)          // compression = store
-    writeU16(cdHeader, 12, 0)          // last mod time
-    writeU16(cdHeader, 14, 0)          // last mod date
+    writeU16(cdHeader, 12, dosTime)    // last mod time
+    writeU16(cdHeader, 14, dosDate)    // last mod date
     writeU32(cdHeader, 16, e.crc)
     writeU32(cdHeader, 20, e.data.length) // compressed size
     writeU32(cdHeader, 24, e.data.length) // uncompressed size
