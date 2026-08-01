@@ -515,10 +515,10 @@
       "name": "Pedestrian (Walking)",
       "svg": "pedestrian/pedestrian_walk.svg",
       "w": 22,
-      "h": 22,
+      "h": 18.543,
       "viewBox": [
-        220,
-        220
+        210,
+        177
       ],
       "replaceColor": "#b3b3b3",
       "defaultColor": "grey-300"
@@ -528,10 +528,10 @@
       "name": "Pedestrian (Simple)",
       "svg": "pedestrian/pedestrian_simple.svg",
       "w": 22,
-      "h": 22,
+      "h": 9.212,
       "viewBox": [
-        210,
-        210
+        203,
+        85
       ],
       "replaceColor": "#b3b3b3",
       "defaultColor": "grey-300"
