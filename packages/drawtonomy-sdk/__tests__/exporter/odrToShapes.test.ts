@@ -466,6 +466,53 @@ const PARKING_RECT = `<?xml version="1.0"?>
   </road>
 </OpenDRIVE>`
 
+// Two rows of parking spaces declared purely via <repeat> (no <outlines>),
+// mirroring esmini parking_demo objects 11/12: each object sits at t=0 but its
+// repeat places instances at tStart=tEnd=∓12.7 so the two rows straddle the road
+// centre by ±12.7 m. distance=2.5 over length=10 => 5 instances per row (curS
+// 0/2.5/5/7.5/10; the 2.4 m footprint stays within the 20 m road at each).
+const PARKING_REPEAT_ROWS = `<?xml version="1.0"?>
+<OpenDRIVE>
+  <header revMajor="1" revMinor="8"/>
+  <road name="r" length="20" id="1" junction="-1">
+    <planView><geometry s="0" x="0" y="0" hdg="0" length="20"><line/></geometry></planView>
+    <lanes>
+      <laneSection s="0">
+        <right><lane id="-1" type="driving" level="false"><width sOffset="0" a="3.5" b="0" c="0" d="0"/></lane></right>
+      </laneSection>
+    </lanes>
+    <objects>
+      <object type="parkingSpace" name="p1" id="11" s="0" t="0.0" hdg="0" length="2.4" width="4.9">
+        <repeat distance="2.5" tStart="-12.7" tEnd="-12.7" length="10" s="1.3"/>
+      </object>
+      <object type="parkingSpace" name="p2" id="12" s="0" t="0.0" hdg="0" length="2.4" width="4.9">
+        <repeat distance="2.5" tStart="12.7" tEnd="12.7" length="10" s="1.3"/>
+      </object>
+    </objects>
+  </road>
+</OpenDRIVE>`
+
+// A single continuous object (distance=0): the repeat declares a swept footprint
+// rather than discrete copies, so exactly one polygon is materialized at the span
+// start (t=3 here). Guards against distance=0 objects silently vanishing.
+const PARKING_REPEAT_CONTINUOUS = `<?xml version="1.0"?>
+<OpenDRIVE>
+  <header revMajor="1" revMinor="8"/>
+  <road name="r" length="100" id="1" junction="-1">
+    <planView><geometry s="0" x="0" y="0" hdg="0" length="100"><line/></geometry></planView>
+    <lanes>
+      <laneSection s="0">
+        <right><lane id="-1" type="driving" level="false"><width sOffset="0" a="3.5" b="0" c="0" d="0"/></lane></right>
+      </laneSection>
+    </lanes>
+    <objects>
+      <object type="parkingSpace" name="cont" id="20" s="0" t="0.0" hdg="0" length="2.4" width="5">
+        <repeat distance="0" tStart="3" tEnd="3" length="30" s="10"/>
+      </object>
+    </objects>
+  </road>
+</OpenDRIVE>`
+
 describe('odrToShapes parkingSpace objects', () => {
   it('converts a <cornerLocal> parking space into a polygon footprint with origin markers', () => {
     const result = odrToShapes(parseOpenDriveXml(PARKING_LOCAL))
@@ -513,14 +560,70 @@ describe('odrToShapes parkingSpace objects', () => {
   })
 })
 
+// Average (centroid) y of a polygon's vertices, in metres (canvas y -> ENU y is
+// negated; here we only compare relative sign/magnitude so canvas px is fine).
+function centroidY(points: { x: number; y: number }[]): number {
+  return points.reduce((s, p) => s + p.y, 0) / points.length
+}
+
+describe('odrToShapes parkingSpace <repeat>', () => {
+  it('expands two repeat rows into instances split to ±12.7 m about the road centre', () => {
+    const result = odrToShapes(parseOpenDriveXml(PARKING_REPEAT_ROWS))
+    expect(result.parkingSpaces).toBeDefined()
+    // 5 instances per row (curS 0/2.5/5/7.5/10), two rows => 10 polygons.
+    expect(result.parkingSpaces).toHaveLength(10)
+
+    const row11 = result.parkingSpaces!.filter(ps => ps.attributes.odr_object_id === '11')
+    const row12 = result.parkingSpaces!.filter(ps => ps.attributes.odr_object_id === '12')
+    expect(row11).toHaveLength(5)
+    expect(row12).toHaveLength(5)
+
+    // The two rows must NOT collapse onto the road centre: their footprints sit on
+    // opposite sides, ~25.4 m (2 x 12.7) apart. (Before <repeat> support both rows
+    // rendered at t=0 and overlapped exactly.)
+    const y11 = centroidY(row11.flatMap(ps => ps.points)) / PIXELS_PER_METER
+    const y12 = centroidY(row12.flatMap(ps => ps.points)) / PIXELS_PER_METER
+    // tStart=-12.7 (ENU) maps to +12.7 canvas y and vice versa; assert opposite
+    // signs and the correct magnitude either way.
+    expect(Math.sign(y11)).toBe(-Math.sign(y12))
+    expect(Math.abs(y11)).toBeCloseTo(12.7, 1)
+    expect(Math.abs(y12)).toBeCloseTo(12.7, 1)
+    expect(Math.abs(y11 - y12)).toBeCloseTo(25.4, 1)
+
+    // Instances of one row are spaced along the road by the repeat distance (2.5 m).
+    const xs11 = row11
+      .map(ps => ps.points.reduce((s, p) => s + p.x, 0) / ps.points.length / PIXELS_PER_METER)
+      .sort((a, b) => a - b)
+    for (let i = 1; i < xs11.length; i++) {
+      expect(xs11[i] - xs11[i - 1]).toBeCloseTo(2.5, 1)
+    }
+  })
+
+  it('materializes a distance=0 continuous repeat as a single footprint at the span start', () => {
+    const result = odrToShapes(parseOpenDriveXml(PARKING_REPEAT_CONTINUOUS))
+    expect(result.parkingSpaces).toHaveLength(1)
+    const ps = result.parkingSpaces![0]
+    expect(ps.attributes.odr_object_id).toBe('20')
+    // Placed at the repeat span start s=10, t=3 (ENU) -> canvas y = -3 m.
+    const cy = centroidY(ps.points) / PIXELS_PER_METER
+    expect(cy).toBeCloseTo(-3, 1)
+    const cx = ps.points.reduce((s, p) => s + p.x, 0) / ps.points.length / PIXELS_PER_METER
+    expect(cx).toBeCloseTo(10, 1)
+  })
+})
+
 describe('esmini parking_demo (fixture)', () => {
   const fixturePath = join(__dirname, '..', 'fixtures', 'parking_demo.xodr')
   it.skipIf(!existsSync(fixturePath))(
-    'materializes 7 parkingSpace polygons and keeps the existing crosswalks',
+    'expands parkingSpace <repeat> rows into many polygons and keeps the existing crosswalks',
     () => {
       const xml = readFileSync(fixturePath, 'utf-8')
       const result = odrToShapes(parseOpenDriveXml(xml))
-      expect(result.parkingSpaces).toHaveLength(7)
+      // Objects 4/6/8/11/12 carry a <repeat>; 5/7 are placed once. With repeat
+      // support each replicated object materializes many instances (7 parking
+      // objects -> far more than 7 polygons). Assert the expansion happened
+      // rather than pinning an exact count that would move with fixture tweaks.
+      expect(result.parkingSpaces!.length).toBeGreaterThan(7)
       // Crosswalk conversion is unchanged by parkingSpace support: the fixture
       // carries 3 <object type="crosswalk"> but one lacks length/width, so 2 are
       // materialized (the pre-existing materializeCrosswalks guard).
@@ -535,6 +638,28 @@ describe('esmini parking_demo (fixture)', () => {
           expect(Number.isFinite(p.y)).toBe(true)
         }
       }
+
+      // The regression this fixes: objects 11 and 12 on road 3 both sit at t=0
+      // but their <repeat> declares tStart=tEnd=-12.7 and +12.7 respectively, so
+      // the two rows must straddle the road centre 25.4 m (2 x 12.7) apart. Road 3
+      // is angled, so the offset splits across x and y — assert the Euclidean
+      // distance between the row centroids. Before <repeat> support both rows
+      // rendered at t=0 and their centroids coincided (distance 0).
+      const row11 = result.parkingSpaces!.filter(
+        ps => ps.attributes.odr_object_id === '11' && ps.attributes.odr_road_id === '3'
+      )
+      const row12 = result.parkingSpaces!.filter(
+        ps => ps.attributes.odr_object_id === '12' && ps.attributes.odr_road_id === '3'
+      )
+      expect(row11.length).toBeGreaterThan(1)
+      expect(row12.length).toBeGreaterThan(1)
+      const c = (pts: { x: number; y: number }[]) => ({
+        x: pts.reduce((s, p) => s + p.x, 0) / pts.length / PIXELS_PER_METER,
+        y: centroidY(pts) / PIXELS_PER_METER,
+      })
+      const c11 = c(row11.flatMap(ps => ps.points))
+      const c12 = c(row12.flatMap(ps => ps.points))
+      expect(Math.hypot(c11.x - c12.x, c11.y - c12.y)).toBeCloseTo(25.4, 1)
     }
   )
 })
