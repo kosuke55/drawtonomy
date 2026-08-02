@@ -87,6 +87,7 @@ export {
   type OdrSignal,
   type OdrSignalValidity,
   type OdrObject,
+  type OdrObjectRepeat,
   type OdrJunction,
   type OdrJunctionConnection,
   type OdrJunctionLaneLink,
