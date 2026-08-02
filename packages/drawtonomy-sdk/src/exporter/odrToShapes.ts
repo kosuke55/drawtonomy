@@ -31,6 +31,8 @@ import type {
   OdrLane,
   OdrLaneSection,
   OdrMap,
+  OdrObject,
+  OdrObjectRepeat,
   OdrRoad,
   OdrRoadMark,
   OdrSignalValidity,
@@ -826,28 +828,108 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
    * the source <object> stays verbatim in the sidecar for carry-through export.
    */
   function materializeParkingSpaces(road: OdrRoad, samples: ReferenceSample[]): void {
-    for (const obj of road.objects) {
-      if (obj.type !== 'parkingSpace') continue
+    /**
+     * A single placement of an object along the reference line: the (s, t) station,
+     * the extra heading tilt of the repeat line, and the per-instance footprint
+     * length/width. A non-repeated object yields exactly one placement at its own
+     * pose with zero tilt and its own dimensions.
+     */
+    interface Placement {
+      s: number
+      t: number
+      /** Heading added to (road heading + object hdg), from the repeat line tilt. */
+      tilt: number
+      length: number
+      width: number
+    }
+
+    /**
+     * Expand a `<repeat>` into discrete instance placements. Instances are spaced
+     * `distance` metres from `s` to `s + length`; t / length / width are linearly
+     * interpolated from their start value to their end value across the span. An
+     * unauthored width/length (`undefined`) falls back to the object's dimension.
+     * A `distance` <= 0 (continuous object) collapses to one swept instance at the
+     * span start, so the object still materializes rather than vanishing.
+     * (ASAM OpenDRIVE 1.8 §13.2; placement math mirrors esmini's
+     * RMObject::GetRepeatInstances.)
+     */
+    const expandRepeat = (obj: OdrObject, rep: OdrObjectRepeat): Placement[] => {
+      const tilt = Math.atan2(rep.tEnd - rep.tStart, rep.length || 1)
+      const lenAt = (f: number) =>
+        rep.lengthStart !== undefined || rep.lengthEnd !== undefined
+          ? (rep.lengthStart ?? 0) + f * ((rep.lengthEnd ?? 0) - (rep.lengthStart ?? 0))
+          : obj.length
+      const widAt = (f: number) =>
+        rep.widthStart !== undefined || rep.widthEnd !== undefined
+          ? (rep.widthStart ?? 0) + f * ((rep.widthEnd ?? 0) - (rep.widthStart ?? 0))
+          : obj.width
+      const placements: Placement[] = []
+      const roadLen = road.length
+      if (!(rep.length > 0) || !(rep.distance > 0)) {
+        // Continuous object (distance == 0) or degenerate span: one instance at start.
+        const f = 0
+        placements.push({
+          s: rep.s,
+          t: rep.tStart,
+          tilt,
+          length: lenAt(f),
+          width: widAt(f),
+        })
+        return placements
+      }
+      // Iterate the span in accumulated length (curS), mirroring esmini's
+      // RMObject::GetRepeatInstances: the loop bound and the road-overflow guard
+      // both use curS (not rep.s + curS) so the repeat start offset does not
+      // reduce how many copies fit.
+      for (let curS = 0; curS < rep.length + S_EPS && curS < roadLen + S_EPS; curS += rep.distance) {
+        const f = curS / rep.length
+        const instLen = lenAt(f)
+        // Stop once an instance would extend past the end of the road.
+        if (curS + instLen > roadLen + S_EPS) break
+        placements.push({
+          s: rep.s + curS,
+          t: rep.tStart + f * (rep.tEnd - rep.tStart),
+          tilt,
+          length: instLen,
+          width: widAt(f),
+        })
+      }
+      return placements
+    }
+
+    /** Build the ENU footprint corners for one placement of an object. */
+    const footprintFor = (obj: OdrObject, pl: Placement): EnuPoint[] => {
       let enuCorners: EnuPoint[] = []
       if (obj.outline.length >= 3) {
         const localCorners = obj.outline.filter(c => c.u !== undefined && c.v !== undefined)
         const roadCorners = obj.outline.filter(c => c.s !== undefined && c.t !== undefined)
         if (localCorners.length >= 3) {
-          const pose = poseAt(samples, obj.s)
+          const pose = poseAt(samples, pl.s)
           // Object origin: reference-line pose at s, shifted by t along +normal.
-          const ox = pose.x - Math.sin(pose.hdg) * obj.t
-          const oy = pose.y + Math.cos(pose.hdg) * obj.t
-          const axisHdg = pose.hdg + obj.hdg
+          const ox = pose.x - Math.sin(pose.hdg) * pl.t
+          const oy = pose.y + Math.cos(pose.hdg) * pl.t
+          const axisHdg = pose.hdg + obj.hdg + pl.tilt
           const cu = Math.cos(axisHdg)
           const su = Math.sin(axisHdg)
-          enuCorners = localCorners.map(c => ({
+          // Scale the authored (start-of-span) outline toward this instance's
+          // dimensions, matching how esmini grows repeated copies.
+          const scaleU = obj.length > S_EPS ? pl.length / obj.length : 1
+          const scaleV = obj.width > S_EPS ? pl.width / obj.width : 1
+          enuCorners = localCorners.map(c => {
+            const u = (c.u as number) * scaleU
+            const v = (c.v as number) * scaleV
             // Local u axis along axisHdg, v axis 90° to its left (+normal).
-            x: ox + cu * (c.u as number) - su * (c.v as number),
-            y: oy + su * (c.u as number) + cu * (c.v as number),
-          }))
+            return { x: ox + cu * u - su * v, y: oy + su * u + cu * v }
+          })
         } else if (roadCorners.length >= 3) {
+          // cornerRoad corners are stations on the reference line. For a repeated
+          // object each corner's authored s is an offset re-based to the instance
+          // station (its minimum s becomes the instance s); a non-repeated object
+          // keeps the corners' absolute s.
+          const minCornerS = Math.min(...roadCorners.map(c => c.s as number))
+          const sBase = obj.repeats.length > 0 ? pl.s - minCornerS : 0
           enuCorners = roadCorners.map(c => {
-            const p = poseAt(samples, c.s as number)
+            const p = poseAt(samples, sBase + (c.s as number))
             return {
               x: p.x - Math.sin(p.hdg) * (c.t as number),
               y: p.y + Math.cos(p.hdg) * (c.t as number),
@@ -857,18 +939,18 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
       }
       if (enuCorners.length < 3) {
         // No usable outline: derive an oriented rectangle from s/t/hdg/l/w.
-        if (!(obj.length > 0) || !(obj.width > 0)) continue
-        const pose = poseAt(samples, obj.s)
-        const cx = pose.x - Math.sin(pose.hdg) * obj.t
-        const cy = pose.y + Math.cos(pose.hdg) * obj.t
-        const axisHdg = pose.hdg + obj.hdg
+        if (!(pl.length > 0) || !(pl.width > 0)) return []
+        const pose = poseAt(samples, pl.s)
+        const cx = pose.x - Math.sin(pose.hdg) * pl.t
+        const cy = pose.y + Math.cos(pose.hdg) * pl.t
+        const axisHdg = pose.hdg + obj.hdg + pl.tilt
         const ux = Math.cos(axisHdg)
         const uy = Math.sin(axisHdg)
         // Normal (left of the object axis) for the width direction.
         const nx = -uy
         const ny = ux
-        const hl = obj.length / 2
-        const hw = obj.width / 2
+        const hl = pl.length / 2
+        const hw = pl.width / 2
         enuCorners = [
           { x: cx - ux * hl - nx * hw, y: cy - uy * hl - ny * hw },
           { x: cx + ux * hl - nx * hw, y: cy + uy * hl - ny * hw },
@@ -876,19 +958,34 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
           { x: cx - ux * hl + nx * hw, y: cy - uy * hl + ny * hw },
         ]
       }
+      return enuCorners
+    }
 
-      const data: ImportedParkingSpace = {
-        id: idAllocator.next('polygon'),
-        points: enuCorners.map(p => ({ x: enuToCanvasX(p.x), y: enuToCanvasY(p.y) })),
-        osmId: '',
-        attributes: {
-          type: 'parking_space',
-          odr_object_id: obj.id,
-          odr_road_id: road.id,
-          odr_type: obj.type,
-        },
+    for (const obj of road.objects) {
+      if (obj.type !== 'parkingSpace') continue
+      // A repeat replicates the object into many instances; without one the object
+      // is placed exactly once at its own pose.
+      const placements: Placement[] =
+        obj.repeats.length > 0
+          ? obj.repeats.flatMap(rep => expandRepeat(obj, rep))
+          : [{ s: obj.s, t: obj.t, tilt: 0, length: obj.length, width: obj.width }]
+
+      for (const pl of placements) {
+        const enuCorners = footprintFor(obj, pl)
+        if (enuCorners.length < 3) continue
+        const data: ImportedParkingSpace = {
+          id: idAllocator.next('polygon'),
+          points: enuCorners.map(p => ({ x: enuToCanvasX(p.x), y: enuToCanvasY(p.y) })),
+          osmId: '',
+          attributes: {
+            type: 'parking_space',
+            odr_object_id: obj.id,
+            odr_road_id: road.id,
+            odr_type: obj.type,
+          },
+        }
+        ;(result.parkingSpaces ??= []).push(data)
       }
-      ;(result.parkingSpaces ??= []).push(data)
       convertedObjectCount++
     }
   }
