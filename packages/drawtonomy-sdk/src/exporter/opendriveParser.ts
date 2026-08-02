@@ -170,6 +170,40 @@ export interface OdrObjectCorner {
   t?: number
 }
 
+/**
+ * An `<object>/<repeat>` record. A repeat replicates the parent object along the
+ * reference line: starting at station `s`, an instance is placed every `distance`
+ * metres until `s + length`. Per-instance `t`, `zOffset`, and (when authored)
+ * `width`/`length`/`height` are linearly interpolated from their `*Start` value at
+ * `s` to their `*End` value at `s + length`. Attributes left `undefined` fall back
+ * to the parent object's own value (ASAM OpenDRIVE 1.8, §13.2). A `distance` of 0
+ * denotes a continuous object (a single swept footprint) rather than discrete
+ * copies.
+ */
+export interface OdrObjectRepeat {
+  /** Reference-line station where the repeat begins (m). */
+  s: number
+  /** Length of the repeat span along the reference line (m). */
+  length: number
+  /** Spacing between successive instances (m); 0 = continuous. */
+  distance: number
+  /** Lateral offset at the span start / end (m). */
+  tStart: number
+  tEnd: number
+  /** zOffset at the span start / end (m). */
+  zOffsetStart: number
+  zOffsetEnd: number
+  /** Per-instance width at start / end (m); undefined = use object width. */
+  widthStart?: number
+  widthEnd?: number
+  /** Per-instance length at start / end (m); undefined = use object length. */
+  lengthStart?: number
+  lengthEnd?: number
+  /** Per-instance height at start / end (m); undefined = use object height. */
+  heightStart?: number
+  heightEnd?: number
+}
+
 /** Minimal object record (kept for later conversion phases). */
 export interface OdrObject {
   id: string
@@ -190,6 +224,11 @@ export interface OdrObject {
    * s/t/hdg/length/width instead).
    */
   outline: OdrObjectCorner[]
+  /**
+   * `<repeat>` records that replicate this object along the reference line. Empty
+   * when the object is placed exactly once at its own s/t.
+   */
+  repeats: OdrObjectRepeat[]
   /** <userData code value> records attached to the object (code -> value). */
   userData: Record<string, string>
 }
@@ -417,6 +456,19 @@ function numAttr(el: XmlNode, name: string, fallback: number): number {
   if (raw === undefined || raw === '') return fallback
   const v = parseFloat(raw)
   return Number.isFinite(v) ? v : fallback
+}
+
+/**
+ * Parse an optional float attribute, returning `undefined` when the attribute is
+ * absent or empty. Used where "attribute present" carries meaning distinct from a
+ * zero value (e.g. a `<repeat>` widthStart that overrides the parent object width
+ * only when explicitly authored).
+ */
+function optNumAttr(el: XmlNode, name: string): number | undefined {
+  const raw = el.attrs[name]
+  if (raw === undefined || raw === '') return undefined
+  const v = parseFloat(raw)
+  return Number.isFinite(v) ? v : undefined
 }
 
 /** Parse a required float attribute; throw with context when missing or malformed. */
@@ -662,6 +714,22 @@ function parseRoad(el: XmlNode): OdrRoad {
     }
     return corners
   }
+  const parseObjectRepeats = (obj: XmlNode): OdrObjectRepeat[] =>
+    children(obj, 'repeat').map(rep => ({
+      s: numAttr(rep, 's', 0),
+      length: numAttr(rep, 'length', 0),
+      distance: numAttr(rep, 'distance', 0),
+      tStart: numAttr(rep, 'tStart', 0),
+      tEnd: numAttr(rep, 'tEnd', 0),
+      zOffsetStart: numAttr(rep, 'zOffsetStart', 0),
+      zOffsetEnd: numAttr(rep, 'zOffsetEnd', 0),
+      widthStart: optNumAttr(rep, 'widthStart'),
+      widthEnd: optNumAttr(rep, 'widthEnd'),
+      lengthStart: optNumAttr(rep, 'lengthStart'),
+      lengthEnd: optNumAttr(rep, 'lengthEnd'),
+      heightStart: optNumAttr(rep, 'heightStart'),
+      heightEnd: optNumAttr(rep, 'heightEnd'),
+    }))
   const objects: OdrObject[] = objectsEl
     ? children(objectsEl, 'object').map(obj => ({
         id: obj.attrs.id ?? '',
@@ -674,6 +742,7 @@ function parseRoad(el: XmlNode): OdrRoad {
         length: numAttr(obj, 'length', 0),
         width: numAttr(obj, 'width', 0),
         outline: parseObjectOutline(obj),
+        repeats: parseObjectRepeats(obj),
         userData: parseUserData(obj),
       }))
     : []

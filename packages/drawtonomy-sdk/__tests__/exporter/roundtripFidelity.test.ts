@@ -1831,7 +1831,9 @@ describe('carry-through export (sidecar verbatim re-emission)', () => {
     if (!existsSync(parkingFixture)) return
     const xml = readFileSync(parkingFixture, 'utf-8')
     const imported = odrToShapesFull(parseOpenDriveXml(xml))
-    expect((imported.parkingSpaces ?? []).length).toBe(7)
+    // Repeated parkingSpace objects expand into many polygon instances, but the
+    // source <object>s stay verbatim in the sidecar (only the polygons multiply).
+    expect((imported.parkingSpaces ?? []).length).toBeGreaterThan(7)
     const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
     // Every original parkingSpace object survives the unedited round trip.
     const before = (xml.match(/type="parkingSpace"/g) || []).length
