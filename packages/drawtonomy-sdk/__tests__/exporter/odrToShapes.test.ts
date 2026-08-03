@@ -663,3 +663,39 @@ describe('esmini parking_demo (fixture)', () => {
     }
   )
 })
+
+describe('odrToShapes signal heading', () => {
+  const SIGNAL_HEADING_MAP = `<?xml version="1.0"?>
+<OpenDRIVE>
+  <header revMajor="1" revMinor="6"/>
+  <road name="r" length="100" id="1" junction="-1">
+    <planView><geometry s="0" x="0" y="0" hdg="0" length="100"><line/></geometry></planView>
+    <lanes>
+      <laneSection s="0">
+        <right>
+          <lane id="-1" type="driving" level="false"><width sOffset="0" a="3.5" b="0" c="0" d="0"/></lane>
+        </right>
+      </laneSection>
+    </lanes>
+    <signals>
+      <signal s="10" t="-2" id="s1" name="SgRMArrowLeft.flt" dynamic="no" orientation="+" type="-1" subtype="-1" hOffset="0"/>
+      <signal s="20" t="2" id="s2" name="SgRMArrowLeft.flt" dynamic="no" orientation="-" type="-1" subtype="-1" hOffset="0"/>
+      <signal s="30" t="-2" id="s3" name="stop" dynamic="no" orientation="+" type="206" subtype="-1" hOffset="0.5"/>
+      <signal s="40" t="-2" id="s4" name="untagged" dynamic="no" type="205" subtype="-1"/>
+    </signals>
+  </road>
+</OpenDRIVE>`
+
+  it('derives headingRad from reference heading, orientation and hOffset', () => {
+    const result = odrToShapes(parseOpenDriveXml(SIGNAL_HEADING_MAP))
+    const byId = new Map(result.trafficSigns.map(ts => [ts.attributes.odr_signal_id, ts]))
+    // Road runs along +x (heading 0).
+    expect(byId.get('s1')?.headingRad).toBeCloseTo(0, 9)
+    // orientation="-" flips by pi.
+    expect(byId.get('s2')?.headingRad).toBeCloseTo(Math.PI, 9)
+    // hOffset adds on top of the oriented direction.
+    expect(byId.get('s3')?.headingRad).toBeCloseTo(0.5, 9)
+    // Missing orientation/hOffset default to the reference direction.
+    expect(byId.get('s4')?.headingRad).toBeCloseTo(0, 9)
+  })
+})

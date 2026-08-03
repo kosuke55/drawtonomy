@@ -136,6 +136,13 @@ export interface OdrSignal {
   /** Physical size (m); 0 when absent. */
   width: number
   height: number
+  /**
+   * Facing relative to the reference-line direction: "+" applies to traffic
+   * running in the positive s direction, "-" against it ("" when absent).
+   */
+  orientation: string
+  /** Heading offset in radians relative to the (oriented) s direction; 0 when absent. */
+  hOffset: number
   /** Lane ranges restricting which lanes the signal applies to (empty = all). */
   validity: OdrSignalValidity[]
   /** <userData code value> records attached to the signal (code -> value). */
@@ -686,6 +693,8 @@ function parseRoad(el: XmlNode): OdrRoad {
         country: sig.attrs.country ?? '',
         width: numAttr(sig, 'width', 0),
         height: numAttr(sig, 'height', 0),
+        orientation: sig.attrs.orientation ?? '',
+        hOffset: numAttr(sig, 'hOffset', 0),
         validity: parseValidity(sig),
         userData: parseUserData(sig),
       }))
