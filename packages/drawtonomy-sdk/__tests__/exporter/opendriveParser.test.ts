@@ -150,7 +150,7 @@ describe('parseOpenDriveXml', () => {
     const road = parseOpenDriveXml(SAMPLE).roads[0]
     expect(road.hasElevation).toBe(true)
     expect(road.signals).toEqual([
-      { id: 'sig1', s: 95, t: -6, type: '1000001', subtype: '-1', name: 'tl', dynamic: '', country: '', width: 0, height: 0, validity: [], userData: {} },
+      { id: 'sig1', s: 95, t: -6, type: '1000001', subtype: '-1', name: 'tl', dynamic: '', country: '', width: 0, height: 0, orientation: '', hOffset: 0, validity: [], userData: {} },
     ])
     expect(road.objects[0].type).toBe('crosswalk')
   })

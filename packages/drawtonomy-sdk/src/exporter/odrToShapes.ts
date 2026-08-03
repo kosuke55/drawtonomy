@@ -615,6 +615,9 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
       // Unit normal toward +t (left of the reference direction in ENU).
       const ex = pose.x - Math.sin(pose.hdg) * sig.t
       const ey = pose.y + Math.cos(pose.hdg) * sig.t
+      // World heading the signal applies to (ENU radians): reference-line
+      // heading, flipped for orientation="-", plus the signal's hOffset.
+      const headingRad = pose.hdg + (sig.orientation === '-' ? Math.PI : 0) + sig.hOffset
 
       const affected: string[] = []
       resolveAffectedLanes(road, sig.s, sig.validity, affected)
@@ -683,6 +686,7 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
         affectedLaneIds: affected,
         stopLineId: materializeStopLine(sig.userData['stopLine']),
         attributes,
+        headingRad,
       }
       result.trafficSigns.push(data)
       convertedSignalCount++

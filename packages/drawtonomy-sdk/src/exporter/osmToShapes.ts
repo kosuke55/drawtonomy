@@ -115,6 +115,14 @@ export interface ImportedTrafficSign {
    * keeps a speed limit value (e.g. "50 km/h") when present.
    */
   attributes: Record<string, string>
+  /**
+   * World heading the signal applies to, in ENU radians (counter-clockwise
+   * from +x, y-up): reference-line heading at s, plus pi when
+   * orientation="-", plus hOffset. Only set by the OpenDRIVE import path;
+   * undefined for OSM/Lanelet2 sources. Renderers drawing surface markings
+   * (arrows etc.) should align the artwork with this direction.
+   */
+  headingRad?: number
 }
 
 export interface ImportedCrosswalk {
