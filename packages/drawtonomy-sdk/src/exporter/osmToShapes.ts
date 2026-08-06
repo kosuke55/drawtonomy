@@ -38,6 +38,16 @@ export interface ImportedPoint {
   x: number
   y: number
   osmId: string
+  /**
+   * Height above the map datum (m), in world units — NOT canvas pixels like
+   * `x` / `y`. Present only when the source format carries a third dimension
+   * (currently the OpenDRIVE importer, from `<elevationProfile>`). Absent or 0
+   * means "no elevation", which round-trips to an empty `<elevationProfile/>`.
+   *
+   * The value travels with the point, so ordinary 2D editing (dragging,
+   * arrow-key nudges, rotation bake) preserves it for free.
+   */
+  z?: number
 }
 
 export interface ImportedLinestring {

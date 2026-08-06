@@ -283,6 +283,37 @@ export interface ReferenceSample {
   x: number
   y: number
   hdg: number
+  /**
+   * Reference-line height at this station (m), evaluated from the road's
+   * `<elevationProfile>`. 0 when the road carries no profile — the convention
+   * throughout the SDK is that an all-zero height means "no elevation", which
+   * round-trips to an empty `<elevationProfile/>`.
+   */
+  z: number
+}
+
+/**
+ * Evaluate an OpenDRIVE `<elevationProfile>` at station `s`.
+ *
+ * The applicable record is the last one with `record.s <= s`; before the first
+ * record (or with no records at all) the height is 0. Each record is a cubic
+ * in `ds = s - record.s`.
+ *
+ * `records` must be sorted by `s` (the parser sorts them).
+ */
+export function evalElevation(records: readonly { s: number; a: number; b: number; c: number; d: number }[], s: number): number {
+  if (records.length === 0) return 0
+  let lo = 0
+  let hi = records.length - 1
+  if (s < records[0].s) return 0
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1
+    if (records[mid].s <= s) lo = mid
+    else hi = mid - 1
+  }
+  const rec = records[lo]
+  const ds = s - rec.s
+  return rec.a + rec.b * ds + rec.c * ds * ds + rec.d * ds * ds * ds
 }
 
 const STATION_EPS = 1e-9
@@ -335,6 +366,12 @@ export function sampleReferenceLine(
       if (s > 0 && s < roadLength) baseSet.push(s)
     }
   }
+  // Elevation breakpoints: the height profile is only piecewise cubic, so a
+  // station must land exactly on each record start or the sampled z misses
+  // the slope discontinuity between segments.
+  for (const e of road.elevations ?? []) {
+    if (e.s > 0 && e.s < roadLength) baseSet.push(e.s)
+  }
   baseSet.sort((a, b) => a - b)
   const base: number[] = []
   for (const s of baseSet) {
@@ -376,8 +413,9 @@ export function sampleReferenceLine(
   }
   stations.push(roadLength)
 
+  const elevations = road.elevations ?? []
   return stations.map(s => {
     const pose = evalAt(s)
-    return { s, x: pose.x, y: pose.y, hdg: pose.hdg }
+    return { s, x: pose.x, y: pose.y, hdg: pose.hdg, z: evalElevation(elevations, s) }
   })
 }
