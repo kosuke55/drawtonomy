@@ -366,12 +366,6 @@ export function sampleReferenceLine(
       if (s > 0 && s < roadLength) baseSet.push(s)
     }
   }
-  // Elevation breakpoints: the height profile is only piecewise cubic, so a
-  // station must land exactly on each record start or the sampled z misses
-  // the slope discontinuity between segments.
-  for (const e of road.elevations ?? []) {
-    if (e.s > 0 && e.s < roadLength) baseSet.push(e.s)
-  }
   baseSet.sort((a, b) => a - b)
   const base: number[] = []
   for (const s of baseSet) {
@@ -413,6 +407,14 @@ export function sampleReferenceLine(
   }
   stations.push(roadLength)
 
+  // Height is evaluated at the 2D station set as-is. Elevation record
+  // boundaries are deliberately NOT inserted as stations: extra stations
+  // perturb the plan-view fit downstream (degenerate all-zero records in
+  // CARLA exports rotated short junction roads enough to fail the ASAM QC
+  // contact-point gap check), while the z interpolation error from skipping
+  // a breakpoint is bounded by the <= 5 m station spacing and realistic
+  // vertical-curve curvature — centimetres, the same order as the export
+  // refit tolerance.
   const elevations = road.elevations ?? []
   return stations.map(s => {
     const pose = evalAt(s)

@@ -117,14 +117,37 @@ describe('elevation parsing', () => {
     expect(road.hasElevation).toBe(false)
   })
 
-  it('pins a station on every elevation breakpoint', () => {
+  it('every sample carries the reference-line height', () => {
     const road = parseOpenDriveXml(SLOPED_ROAD).roads[0]
     const samples = sampleReferenceLine(road)
-    expect(samples.some(s => Math.abs(s.s - 50) < 1e-9)).toBe(true)
-    // Every sample carries the reference-line height.
     for (const s of samples) {
       expect(s.z).toBeCloseTo(evalElevation(road.elevations, s.s), 9)
     }
+  })
+
+  // Regression pin: elevation records must not perturb the 2D station set.
+  // CARLA exports carry dense all-zero records; when those were inserted as
+  // stations they shifted the plan-view fit of short junction roads enough
+  // to open contact-point gaps (ASAM QC lane_smoothness failure on Town01).
+  it('elevation records leave the 2D station set unchanged', () => {
+    // Breakpoints deliberately off the 5 m base-station grid — an on-grid
+    // breakpoint dedupes against an existing station and hides the bug.
+    const offGrid = SLOPED_ROAD.replace(
+      /<elevationProfile>[\s\S]*?<\/elevationProfile>/,
+      '<elevationProfile>' +
+        '<elevation s="0" a="12" b="0.02" c="0" d="0"/>' +
+        '<elevation s="2.3897" a="12.05" b="0.02" c="0" d="0"/>' +
+        '<elevation s="47.31" a="12.9" b="0.02" c="0" d="0"/>' +
+        '</elevationProfile>'
+    )
+    const withElev = parseOpenDriveXml(offGrid).roads[0]
+    const noElev = parseOpenDriveXml(
+      offGrid.replace(/<elevationProfile>[\s\S]*?<\/elevationProfile>/, '')
+    ).roads[0]
+    const a = sampleReferenceLine(withElev)
+    const b = sampleReferenceLine(noElev)
+    expect(a.map(p => p.s)).toEqual(b.map(p => p.s))
+    expect(a.map(p => [p.x, p.y, p.hdg])).toEqual(b.map(p => [p.x, p.y, p.hdg]))
   })
 })
 
