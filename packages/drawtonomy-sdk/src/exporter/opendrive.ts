@@ -36,6 +36,7 @@ import type {
 import { sampleAtParam, type Point2D } from './laneCenterline'
 import { evalGeometry } from './odrGeometry'
 import { fitPlanView, type FittedSamplePose } from './odrGeometryFit'
+import { fitElevationProfile, type ElevationSample } from './odrElevationFit'
 import type { OdrGeometry } from './opendriveParser'
 import { originToProjString } from './projection'
 import { escapeXml, fmt, fmtPrecise, pxToEnuX, pxToEnuY, pxToMeter } from './units'
@@ -75,6 +76,12 @@ interface BundleGeometry {
   laneWidths: number[][]
   /** Total fitted reference-line arc length (m). */
   length: number
+  /**
+   * Reference-line height samples (m) at the fitted stations of the reference
+   * boundary's own vertices. Empty when the drawn points carry no height, in
+   * which case the road emits `<elevationProfile/>` as before.
+   */
+  elevationSamples: ElevationSample[]
 }
 
 /** A road bundle: laterally adjacent lanes emitted as one <road>. */
@@ -96,19 +103,32 @@ function collectPoints(
   pointIds: string[],
   invert: boolean,
   pointOverrides: Map<string, Point2D>
-): Point2D[] {
+): BoundaryPoint[] {
   const ids = invert ? [...pointIds].reverse() : pointIds
-  const pts: Point2D[] = []
+  const pts: BoundaryPoint[] = []
   for (const id of ids) {
+    // A point override replaces the planar position only; the height rides on
+    // the stored point shape (overrides come from planar snapping).
+    const p = shapeMap.get(id) as unknown as PointShape | undefined
+    const z = p?.props?.z
     const ov = pointOverrides.get(id)
     if (ov) {
-      pts.push({ x: ov.x, y: ov.y })
+      pts.push(z === undefined ? { x: ov.x, y: ov.y } : { x: ov.x, y: ov.y, z })
       continue
     }
-    const p = shapeMap.get(id) as unknown as PointShape | undefined
-    if (p) pts.push({ x: p.x, y: p.y })
+    if (p) pts.push(z === undefined ? { x: p.x, y: p.y } : { x: p.x, y: p.y, z })
   }
   return pts
+}
+
+/**
+ * A boundary vertex in canvas pixels, carrying the optional world height (m)
+ * stored on the point shape. `z` is in meters even though `x` / `y` are
+ * pixels: it is never subject to the pixel/meter scale because no planar
+ * transform touches it.
+ */
+interface BoundaryPoint extends Point2D {
+  z?: number
 }
 
 /** Boundary polyline of a linestring in travel order, or null when unusable. */
@@ -117,7 +137,7 @@ function boundaryPointsOf(
   boundaryId: string | null,
   invert: boolean,
   pointOverrides: Map<string, Point2D>
-): Point2D[] | null {
+): BoundaryPoint[] | null {
   if (!boundaryId) return null
   const ls = shapeMap.get(boundaryId) as unknown as LinestringShape | undefined
   if (!ls) return null
@@ -275,7 +295,7 @@ function buildBundleGeometry(
   pointOverrides: Map<string, Point2D>
 ): BundleGeometry | null {
   const first = bundleLanes[0]
-  const boundaries: Point2D[][] = []
+  const boundaries: BoundaryPoint[][] = []
   const left = boundaryPointsOf(shapeMap, first.props.leftBoundaryId, first.props.invertLeft, pointOverrides)
   if (!left) return null
   boundaries.push(left)
@@ -365,7 +385,27 @@ function buildBundleGeometry(
     samplePoses.map((_, j) => Math.max(0, offsets[i + 1][j] - offsets[i][j]))
   )
 
-  return { planView: fit.geometries, samplePoses, laneWidths, length: fit.length }
+  // Elevation samples: the reference boundary's own vertices already have a
+  // fitted station (fit.samplePoses is index-aligned with `ref`), so the
+  // height rides along without resampling. Boundaries other than the
+  // reference share the station's height (no superelevation support yet), so
+  // taking the reference boundary alone is exact for imported roads.
+  const elevationSamples: ElevationSample[] = []
+  for (let i = 0; i < ref.length && i < fit.samplePoses.length; i++) {
+    const z = boundaries[0][i]?.z
+    if (z === undefined) continue
+    elevationSamples.push({ s: fit.samplePoses[i].s, z })
+  }
+
+  return {
+    planView: fit.geometries,
+    samplePoses,
+    laneWidths,
+    length: fit.length,
+    // All-or-nothing: a partially annotated boundary would fabricate a datum
+    // of 0 for the un-annotated stretch and invent a cliff.
+    elevationSamples: elevationSamples.length === ref.length ? elevationSamples : [],
+  }
 }
 
 /**
@@ -552,6 +592,27 @@ function emitPlanView(geom: BundleGeometry): string {
     lines.push(`      </geometry>`)
   }
   lines.push(`    </planView>`)
+  return lines.join('\n')
+}
+
+/**
+ * Emit `<elevationProfile>` from the road's per-point heights.
+ *
+ * Roads whose points carry no height (all drawn content, and imported roads
+ * from flat maps) keep emitting the empty `<elevationProfile/>` — the
+ * long-standing "no elevation" convention that consumers already handle.
+ */
+function emitElevationProfile(geom: BundleGeometry): string {
+  const records = fitElevationProfile(geom.elevationSamples)
+  if (records.length === 0) return `    <elevationProfile/>`
+  const lines: string[] = [`    <elevationProfile>`]
+  for (const r of records) {
+    lines.push(
+      `      <elevation s="${fmt(r.s)}" a="${fmtPrecise(r.a)}" b="${fmtPrecise(r.b)}" ` +
+        `c="${fmtPrecise(r.c)}" d="${fmtPrecise(r.d)}"/>`
+    )
+  }
+  lines.push(`    </elevationProfile>`)
   return lines.join('\n')
 }
 
@@ -1922,7 +1983,7 @@ function emitRoad(
     lines.push(`    </type>`)
   }
   lines.push(emitPlanView(bundle.geom))
-  lines.push(`    <elevationProfile/>`)
+  lines.push(emitElevationProfile(bundle.geom))
   lines.push(`    <lateralProfile/>`)
   lines.push(emitLanes(bundle, plan, shapeMap))
   lines.push(emitObjects(objects))

@@ -92,8 +92,10 @@ export {
   type OdrJunctionConnection,
   type OdrJunctionLaneLink,
   type OdrCubic,
+  type OdrElevation,
 } from './opendriveParser'
 export {
+  evalElevation,
   evalGeometry,
   evalPoly3,
   fresnel,
@@ -102,6 +104,13 @@ export {
   type ReferenceSample,
   type SampleReferenceLineOptions,
 } from './odrGeometry'
+export {
+  evalElevationRecords,
+  fitElevationProfile,
+  type ElevationRecord,
+  type ElevationSample,
+  type FitElevationOptions,
+} from './odrElevationFit'
 export {
   odrToShapes,
   parseGeoReferenceOrigin,
