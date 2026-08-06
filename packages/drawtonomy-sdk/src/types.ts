@@ -18,6 +18,16 @@ export interface PointProps {
   color: string
   visible: boolean
   osmId: string
+  /**
+   * Height above the map datum (m), in world units — NOT canvas pixels like
+   * the shape's `x` / `y`. Set by importers that read a third dimension
+   * (currently OpenDRIVE `<elevationProfile>`); absent or 0 means "no
+   * elevation", which round-trips to an empty `<elevationProfile/>`.
+   *
+   * Because the height rides on the point, plain 2D editing (dragging,
+   * arrow-key nudges, rotation bake) preserves it without extra plumbing.
+   */
+  z?: number
 }
 
 export interface LinestringProps {

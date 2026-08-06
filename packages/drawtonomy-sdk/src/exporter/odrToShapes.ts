@@ -95,6 +95,12 @@ export interface OdrToShapesOptions {
 interface EnuPoint {
   x: number
   y: number
+  /**
+   * Reference-line height at this point (m). Lane boundaries are offset only
+   * laterally (no superelevation support yet), so every point across a road
+   * cross-section shares the station's reference height.
+   */
+  z?: number
 }
 
 /** Lanes narrower than this (m) carry no usable area and are skipped. */
@@ -1059,7 +1065,9 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
     // Lane reference polyline: reference line shifted by the laneOffset.
     const centerPts: EnuPoint[] = stations.map((st, j) => {
       const off = laneOffsetAt(road, st.s)
-      return { x: st.x + normals[j].x * off, y: st.y + normals[j].y * off }
+      // z is the reference-line height: lateral offsets do not change it
+      // (superelevation / lateralProfile is still dropped — see warnings).
+      return { x: st.x + normals[j].x * off, y: st.y + normals[j].y * off, z: st.z }
     })
 
     // Accumulate boundary polylines from the center outward. Index 0 is the
@@ -1071,7 +1079,7 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
       for (const lane of lanes) {
         const next = prev.map((p, j) => {
           const w = laneWidthAt(lane, stations[j].s - sec.s)
-          return { x: p.x + sign * normals[j].x * w, y: p.y + sign * normals[j].y * w }
+          return { x: p.x + sign * normals[j].x * w, y: p.y + sign * normals[j].y * w, z: p.z }
         })
         boundaries.push(next)
         prev = next
@@ -1100,6 +1108,9 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
         }
         const pointId = idAllocator.next('point')
         const data: ImportedPoint = { id: pointId, x, y, osmId: '' }
+        // Keep the third dimension on the point so 2D editing preserves it.
+        // Omit an exact 0 so "no elevation" roads produce no z at all.
+        if (p.z !== undefined && p.z !== 0) data.z = p.z
         result.points.push(data)
         pointIds.push(pointId)
       })
@@ -1694,7 +1705,9 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
 
   // ---- Aggregated warnings ----
   if (elevationRoads > 0) {
-    warnings.push(`Elevation profiles on ${elevationRoads} road(s) were flattened to 2D.`)
+    warnings.push(
+      `Elevation profiles on ${elevationRoads} road(s) were kept as per-point heights (the canvas view stays 2D).`
+    )
   }
   if (superelevationRoads > 0) {
     warnings.push(`Superelevation/lateral profiles on ${superelevationRoads} road(s) were ignored (2D import).`)

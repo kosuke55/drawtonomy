@@ -72,6 +72,14 @@ export interface OdrLaneOffset extends OdrCubic {
   s: number
 }
 
+/**
+ * `<elevation s a b c d>` — road reference-line height, piecewise cubic in
+ * `ds = s - record.s`: `z(ds) = a + b*ds + c*ds^2 + d*ds^3`.
+ */
+export interface OdrElevation extends OdrCubic {
+  s: number
+}
+
 /** <width sOffset a b c d> — lane width polynomial, sOffset relative to the lane section start. */
 export interface OdrWidth extends OdrCubic {
   sOffset: number
@@ -256,6 +264,12 @@ export interface OdrRoad {
   objects: OdrObject[]
   /** <userData code value> records attached to the road (code -> value). */
   userData: Record<string, string>
+  /**
+   * `<elevationProfile>` records in ascending `s` order (empty when absent).
+   * Retained so importers can evaluate a height for each sampled station
+   * instead of dropping the third dimension.
+   */
+  elevations: OdrElevation[]
   /** True when an <elevationProfile> with elevation records is present (flattened on import). */
   hasElevation: boolean
   /** True when a <lateralProfile> with superelevation/shape records is present (flattened on import). */
@@ -672,10 +686,18 @@ function parseRoad(el: XmlNode): OdrRoad {
   laneSections.sort((a, b) => a.s - b.s)
 
   const elevationEl = child(el, 'elevationProfile')
-  const hasElevation = !!elevationEl && children(elevationEl, 'elevation').some(e => {
-    // A single flat elevation record (a=b=c=d=0) carries no height information.
-    return numAttr(e, 'a', 0) !== 0 || numAttr(e, 'b', 0) !== 0 || numAttr(e, 'c', 0) !== 0 || numAttr(e, 'd', 0) !== 0
-  })
+  const elevations: OdrElevation[] = elevationEl
+    ? children(elevationEl, 'elevation').map(e => ({
+        s: numAttr(e, 's', 0),
+        a: numAttr(e, 'a', 0),
+        b: numAttr(e, 'b', 0),
+        c: numAttr(e, 'c', 0),
+        d: numAttr(e, 'd', 0),
+      }))
+    : []
+  elevations.sort((a, b) => a.s - b.s)
+  // A profile whose records are all flat zeros carries no height information.
+  const hasElevation = elevations.some(e => e.a !== 0 || e.b !== 0 || e.c !== 0 || e.d !== 0)
   const lateralEl = child(el, 'lateralProfile')
   const hasSuperelevation =
     !!lateralEl && (children(lateralEl, 'superelevation').length > 0 || children(lateralEl, 'shape').length > 0)
@@ -770,6 +792,7 @@ function parseRoad(el: XmlNode): OdrRoad {
     signalReferences,
     objects,
     userData: parseUserData(el),
+    elevations,
     hasElevation,
     hasSuperelevation,
   }

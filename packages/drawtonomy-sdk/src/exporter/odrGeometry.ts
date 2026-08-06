@@ -283,6 +283,37 @@ export interface ReferenceSample {
   x: number
   y: number
   hdg: number
+  /**
+   * Reference-line height at this station (m), evaluated from the road's
+   * `<elevationProfile>`. 0 when the road carries no profile — the convention
+   * throughout the SDK is that an all-zero height means "no elevation", which
+   * round-trips to an empty `<elevationProfile/>`.
+   */
+  z: number
+}
+
+/**
+ * Evaluate an OpenDRIVE `<elevationProfile>` at station `s`.
+ *
+ * The applicable record is the last one with `record.s <= s`; before the first
+ * record (or with no records at all) the height is 0. Each record is a cubic
+ * in `ds = s - record.s`.
+ *
+ * `records` must be sorted by `s` (the parser sorts them).
+ */
+export function evalElevation(records: readonly { s: number; a: number; b: number; c: number; d: number }[], s: number): number {
+  if (records.length === 0) return 0
+  let lo = 0
+  let hi = records.length - 1
+  if (s < records[0].s) return 0
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1
+    if (records[mid].s <= s) lo = mid
+    else hi = mid - 1
+  }
+  const rec = records[lo]
+  const ds = s - rec.s
+  return rec.a + rec.b * ds + rec.c * ds * ds + rec.d * ds * ds * ds
 }
 
 const STATION_EPS = 1e-9
@@ -376,8 +407,17 @@ export function sampleReferenceLine(
   }
   stations.push(roadLength)
 
+  // Height is evaluated at the 2D station set as-is. Elevation record
+  // boundaries are deliberately NOT inserted as stations: extra stations
+  // perturb the plan-view fit downstream (degenerate all-zero records in
+  // CARLA exports rotated short junction roads enough to fail the ASAM QC
+  // contact-point gap check), while the z interpolation error from skipping
+  // a breakpoint is bounded by the <= 5 m station spacing and realistic
+  // vertical-curve curvature — centimetres, the same order as the export
+  // refit tolerance.
+  const elevations = road.elevations ?? []
   return stations.map(s => {
     const pose = evalAt(s)
-    return { s, x: pose.x, y: pose.y, hdg: pose.hdg }
+    return { s, x: pose.x, y: pose.y, hdg: pose.hdg, z: evalElevation(elevations, s) }
   })
 }
