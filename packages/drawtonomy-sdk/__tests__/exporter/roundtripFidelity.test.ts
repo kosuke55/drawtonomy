@@ -424,6 +424,7 @@ function snapshotFrom(imported: ImportedShapes): DrawtonomySnapshot {
         osmId: tl.osmId,
         affectedLaneIds: tl.affectedLaneIds,
         stopLineId: tl.stopLineId,
+        controllerId: tl.controllerId ?? '',
       },
     })
   }
@@ -1951,5 +1952,83 @@ describe('carry-through export (sidecar verbatim re-emission)', () => {
     expect(rewritten.replace('elementId="99"', 'elementId="2"')).toBe(road1.text)
     // No mapping -> byte-identical.
     expect(rewriteRoadLinkTargets(road1.text, new Map())).toBe(road1.text)
+  })
+
+  // -------------------------------------------------------------------------
+  // Generational decay guards (issue #628 R1)
+  //
+  // A single edit used to bleed information out of the document on every
+  // subsequent import/export cycle: controllers vanished outright, and roads
+  // whose lanes re-bundled lost their original ids. These pin the fixed
+  // behaviour on a fixture carrying a micro (0.2 m) road, a junction, a
+  // controller and signals.
+  // -------------------------------------------------------------------------
+  const MICRO_FIXTURE = join(FIXTURES, 'micro_road_junction.xodr')
+
+  /** Nudge one interior boundary point of the first lane (~an edit). */
+  const editFirstLane = (imported: ReturnType<typeof odrToShapesFull>): void => {
+    const lane = imported.lanes[0]
+    const ls = imported.linestrings.find(l => l.id === lane.leftBoundaryId)!
+    const pid = ls.pointIds[Math.floor(ls.pointIds.length / 2)]
+    imported.points.find(p => p.id === pid)!.y += 30
+  }
+
+  it('keeps a road with no materialized lanes (micro road) verbatim', () => {
+    const xml = readFileSync(MICRO_FIXTURE, 'utf-8')
+    const imported = odrToShapesFull(parseOpenDriveXml(xml))
+    // Road 4 is 0.2 m: below the importer's minimum section length, so it
+    // materializes no lane shapes at all.
+    expect(imported.sidecar.roadRecords!['4'].laneShapeIds).toEqual([])
+    // It is not editable, so it must survive verbatim even when a neighbour
+    // is edited (it used to drag its neighbours down as an "unrecorded" ref).
+    editFirstLane(imported)
+    const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
+    const micro = extractOdrDocument(xml)!.roads.find(r => r.id === '4')!
+    expect(out).toContain(micro.text)
+  })
+
+  it('keeps a controller when only some of its signals regenerate', () => {
+    const xml = readFileSync(MICRO_FIXTURE, 'utf-8')
+    const imported = odrToShapesFull(parseOpenDriveXml(xml))
+    // Controller membership is parsed and carried on the imported lights, so
+    // the grouping survives even for regenerated signals.
+    expect(imported.trafficLights.map(t => t.controllerId)).toEqual(['900', '900'])
+
+    editFirstLane(imported)
+    const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
+    // Controller 900 used to be dropped entirely because signal 500's road
+    // was edited; it must survive and still cover both signals.
+    const controllers = extractOdrDocument(out)!.controllers
+    expect(controllers.length).toBe(1)
+    expect(controllers[0].id).toBe('900')
+    expect(controllers[0].signalIds.length).toBe(2)
+  })
+
+  it('preserves every original road id and name across three generations', () => {
+    const xml = readFileSync(MICRO_FIXTURE, 'utf-8')
+    const source = extractOdrDocument(xml)!
+    const sourceIds = source.roads.map(r => r.id)
+
+    let current = xml
+    for (let generation = 1; generation <= 3; generation++) {
+      const imported = odrToShapesFull(parseOpenDriveXml(current))
+      if (generation === 1) editFirstLane(imported)
+      current = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
+
+      const doc = extractOdrDocument(current)!
+      const emittedIds = new Set(doc.roads.map(r => r.id))
+      // Every source road id still present — no re-allocation at any depth.
+      for (const id of sourceIds) {
+        expect(emittedIds, `generation ${generation} lost road id ${id}`).toContain(id)
+      }
+      // The controller survives every generation too.
+      expect(doc.controllers.length, `generation ${generation} lost the controller`).toBe(1)
+    }
+    // The edited road regenerates but keeps its original <road name>.
+    expect(current).toMatch(/<road name="west_approach"[^>]*id="1"/)
+  })
+
+  it('keeps an unedited round trip fully verbatim on the micro fixture', () => {
+    expectVerbatimRoundTrip(readFileSync(MICRO_FIXTURE, 'utf-8'))
   })
 })
