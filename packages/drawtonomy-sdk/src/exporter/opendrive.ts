@@ -41,6 +41,8 @@ import type { OdrGeometry } from './opendriveParser'
 import { originToProjString } from './projection'
 import { escapeXml, fmt, fmtPrecise, pxToEnuX, pxToEnuY, pxToMeter } from './units'
 import {
+  appendControlRecords,
+  dropControlRecords,
   extractOdrDocument,
   hashRoadState,
   rewriteRoadLinkTargets,
@@ -1969,7 +1971,11 @@ function emitRoad(
 ): string {
   const first = bundle.lanes[0]
   const speed = bundle.lanes.find(l => l.props.attributes?.speed_limit)?.props.attributes?.speed_limit
-  const name = escapeXml(first.props.attributes?.subtype || 'road')
+  // Prefer the source road's name (carried on import) so regenerated roads
+  // stay recognizable to tools matching on name; fall back to the subtype.
+  const name = escapeXml(
+    first.props.attributes?.odr_road_name || first.props.attributes?.subtype || 'road'
+  )
   const lines: string[] = []
   // Mainline (bundle) roads never belong to a junction; junction membership
   // is carried by the synthesized connecting roads (emitConnectingRoad).
@@ -2038,7 +2044,8 @@ interface CarryPlan {
   /** Original junction ids that must be regenerated (members changed). */
   dirtyJunctionIds: Set<string>
   verbatimJunctionTexts: string[]
-  verbatimControllerTexts: string[]
+  /** Surviving controllers, keyed by original id so regenerated signals of the same group can merge in. */
+  verbatimControllers: { id: string; text: string }[]
   /** First id for regenerated roads / junctions (above every original id). */
   idBase: number
   signalIdBase: number
@@ -2314,21 +2321,34 @@ function planCarryThrough(
     if (!dirtyJunctionIds.has(j.id)) verbatimJunctionTexts.push(j.text)
   }
 
-  // A controller stays verbatim when every signal it controls is defined in
-  // a verbatim road.
+  // Controllers are kept whenever at least one controlled signal survives in
+  // a verbatim road. <control> records naming signals that regenerated (their
+  // road was edited, so the signal is re-emitted under a fresh id) are dropped
+  // from the controller's text; the rest of the element stays byte-identical.
+  //
+  // Dropping the whole controller when a single signal moved would lose the
+  // intersection's signal grouping for every OTHER signal too — the grouping
+  // is not recoverable from the regenerated side, which only knows the
+  // controllerId carried on traffic-light shapes.
   const signalRoadOf = new Map<string, string>()
   for (const r of doc.roads) {
     for (const sid of r.signalIds) signalRoadOf.set(sid, r.id)
   }
-  const verbatimControllerTexts: string[] = []
+  const verbatimControllers: { id: string; text: string }[] = []
   for (const c of doc.controllers) {
-    const ok =
-      c.signalIds.length > 0 &&
-      c.signalIds.every(sid => {
-        const rid = signalRoadOf.get(sid)
-        return rid !== undefined && cleanRoadIds.has(rid)
-      })
-    if (ok) verbatimControllerTexts.push(c.text)
+    if (c.signalIds.length === 0) continue
+    const keptSignalIds = c.signalIds.filter(sid => {
+      const rid = signalRoadOf.get(sid)
+      return rid !== undefined && cleanRoadIds.has(rid)
+    })
+    if (keptSignalIds.length === 0) continue
+    verbatimControllers.push({
+      id: c.id,
+      text:
+        keptSignalIds.length === c.signalIds.length
+          ? c.text
+          : dropControlRecords(c.text, new Set(keptSignalIds)),
+    })
   }
 
   return {
@@ -2342,7 +2362,7 @@ function planCarryThrough(
     verbatimRoads,
     dirtyJunctionIds,
     verbatimJunctionTexts,
-    verbatimControllerTexts,
+    verbatimControllers,
     idBase: Math.max(doc.maxNumericElementId, 0) + 1,
     signalIdBase: Math.max(doc.maxNumericSignalId, 0) + 1,
     controllerIdBase: Math.max(doc.maxNumericControllerId, 0) + 1,
@@ -2451,21 +2471,63 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
   )
   const reuseKey = (ids: readonly string[]): string => [...ids].sort().join('\n')
   const reusableRoadIds = new Map<string, number>()
+  /** Lane shape id -> the dirty original road that materialized it. */
+  const originRoadOfLane = new Map<string, number>()
   if (carry) {
     for (const rid of carry.dirtyRecordedIds) {
       const rec = carry.records[rid]
       if (!rec || rec.laneShapeIds.length === 0 || !/^\d+$/.test(rid)) continue
-      reusableRoadIds.set(reuseKey(rec.laneShapeIds), parseInt(rid, 10))
+      const numeric = parseInt(rid, 10)
+      reusableRoadIds.set(reuseKey(rec.laneShapeIds), numeric)
+      for (const lid of rec.laneShapeIds) originRoadOfLane.set(lid, numeric)
     }
   }
   const laneIdToRoadId = new Map<string, number>()
   const laneIdToOdrLaneId = new Map<string, number>()
   const roadIdByBundle = new Map<ExportBundle, number>()
   let nextRoadId = carry ? carry.idBase : 1
+  /** Original road ids already claimed by a bundle (each is reusable once). */
+  const claimedOriginIds = new Set<number>()
+  /**
+   * Original id a bundle may inherit when its lane set does not match a road
+   * exactly: the road that contributed most of the bundle's lanes, provided
+   * that road is not still available for an exact match elsewhere. Editing can
+   * re-bundle a road's lanes (splitting one road into several, or merging
+   * neighbours), and without this the whole group would take fresh ids and
+   * break every id-based cross-reference an external tool holds.
+   */
+  const dominantOriginId = (bundle: ExportBundle): number | undefined => {
+    const votes = new Map<number, number>()
+    for (const l of bundle.lanes) {
+      const origin = originRoadOfLane.get(l.id)
+      if (origin === undefined) continue
+      votes.set(origin, (votes.get(origin) ?? 0) + 1)
+    }
+    let best: number | undefined
+    let bestVotes = 0
+    for (const [origin, n] of votes) {
+      if (claimedOriginIds.has(origin)) continue
+      if (n > bestVotes) {
+        best = origin
+        bestVotes = n
+      }
+    }
+    return best
+  }
+  // Exact lane-set matches are resolved first, so a bundle can never claim an
+  // id by majority that another bundle would have inherited outright.
+  const exactReuse = new Map<ExportBundle, number>()
   for (const bundle of exportBundles) {
     const key = reuseKey(bundle.lanes.map(l => l.id))
     const reused = reusableRoadIds.get(key)
-    if (reused !== undefined) reusableRoadIds.delete(key)
+    if (reused === undefined) continue
+    reusableRoadIds.delete(key)
+    exactReuse.set(bundle, reused)
+    claimedOriginIds.add(reused)
+  }
+  for (const bundle of exportBundles) {
+    const reused = exactReuse.get(bundle) ?? dominantOriginId(bundle)
+    if (reused !== undefined) claimedOriginIds.add(reused)
     const roadId = reused ?? nextRoadId++
     roadIdByBundle.set(bundle, roadId)
     bundle.lanes.forEach((lane, i) => {
@@ -2689,13 +2751,11 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
     lines.push(emitConnectingRoad(spec))
   }
 
-  // Verbatim controllers (every controlled signal lives in a verbatim road).
-  if (carry) {
-    for (const text of carry.verbatimControllerTexts) lines.push(text)
-  }
-
   // Signal groups: traffic lights sharing a controllerId (one intersection)
   // become a <controller> listing their emitted signals as <control> records.
+  // Imported lights carry the original controller id, so a group whose
+  // controller also survives verbatim is merged back into that element
+  // instead of being emitted twice under a fresh id.
   const controllerGroups = new Map<string, number[]>()
   for (const tl of regenTrafficLights) {
     const groupId = tl.props.controllerId
@@ -2706,6 +2766,21 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
     group.push(signalId)
     controllerGroups.set(groupId, group)
   }
+
+  // Verbatim controllers, with regenerated signals of the same group folded
+  // back in as extra <control> records.
+  if (carry) {
+    for (const { id, text } of carry.verbatimControllers) {
+      const regenerated = controllerGroups.get(id)
+      if (regenerated === undefined) {
+        lines.push(text)
+        continue
+      }
+      controllerGroups.delete(id)
+      lines.push(appendControlRecords(text, regenerated))
+    }
+  }
+
   let controllerIdCounter = carry ? carry.controllerIdBase : 1
   for (const [groupId, signalIds] of controllerGroups) {
     lines.push(`  <controller id="${controllerIdCounter++}" name="${escapeXml(groupId)}" sequence="0">`)

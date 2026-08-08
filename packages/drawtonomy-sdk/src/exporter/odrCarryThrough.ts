@@ -262,6 +262,42 @@ export function extractOdrDocument(xml: string): OdrDocument | null {
 }
 
 /**
+ * Drop `<control>` records from a `<controller>` element whose signalId is not
+ * in `keepSignalIds`, keeping every other byte (including the controller's own
+ * attributes and any unrelated children) untouched.
+ *
+ * Used when only some of a controller's signals survive as verbatim: the
+ * controller stays, minus the entries whose signals were regenerated.
+ */
+export function dropControlRecords(text: string, keepSignalIds: ReadonlySet<string>): string {
+  return text.replace(/[^\S\n]*<control\b[^>]*\/?>\n?/g, match => {
+    const sid = match.match(/\bsignalId="([^"]*)"/)?.[1]
+    if (sid === undefined) return match
+    return keepSignalIds.has(sid) ? match : ''
+  })
+}
+
+/**
+ * Append `<control signalId="..."/>` records to a `<controller>` element,
+ * just before its closing tag, keeping every existing byte intact.
+ *
+ * Used when signals of a controller's group were regenerated under fresh ids:
+ * the surviving controller element absorbs them instead of a duplicate
+ * controller being emitted for the same group.
+ */
+export function appendControlRecords(text: string, signalIds: readonly number[]): string {
+  if (signalIds.length === 0) return text
+  const added = signalIds.map(id => `    <control signalId="${id}" type="0"/>`).join('\n')
+  // Self-closing <controller .../> has no children yet; expand it.
+  if (/\/>\s*$/.test(text)) {
+    return `${text.replace(/\s*\/>\s*$/, '>')}\n${added}\n  </controller>`
+  }
+  const close = text.lastIndexOf('</controller>')
+  if (close < 0) return text
+  return `${text.slice(0, close)}${added}\n  ${text.slice(close)}`
+}
+
+/**
  * Rewrite the elementId of road-level <predecessor>/<successor> records
  * according to `roadMapping` (elementType="road") and `junctionMapping`
  * (elementType="junction"), each original id -> new id. Every byte outside

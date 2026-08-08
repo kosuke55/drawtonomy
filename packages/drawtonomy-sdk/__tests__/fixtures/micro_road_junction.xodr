@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic carry-through regression map (hand-authored for this repo).
+
+     Covers the elements that historically decayed across repeated
+     import/export generations:
+
+     - road 4: a 0.20 m micro road. Shorter than the importer's minimum lane
+       section length, so it materializes NO lane shapes at all. Its
+       neighbours (roads 3 and 5) link to it, so before the skipped-road fix
+       they lost verbatim status by "referencing an unrecorded element", and
+       that loss cascaded into junction 100.
+     - junction 100: a 3-way junction with connecting roads 20 / 21.
+     - controller 900: controls the two signals defined on roads 1 and 2.
+     - signals 500 / 501 with <validity>, plus a <signalReference> on road 5.
+-->
+<OpenDRIVE>
+  <header revMajor="1" revMinor="7" name="micro_road_junction" version="1.00" date="2026-01-01T00:00:00" north="0" south="0" east="0" west="0" vendor="drawtonomy">
+    <geoReference><![CDATA[+proj=tmerc +lat_0=35.0 +lon_0=139.0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs]]></geoReference>
+  </header>
+
+  <!-- Mainline west approach into the junction. -->
+  <road name="west_approach" length="80" id="1" junction="-1">
+    <link>
+      <successor elementType="junction" elementId="100"/>
+    </link>
+    <planView>
+      <geometry s="0" x="0" y="0" hdg="0" length="80"><line/></geometry>
+    </planView>
+    <lanes>
+      <laneSection s="0">
+        <left>
+          <lane id="1" type="driving" level="false">
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </left>
+        <center><lane id="0" type="none" level="false"/></center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+    <signals>
+      <signal id="500" s="75" t="-5" zOffset="4.5" name="west_light" dynamic="yes" orientation="+" type="1000001" subtype="-1" country="OpenDRIVE" value="0" height="0.8" width="0.5">
+        <validity fromLane="-1" toLane="-1"/>
+      </signal>
+    </signals>
+  </road>
+
+  <!-- Mainline east departure from the junction. -->
+  <road name="east_departure" length="80" id="2" junction="-1">
+    <link>
+      <predecessor elementType="junction" elementId="100"/>
+      <successor elementType="road" elementId="3" contactPoint="start"/>
+    </link>
+    <planView>
+      <geometry s="0" x="100" y="0" hdg="0" length="80"><line/></geometry>
+    </planView>
+    <lanes>
+      <laneSection s="0">
+        <left>
+          <lane id="1" type="driving" level="false">
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </left>
+        <center><lane id="0" type="none" level="false"/></center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link><successor id="-1"/></link>
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+    <signals>
+      <signal id="501" s="5" t="-5" zOffset="4.5" name="east_light" dynamic="yes" orientation="+" type="1000001" subtype="-1" country="OpenDRIVE" value="0" height="0.8" width="0.5">
+        <validity fromLane="-1" toLane="-1"/>
+      </signal>
+    </signals>
+  </road>
+
+  <!-- Road 3 feeds the micro road 4. -->
+  <road name="pre_micro" length="60" id="3" junction="-1">
+    <link>
+      <predecessor elementType="road" elementId="2" contactPoint="end"/>
+      <successor elementType="road" elementId="4" contactPoint="start"/>
+    </link>
+    <planView>
+      <geometry s="0" x="180" y="0" hdg="0" length="60"><line/></geometry>
+    </planView>
+    <lanes>
+      <laneSection s="0">
+        <center><lane id="0" type="none" level="false"/></center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link><predecessor id="-1"/><successor id="-1"/></link>
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+
+  <!-- The 0.20 m micro road: below MIN_SECTION_LEN_M, so the importer
+       materializes no lane shapes for it. -->
+  <road name="micro" length="0.2" id="4" junction="-1">
+    <link>
+      <predecessor elementType="road" elementId="3" contactPoint="end"/>
+      <successor elementType="road" elementId="5" contactPoint="start"/>
+    </link>
+    <planView>
+      <geometry s="0" x="240" y="0" hdg="0" length="0.2"><line/></geometry>
+    </planView>
+    <lanes>
+      <laneSection s="0">
+        <center><lane id="0" type="none" level="false"/></center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link><predecessor id="-1"/><successor id="-1"/></link>
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+
+  <!-- Road 5 continues past the micro road and carries a signalReference. -->
+  <road name="post_micro" length="60" id="5" junction="-1">
+    <link>
+      <predecessor elementType="road" elementId="4" contactPoint="end"/>
+    </link>
+    <planView>
+      <geometry s="0" x="240.2" y="0" hdg="0" length="60"><line/></geometry>
+    </planView>
+    <lanes>
+      <laneSection s="0">
+        <center><lane id="0" type="none" level="false"/></center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link><predecessor id="-1"/></link>
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+    <signals>
+      <signalReference id="501" s="10" t="-5" orientation="+">
+        <validity fromLane="-1" toLane="-1"/>
+      </signalReference>
+    </signals>
+  </road>
+
+  <!-- North leg of the junction. -->
+  <road name="north_leg" length="60" id="6" junction="-1">
+    <link>
+      <successor elementType="junction" elementId="100"/>
+    </link>
+    <planView>
+      <geometry s="0" x="90" y="-70" hdg="1.5707963267948966" length="60"><line/></geometry>
+    </planView>
+    <lanes>
+      <laneSection s="0">
+        <left>
+          <lane id="1" type="driving" level="false">
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </left>
+        <center><lane id="0" type="none" level="false"/></center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+
+  <!-- Connecting road: west approach -> east departure (straight through). -->
+  <road name="conn_west_east" length="20" id="20" junction="100">
+    <link>
+      <predecessor elementType="road" elementId="1" contactPoint="end"/>
+      <successor elementType="road" elementId="2" contactPoint="start"/>
+    </link>
+    <planView>
+      <geometry s="0" x="80" y="0" hdg="0" length="20"><line/></geometry>
+    </planView>
+    <lanes>
+      <laneSection s="0">
+        <center><lane id="0" type="none" level="false"/></center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link><predecessor id="-1"/><successor id="-1"/></link>
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+
+  <!-- Connecting road: west approach -> north leg (left turn). -->
+  <road name="conn_west_north" length="15.707963267948966" id="21" junction="100">
+    <link>
+      <predecessor elementType="road" elementId="1" contactPoint="end"/>
+      <successor elementType="road" elementId="6" contactPoint="end"/>
+    </link>
+    <planView>
+      <geometry s="0" x="80" y="0" hdg="0" length="15.707963267948966"><arc curvature="-0.1"/></geometry>
+    </planView>
+    <lanes>
+      <laneSection s="0">
+        <center><lane id="0" type="none" level="false"/></center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link><predecessor id="-1"/><successor id="1"/></link>
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+
+  <junction name="main_junction" id="100">
+    <connection id="0" incomingRoad="1" connectingRoad="20" contactPoint="start">
+      <laneLink from="-1" to="-1"/>
+    </connection>
+    <connection id="1" incomingRoad="1" connectingRoad="21" contactPoint="start">
+      <laneLink from="-1" to="-1"/>
+    </connection>
+  </junction>
+
+  <controller name="main_controller" id="900" sequence="0">
+    <control signalId="500" type="1000001"/>
+    <control signalId="501" type="1000001"/>
+  </controller>
+</OpenDRIVE>

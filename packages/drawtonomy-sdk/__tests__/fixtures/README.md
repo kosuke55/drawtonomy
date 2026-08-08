@@ -10,6 +10,16 @@ parser/conversion fixtures:
   `linkedRoad` (not `connectingRoad`); regression fixture for direct-junction
   parse tolerance (highway_merge / highway_merge_advanced scenarios).
 
+Hand-authored for this repository (no third-party content):
+
+- `micro_road_junction.xodr` — carry-through generational-decay regression
+  fixture. 8 roads including a 0.20 m **micro road** (below the importer's
+  minimum lane section length, so it materializes no lane shapes at all), a
+  junction with two connecting roads, a `<controller>` grouping two signals,
+  and a `<signalReference>`. Pins that a single edit no longer bleeds
+  controllers or original road ids out of the document across repeated
+  import/export generations.
+
 A regression fixture for degenerate junction sliver-lane pruning:
 
 - `town04-junction106.xodr` — a self-contained slice of the **Town04** map from

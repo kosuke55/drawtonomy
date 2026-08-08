@@ -327,6 +327,18 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
     roads = roads.filter(r => selected.has(r.id))
   }
 
+  // Signal grouping: <controller>/<control> maps each signal id to the
+  // controller switching it. The grouping cannot be recovered from the
+  // signals themselves, so it rides on the imported traffic lights and lets
+  // the exporter rebuild a <controller> for regenerated signals too.
+  const controllerIdBySignal = new Map<string, string>()
+  for (const c of map.controllers ?? []) {
+    if (!c.id) continue
+    for (const ctl of c.controls) {
+      if (!controllerIdBySignal.has(ctl.signalId)) controllerIdBySignal.set(ctl.signalId, c.id)
+    }
+  }
+
   // ---- Statistics for aggregated warnings ----
   let elevationRoads = 0
   let superelevationRoads = 0
@@ -643,6 +655,7 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
           osmId: '',
           affectedLaneIds: affected,
           stopLineId: materializeStopLine(sig.userData['stopLine']),
+          controllerId: controllerIdBySignal.get(sig.id) ?? '',
           attributes: {
             type: 'traffic_light',
             odr_signal_id: sig.id,
@@ -1178,6 +1191,9 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
           odr_road_id: road.id,
           odr_lane_id: String(lane.id),
           odr_section_s: String(sec.s),
+          // Kept so a regenerated road can re-emit its original <road name>
+          // instead of falling back to the lanelet subtype.
+          ...(road.name ? { odr_road_name: road.name } : {}),
         }
         attributes.type = 'lanelet'
         if (road.junction !== '-1') {
@@ -1645,7 +1661,10 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
           attributes: tl.attributes,
           affectedLaneIds: tl.affectedLaneIds,
           stopLinePts: boundaryPts(tl.stopLineId, false),
-          controllerId: '',
+          // Must mirror the exporter's hash builder, which reads the live
+          // shape's controllerId; hardcoding '' here would make every
+          // controller-grouped road hash as edited on an unedited round trip.
+          controllerId: tl.controllerId ?? '',
         },
         tl.affectedLaneIds,
         tl.attributes['odr_road_id']

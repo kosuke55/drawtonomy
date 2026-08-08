@@ -314,10 +314,31 @@ export interface OdrJunction {
   priorities: OdrJunctionPriority[]
 }
 
+/** <control> record: one signal governed by a <controller>. */
+export interface OdrControl {
+  signalId: string
+  /** Controller-specific signal type; "" when absent. */
+  type: string
+}
+
+/**
+ * <controller>: a group of signals switched together (one intersection's
+ * lights). The grouping is not derivable from the signals themselves, so it
+ * is parsed and carried on the imported traffic lights.
+ */
+export interface OdrController {
+  id: string
+  name: string
+  /** Controller sequence number; "" when absent. */
+  sequence: string
+  controls: OdrControl[]
+}
+
 export interface OdrMap {
   header: OdrHeader
   roads: OdrRoad[]
   junctions: OdrJunction[]
+  controllers: OdrController[]
   /** Original XML, captured for sidecar/round-trip workflows. */
   rawXml: string
 }
@@ -847,6 +868,14 @@ export function parseOpenDriveXml(xmlString: string): OdrMap {
 
   const roads = children(root, 'road').map(parseRoad)
   const junctions = children(root, 'junction').map(parseJunction)
+  const controllers: OdrController[] = children(root, 'controller').map(el => ({
+    id: el.attrs.id ?? '',
+    name: el.attrs.name ?? '',
+    sequence: el.attrs.sequence ?? '',
+    controls: children(el, 'control')
+      .map(c => ({ signalId: c.attrs.signalId ?? '', type: c.attrs.type ?? '' }))
+      .filter(c => c.signalId !== ''),
+  }))
 
-  return { header, roads, junctions, rawXml: xmlString }
+  return { header, roads, junctions, controllers, rawXml: xmlString }
 }

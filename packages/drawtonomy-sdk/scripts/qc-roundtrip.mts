@@ -29,7 +29,7 @@ function snapshotFrom(im: ImportedShapes): DrawtonomySnapshot {
     shapes.push({ id: l.id, type: 'lane', x: l.x, y: l.y, rotation: 0, zIndex: 0, props: { leftBoundaryId: l.leftBoundaryId, rightBoundaryId: l.rightBoundaryId, invertLeft: l.invertLeft, invertRight: l.invertRight, color: 'default', size: 'm', attributes: l.attributes, next: l.next, prev: l.prev, osmId: l.osmId, ...(l.yieldLaneIds ? { yieldLaneIds: l.yieldLaneIds } : {}) } })
   }
   for (const tl of im.trafficLights) {
-    shapes.push({ id: tl.id, type: 'traffic_light', x: tl.x, y: tl.y, rotation: 0, zIndex: 0, props: { w: tl.w, h: tl.h, color: 'default', style: '', attributes: tl.attributes, osmId: tl.osmId, affectedLaneIds: tl.affectedLaneIds, stopLineId: tl.stopLineId } })
+    shapes.push({ id: tl.id, type: 'traffic_light', x: tl.x, y: tl.y, rotation: 0, zIndex: 0, props: { w: tl.w, h: tl.h, color: 'default', style: '', attributes: tl.attributes, osmId: tl.osmId, affectedLaneIds: tl.affectedLaneIds, stopLineId: tl.stopLineId, controllerId: tl.controllerId ?? '' } })
   }
   return {
     version: '1.1',

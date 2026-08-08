@@ -100,6 +100,12 @@ export interface ImportedTrafficLight {
   affectedLaneIds: string[]
   /** Imported linestring shape id of the "ref_line" stop line, or null. */
   stopLineId: string | null
+  /**
+   * Signal group id: lights sharing it are switched together (one
+   * intersection). Set from OpenDRIVE `<controller>` membership; omitted when
+   * the source carries no grouping.
+   */
+  controllerId?: string
   attributes: Record<string, string>
 }
 
