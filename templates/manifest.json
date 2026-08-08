@@ -210,17 +210,6 @@
       ]
     },
     {
-      "id": "bulldozer",
-      "name": "Bulldozer",
-      "svg": "vehicle/bulldozer.svg",
-      "w": 37,
-      "h": 92,
-      "viewBox": [
-        697,
-        1114
-      ]
-    },
-    {
       "id": "loader",
       "name": "Wheel Loader",
       "svg": "vehicle/loader.svg",
@@ -229,17 +218,6 @@
       "viewBox": [
         467,
         1177
-      ]
-    },
-    {
-      "id": "grader",
-      "name": "Motor Grader",
-      "svg": "vehicle/grader.svg",
-      "w": 43,
-      "h": 147,
-      "viewBox": [
-        535,
-        1158
       ]
     },
     {
