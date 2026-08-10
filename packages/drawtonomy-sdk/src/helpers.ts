@@ -181,14 +181,26 @@ export function createVehicle(
 
 // --- Pedestrian ---
 
+/**
+ * Pedestrians are stored as `type: 'vehicle'` with a pedestrian `templateId`.
+ *
+ * This is not a quirk of this helper: the editor has only ever had the
+ * `vehicle` shape type for placed participants, and the OpenSCENARIO
+ * exporter decides `<Pedestrian>` vs `<Vehicle>` from `templateId`
+ * (see PEDESTRIAN_PATTERNS in exporter/openscenario.ts).
+ *
+ * Emitting `type: 'pedestrian'` here produced shapes that no consumer
+ * recognised — they were skipped by the exporter (0 ScenarioObjects) and
+ * unknown to the editor.
+ */
 export function createPedestrian(
   x: number,
   y: number,
   options?: Partial<PedestrianProps> & { id?: string }
-): BaseShape<'pedestrian', PedestrianProps> {
+): BaseShape<'vehicle', PedestrianProps> {
   return {
     id: options?.id ?? nextId('ped'),
-    type: 'pedestrian',
+    type: 'vehicle',
     x,
     y,
     rotation: 0,
