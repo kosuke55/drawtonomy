@@ -23,7 +23,7 @@
 //
 // Default speed: 10 m/s (≈ 36 km/h, residential).
 
-import { PIXELS_PER_METER } from './units'
+import { PIXELS_PER_METER } from './units.js'
 
 export interface PathSamplePoint {
   /** ENU x (m) */

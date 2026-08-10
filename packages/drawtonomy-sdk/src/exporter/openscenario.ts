@@ -14,9 +14,9 @@ import type {
   LinestringProps,
   PointProps,
   VehicleProps,
-} from '../types'
-import { buildPathTrajectory, type PathSamplePoint } from './trajectory'
-import { escapeXml, fmt, pxToEnuX, pxToEnuY, pxToMeter } from './units'
+} from '../types.js'
+import { buildPathTrajectory, type PathSamplePoint } from './trajectory.js'
+import { escapeXml, fmt, pxToEnuX, pxToEnuY, pxToMeter } from './units.js'
 
 type VehicleShape = BaseShape<'vehicle', VehicleProps>
 type LinestringShape = BaseShape<'linestring', LinestringProps>

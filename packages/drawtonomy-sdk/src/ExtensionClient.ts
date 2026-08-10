@@ -6,7 +6,7 @@ import type {
   DrawtonomySnapshot,
   ExportFormat,
   ExportResponse,
-} from './types'
+} from './types.js'
 
 interface PendingRequest {
   resolve: (value: unknown) => void

@@ -3,11 +3,11 @@
 // `<baseName>/<baseName>.xosc`. The xosc <LogicFile> reference uses the same
 // baseName so the bundle works without renames.
 
-import type { DrawtonomySnapshot } from '../types'
-import { exportToOpenDrive } from './opendrive'
-import { exportToOpenScenario, type TemplateResolver } from './openscenario'
-import { sanitizeFileBaseName } from './sanitize'
-import { buildZip } from './zip'
+import type { DrawtonomySnapshot } from '../types.js'
+import { exportToOpenDrive } from './opendrive.js'
+import { exportToOpenScenario, type TemplateResolver } from './openscenario.js'
+import { sanitizeFileBaseName } from './sanitize.js'
+import { buildZip } from './zip.js'
 
 export interface EsminiPackageOptions {
   /**

@@ -7,37 +7,37 @@
 // turns OSM XML back into editor-ready primitives (points / linestrings /
 // lanes), enabling round-trip workflows.
 
-export { exportToOpenDrive, type OpenDriveExportOptions } from './opendrive'
+export { exportToOpenDrive, type OpenDriveExportOptions } from './opendrive.js'
 export {
   latLonToTmercProj,
   latLonToUtmProj,
   originToProjString,
   FALLBACK_GEO_REFERENCE,
   type GeoOrigin,
-} from './projection'
+} from './projection.js'
 export {
   exportToOpenScenario,
   templateIdToVehicleCategory,
   type OpenScenarioExportOptions,
   type TemplateResolver,
-} from './openscenario'
+} from './openscenario.js'
 export {
   buildPathTrajectory,
   DEFAULT_PATH_SPEED_MPS,
   type PathSamplePoint,
   type PathTrajectoryInput,
-} from './trajectory'
+} from './trajectory.js'
 export {
   computeCenterlineWithWidth,
   sampleAtParam,
   computeHeadings,
   type Point2D,
   type CenterlineSample,
-} from './laneCenterline'
-export { buildEsminiZip, type EsminiPackageOptions, type EsminiPackageResult } from './packageEsmini'
-export { buildZip, type ZipEntry } from './zip'
-export { sanitizeFileBaseName } from './sanitize'
-export { PIXELS_PER_METER } from './units'
+} from './laneCenterline.js'
+export { buildEsminiZip, type EsminiPackageOptions, type EsminiPackageResult } from './packageEsmini.js'
+export { buildZip, type ZipEntry } from './zip.js'
+export { sanitizeFileBaseName } from './sanitize.js'
+export { PIXELS_PER_METER } from './units.js'
 export {
   exportToLanelet2,
   trafficSignCode,
@@ -47,7 +47,7 @@ export {
   type Lanelet2ExportOptions,
   type OsmSidecar,
   type MapOrigin,
-} from './lanelet2'
+} from './lanelet2.js'
 export {
   parseOsmXml,
   latLonToCanvas,
@@ -56,7 +56,7 @@ export {
   type OsmNode,
   type OsmWay,
   type OsmRelation,
-} from './osmParser'
+} from './osmParser.js'
 export {
   osmToShapes,
   alignBoundaries,
@@ -71,7 +71,7 @@ export {
   type ImportBounds,
   type OsmToShapesOptions,
   type ShapeIdAllocator,
-} from './osmToShapes'
+} from './osmToShapes.js'
 export {
   parseOpenDriveXml,
   type OdrMap,
@@ -93,7 +93,7 @@ export {
   type OdrJunctionLaneLink,
   type OdrCubic,
   type OdrElevation,
-} from './opendriveParser'
+} from './opendriveParser.js'
 export {
   evalElevation,
   evalGeometry,
@@ -103,14 +103,14 @@ export {
   type GeomPose,
   type ReferenceSample,
   type SampleReferenceLineOptions,
-} from './odrGeometry'
+} from './odrGeometry.js'
 export {
   evalElevationRecords,
   fitElevationProfile,
   type ElevationRecord,
   type ElevationSample,
   type FitElevationOptions,
-} from './odrElevationFit'
+} from './odrElevationFit.js'
 export {
   odrToShapes,
   parseGeoReferenceOrigin,
@@ -118,4 +118,4 @@ export {
   type OdrRoadRecord,
   type OdrSidecar,
   type OdrToShapesOptions,
-} from './odrToShapes'
+} from './odrToShapes.js'

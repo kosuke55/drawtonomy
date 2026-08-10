@@ -36,9 +36,9 @@ import type {
   OdrRoad,
   OdrRoadMark,
   OdrSignalValidity,
-} from './opendriveParser'
-import { evalPoly3, sampleReferenceLine, type ReferenceSample } from './odrGeometry'
-import { sampleAtParam, type Point2D } from './laneCenterline'
+} from './opendriveParser.js'
+import { evalPoly3, sampleReferenceLine, type ReferenceSample } from './odrGeometry.js'
+import { sampleAtParam, type Point2D } from './laneCenterline.js'
 import {
   createShapeIdAllocator,
   type ImportBounds,
@@ -51,16 +51,16 @@ import {
   type ImportedTrafficLight,
   type ImportedTrafficSign,
   type ShapeIdAllocator,
-} from './osmToShapes'
-import { PIXELS_PER_METER } from './units'
+} from './osmToShapes.js'
+import { PIXELS_PER_METER } from './units.js'
 import {
   hashRoadState,
   type CarryLaneState,
   type CarryRegulatoryState,
   type OdrRoadRecord,
-} from './odrCarryThrough'
+} from './odrCarryThrough.js'
 
-export type { OdrRoadRecord } from './odrCarryThrough'
+export type { OdrRoadRecord } from './odrCarryThrough.js'
 
 /** Sidecar captured at OpenDRIVE import time (for verbatim round-trip export). */
 export interface OdrSidecar {
