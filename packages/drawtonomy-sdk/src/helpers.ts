@@ -53,6 +53,14 @@ export function createLinestring(
   pointIds: string[],
   options?: Partial<LinestringProps> & { id?: string }
 ): BaseShape<'linestring', LinestringProps> {
+  // Optional props are spread through rather than enumerated. Enumerating them
+  // silently dropped everything the explicit list did not mention (isPath,
+  // arrowHead, footprint, footprintIds, smooth, segments, opacity), even though
+  // the signature accepts Partial<LinestringProps> — so callers got no type
+  // error and lost the values at runtime. That is how paths built by
+  // createPathWithFootprints ended up without isPath, which made the
+  // OpenSCENARIO exporter skip their <Trajectory> entirely.
+  const { id: _id, pointIds: _pointIds, color, strokeWidth, attributes, osmId, ...rest } = options ?? {}
   return {
     id: options?.id ?? nextId('ls'),
     type: 'linestring',
@@ -61,11 +69,12 @@ export function createLinestring(
     rotation: 0,
     zIndex: 0,
     props: {
+      ...rest,
       pointIds,
-      color: options?.color ?? 'black',
-      strokeWidth: options?.strokeWidth ?? 2,
-      attributes: options?.attributes ?? { type: 'linestring', subtype: 'solid' },
-      osmId: options?.osmId ?? '',
+      color: color ?? 'black',
+      strokeWidth: strokeWidth ?? 2,
+      attributes: attributes ?? { type: 'linestring', subtype: 'solid' },
+      osmId: osmId ?? '',
     },
   }
 }
