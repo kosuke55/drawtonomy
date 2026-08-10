@@ -3,7 +3,7 @@
 // DrawtonomySnapshot. The legacy attribute name `data-drawauto-snapshot`
 // is also accepted for backwards compatibility.
 
-import type { DrawtonomySnapshot } from './types'
+import type { DrawtonomySnapshot } from './types.js'
 
 /**
  * Decode a base64-encoded UTF-8 string. Mirrors the encoder used when the

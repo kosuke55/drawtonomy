@@ -26,8 +26,8 @@
 //
 // No external dependencies.
 
-import type { OdrGeometry } from './opendriveParser'
-import { evalGeometry, type GeomPose } from './odrGeometry'
+import type { OdrGeometry } from './opendriveParser.js'
+import { evalGeometry, type GeomPose } from './odrGeometry.js'
 
 export interface FitPoint {
   x: number

@@ -24,7 +24,7 @@
 //    collision-free, and rewrite only the link elementIds that must point at
 //    regenerated roads — leaving every other byte untouched.
 
-import type { Point2D } from './laneCenterline'
+import type { Point2D } from './laneCenterline.js'
 
 /** Per-road record captured at import time (stored in the sidecar). */
 export interface OdrRoadRecord {

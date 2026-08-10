@@ -8,7 +8,7 @@
 //
 // No external dependencies.
 
-import type { OdrCubic, OdrGeometry, OdrRoad } from './opendriveParser'
+import type { OdrCubic, OdrGeometry, OdrRoad } from './opendriveParser.js'
 
 /** Pose on the reference line: inertial position + heading. */
 export interface GeomPose {

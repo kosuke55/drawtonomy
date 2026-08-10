@@ -32,14 +32,14 @@ import type {
   PolygonProps,
   TrafficLightProps,
   TrafficSignProps,
-} from '../types'
-import { sampleAtParam, type Point2D } from './laneCenterline'
-import { evalGeometry } from './odrGeometry'
-import { fitPlanView, type FittedSamplePose } from './odrGeometryFit'
-import { fitElevationProfile, type ElevationSample } from './odrElevationFit'
-import type { OdrGeometry } from './opendriveParser'
-import { originToProjString } from './projection'
-import { escapeXml, fmt, fmtPrecise, pxToEnuX, pxToEnuY, pxToMeter } from './units'
+} from '../types.js'
+import { sampleAtParam, type Point2D } from './laneCenterline.js'
+import { evalGeometry } from './odrGeometry.js'
+import { fitPlanView, type FittedSamplePose } from './odrGeometryFit.js'
+import { fitElevationProfile, type ElevationSample } from './odrElevationFit.js'
+import type { OdrGeometry } from './opendriveParser.js'
+import { originToProjString } from './projection.js'
+import { escapeXml, fmt, fmtPrecise, pxToEnuX, pxToEnuY, pxToMeter } from './units.js'
 import {
   appendControlRecords,
   dropControlRecords,
@@ -51,9 +51,9 @@ import {
   type OdrDocRoad,
   type OdrDocument,
   type OdrRoadRecord,
-} from './odrCarryThrough'
-import type { OdrSidecar } from './odrToShapes'
-import { trafficSignCode } from './lanelet2'
+} from './odrCarryThrough.js'
+import type { OdrSidecar } from './odrToShapes.js'
+import { trafficSignCode } from './lanelet2.js'
 
 type LaneShape = BaseShape<'lane', LaneProps>
 type LinestringShape = BaseShape<'linestring', LinestringProps>

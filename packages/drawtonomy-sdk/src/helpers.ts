@@ -10,8 +10,8 @@ import type {
   EllipseProps,
   TextProps,
   DrawtonomySnapshot,
-} from './types'
-import { evaluatePathAt, uniformTValues } from './geometry'
+} from './types.js'
+import { evaluatePathAt, uniformTValues } from './geometry.js'
 
 let idCounter = 0
 

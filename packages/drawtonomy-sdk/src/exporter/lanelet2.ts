@@ -42,8 +42,8 @@ import type {
   PointProps,
   TrafficLightProps,
   TrafficSignProps,
-} from '../types'
-import { canvasToLatLon, parseOsmXml, type OsmData } from './osmParser'
+} from '../types.js'
+import { canvasToLatLon, parseOsmXml, type OsmData } from './osmParser.js'
 
 type LaneShape = BaseShape<'lane', LaneProps>
 type LinestringShape = BaseShape<'linestring', LinestringProps>

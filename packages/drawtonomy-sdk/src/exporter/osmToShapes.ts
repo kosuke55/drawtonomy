@@ -9,8 +9,8 @@
 // alignment, progress reporting, etc.). Callers can wrap the result into
 // shapes themselves.
 
-import type { ShapeId } from '../types'
-import { latLonToCanvas, type OsmData } from './osmParser'
+import type { ShapeId } from '../types.js'
+import { latLonToCanvas, type OsmData } from './osmParser.js'
 
 /**
  * ID allocator interface. The default implementation produces predictable
