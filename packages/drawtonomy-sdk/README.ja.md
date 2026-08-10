@@ -70,6 +70,49 @@ pnpm dev --port 3001
 https://drawtonomy.com?ext=http://localhost:3001/manifest.json
 ```
 
+## ヘッドレス利用 (Node.js)
+
+ファクトリと exporter は純関数なので、ブラウザもエディタも不要です。
+スクリプトでシーンを組み立てて ASAM 形式に出力できます
+(`@drawtonomy/sdk` 0.17.0 以降が必要):
+
+```js
+// generate.mjs — 実行: node generate.mjs
+import { createLaneWithBoundaries, createPathWithFootprints, createVehicle, createSnapshot, exporter } from '@drawtonomy/sdk'
+import { writeFileSync } from 'node:fs'
+
+// 500 px (= 30 m) の直線レーン。キャンバス単位は px、1 m = 16.67 px。
+const lane = createLaneWithBoundaries(
+  [{ x: 0, y: 0 }, { x: 500, y: 0 }],
+  [{ x: 0, y: 50 }, { x: 500, y: 50 }],
+)
+
+// レーンに沿った走行パス。エクスポート時に時刻付き軌跡になる (既定 10 m/s の等速)。
+const path = createPathWithFootprints(
+  [{ x: 0, y: 25 }, { x: 250, y: 25 }, { x: 500, y: 25 }],
+  { count: 5 },
+)
+
+const snapshot = createSnapshot([...lane, ...path, createVehicle(300, 120)])
+
+writeFileSync('scene.xodr', exporter.exportToOpenDrive(snapshot, {}))   // OpenDRIVE 1.8
+writeFileSync('scene.xosc', exporter.exportToOpenScenario(snapshot, {})) // OpenSCENARIO 1.3
+writeFileSync('scene.osm', exporter.exportToLanelet2(snapshot, {}))     // Lanelet2
+```
+
+`.xosc` には時刻付き polyline の `FollowTrajectoryAction` が入るので、
+上の `.xodr` と組み合わせれば esmini でそのまま再生できます。
+生成した OpenDRIVE の読み戻しも可能です:
+
+```js
+const parsed = exporter.parseOpenDriveXml(xodrText)
+const { lanes, linestrings, points } = exporter.odrToShapes(parsed)
+```
+
+この経路で出力される軌跡は等速です。トリガー・イベントロジック・速度
+プロファイルは [drawtonomy エディタ](https://drawtonomy.com) の
+シナリオモードで作成してください。
+
 ## API
 
 ### ExtensionClient
