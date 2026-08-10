@@ -72,6 +72,50 @@ pnpm dev --port 3001
 http://localhost:3000/?ext=http://localhost:3001/manifest.json
 ```
 
+## Headless usage (Node.js)
+
+The factories and exporters are pure functions — no browser or editor
+required. Build scenes in a script and export them to ASAM formats
+(requires `@drawtonomy/sdk` 0.17.0 or later):
+
+```js
+// generate.mjs — run with: node generate.mjs
+import { createLaneWithBoundaries, createPathWithFootprints, createVehicle, createSnapshot, exporter } from '@drawtonomy/sdk'
+import { writeFileSync } from 'node:fs'
+
+// A 500 px (= 30 m) straight lane. Canvas units are pixels; 1 m = 16.67 px.
+const lane = createLaneWithBoundaries(
+  [{ x: 0, y: 0 }, { x: 500, y: 0 }],
+  [{ x: 0, y: 50 }, { x: 500, y: 50 }],
+)
+
+// A driving path along the lane. On export it becomes a timed
+// trajectory (constant speed, 10 m/s by default).
+const path = createPathWithFootprints(
+  [{ x: 0, y: 25 }, { x: 250, y: 25 }, { x: 500, y: 25 }],
+  { count: 5 },
+)
+
+const snapshot = createSnapshot([...lane, ...path, createVehicle(300, 120)])
+
+writeFileSync('scene.xodr', exporter.exportToOpenDrive(snapshot, {}))   // OpenDRIVE 1.8
+writeFileSync('scene.xosc', exporter.exportToOpenScenario(snapshot, {})) // OpenSCENARIO 1.3
+writeFileSync('scene.osm', exporter.exportToLanelet2(snapshot, {}))     // Lanelet2
+```
+
+The `.xosc` contains a `FollowTrajectoryAction` with a timed polyline,
+so esmini plays it back directly (pair it with the `.xodr` above).
+Generated OpenDRIVE can also be parsed back:
+
+```js
+const parsed = exporter.parseOpenDriveXml(xodrText)
+const { lanes, linestrings, points } = exporter.odrToShapes(parsed)
+```
+
+Trajectories exported this way run at a constant speed. For triggers,
+event logic, and speed profiles, author the scenario in the
+[drawtonomy editor](https://drawtonomy.com)'s scenario mode.
+
 ## API
 
 ### ExtensionClient
