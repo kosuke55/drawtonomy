@@ -1,307 +1,106 @@
-# <img src="./docs/images/logo.png" width="32" height="32" align="center" /> drawtonomy
+# <img src="./docs/images/logo.png" width="32" height="32" align="absmiddle" /> drawtonomy
 
 <h3 align="center">
-  Whiteboard for Driving Diagrams 🚗
+  Draw driving scenes. Run driving scenarios. 🚗
 </h3>
 
 <p align="center">
-  Intuitively place lanes, vehicles, pedestrians, and traffic lights.<br />
-  Browser-based. For autonomous driving development, traffic planning, and driving education.
+  A free, browser-based whiteboard for driving scenarios.<br />
+  No install. No account.
 </p>
 
 <h4 align="center">
-  🌐 <a href="https://drawtonomy.com">Try it now at drawtonomy.com</a> |
+  🎬 <a href="https://drawtonomy.com/?open=https://github.com/esmini/esmini/blob/master/resources/xosc/acc-test.xosc">Play a live scenario</a> |
+  🎨 <a href="https://drawtonomy.com">Start drawing</a> |
   📖 <a href="https://docs.drawtonomy.com">Docs</a> |
-  💬 <a href="https://github.com/kosuke55/drawtonomy/issues">Report issues / Request features</a>
+  💬 <a href="https://github.com/kosuke55/drawtonomy/issues">Issues</a>
 </h4>
 
 <p align="center">
   <img src="./docs/videos/drawtonomy-demo.gif" width="80%" />
 </p>
 
-## ✨ Features
+Two modes, one canvas:
 
-- 🎨 **Infinite Canvas** - Draw extensive road networks
-- 🛣️ **Lane Connection Management** - Edit with understanding of lane relationships
-- ⚡ **Lane Tool** - Auto-generate from centerline or create from existing boundaries. Smooth boundaries with one click
-- 🛰️ **Lane Generator (Satellite Map → Lane)** - Click or drag on road/satellite map to generate lanes from OSM data
-- ➕ **Intersection Templates** - Place complex intersections with one click
-- 🚙 **Rich Drawing Tools & Templates** - Various vehicles, pedestrians, traffic lights. [Add your own](templates/TEMPLATE_GUIDE.md)
-- 🧲 **Snap Function** - Auto-snap to existing points and lines
-- 🔗 **Point Sharing** - Connect shapes by sharing existing points
-- 👣 **Path Footprint** - Auto-place footprints on paths with synced style, size, and orientation
-- 🎨 **Style Customization** - Set color, opacity, width, and style individually
-- 🧮 **Math Tool (LaTeX)** - Place typeset LaTeX equations on the canvas, re-editable anytime (KaTeX)
-- 💾 **Editable Save Format** - Re-edit while preserving lane connection info
-- 🗺️ **[Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2) Support** - Import and export OSM format maps
-- 🤖 **ROS Map Support** - Import OccupancyGrid maps (.pgm + .yaml) from SLAM
-- 🚗 **[ASAM Export](docs/exporter.md)** - Export OpenDRIVE / OpenSCENARIO and esmini-ready zip bundles
-- ▶️ **Scenario Simulator** - Drop a `.xosc` + `.xodr` and play it back in the browser (powered by [esmini](https://github.com/esmini/esmini) WebAssembly)
-- 🤖 **[AI Scene Generator](extensions/ai-scene-generator/)** - Generate editable scenes from natural language, OpenSCENARIO XML, or DSL
+- **🎨 Scene mode — draw the scene.** Topology-aware lanes, vehicles, and
+  intersections. Export figures (SVG / PDF) or maps (OpenDRIVE, Lanelet2).
+- **🎬 Scenario mode — make it move.** Add events and triggers, press play —
+  [esmini](https://github.com/esmini/esmini)-WASM runs it in the browser,
+  PASS / FAIL verdict included.
 
-## 🎯 Main Features
+## 🎨 Scene mode
 
-### 🛣️ Lane Connection Management
+- **[Topology-aware lanes](https://docs.drawtonomy.com/guides/lane-connections/)** — connections follow when you edit
+- **[Lane tool](https://docs.drawtonomy.com/guides/lane-tool/)** — click a centerline, get both boundaries
+- **[Map → lanes](https://docs.drawtonomy.com/guides/lane-from-map/)** — trace real roads from satellite/OSM data
+- **[Intersection & roundabout templates](https://docs.drawtonomy.com/guides/intersections/)** — one click
+- **[Vehicles, pedestrians, signs, and more](https://docs.drawtonomy.com/guides/participants/)** — a full driving-domain library
+- **[Snap & point sharing](https://docs.drawtonomy.com/guides/snap/)** — geometry stays connected
+- **[Path footprints](https://docs.drawtonomy.com/guides/path-footprint/)** — auto-placed and style-synced
+- **[Math (LaTeX)](https://docs.drawtonomy.com/guides/math-equations/)** — typeset equations on the canvas
+- **[Re-editable saves](https://docs.drawtonomy.com/reference/drawtonomy-svg/)** — `.drawtonomy.svg` reopens with everything intact
 
-Edit with understanding of lane relationships. Moving boundaries auto-transforms connected lanes. Set direction and adjacency with Next/Previous/Left/Right Lane.
+📖 **[Feature tour with demo videos](docs/feature-tour.md)** ·
+[docs.drawtonomy.com](https://docs.drawtonomy.com)
 
-<video src="https://github.com/user-attachments/assets/c353f969-55cc-4968-b300-a8a5242034fe" width="80%" controls></video>
+## 🎬 Scenario mode
 
-### ⚡ Lane Tool
+Start from a blank scene or an imported one, add events and triggers, and
+author a full OpenSCENARIO storyboard yourself.
 
-Auto-generate left and right boundaries by clicking the centerline. Efficiently create multiple lanes by specifying width, and draw connected lanes continuously. You can also create lanes by selecting two existing Linestrings.
+- **[Visual authoring](https://docs.drawtonomy.com/scenario/first-scenario/)** — phases, events, actions, and triggers on the scene you drew
+- **[Open and edit any `.xosc`](https://docs.drawtonomy.com/scenario/open-and-play/)** — from disk or a GitHub URL, fully editable
+- **[Full playback](https://docs.drawtonomy.com/scenario/playback/)** — seek, Follow Ego, ghost trails, `.webm` export
+- **[PASS / FAIL verdicts](https://docs.drawtonomy.com/scenario/end-and-fail-conditions/)** on every run
+- **[esmini-ready export](https://docs.drawtonomy.com/guides/export-asam/)** — `.xodr` + `.xosc` zip for desktop esmini
 
-<video src="https://github.com/user-attachments/assets/366cf6f2-1806-48cd-aab2-ce52596293b0" width="80%" controls></video>
+Any public `.xosc` on GitHub runs with one click:
+**[Play a live scenario](https://drawtonomy.com/?open=https://github.com/esmini/esmini/blob/master/resources/xosc/acc-test.xosc)**.
+The [**drawtonomy for GitHub**](https://docs.drawtonomy.com/integrations/github-extension/)
+extension plays them right where they live:
 
-Smooth lane boundaries with one click from the Attribute Panel.
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/a8e85a81-114c-4250-8b85-1c5db7c86607" width="80%" controls></video>
+</div>
 
-<video src="https://github.com/user-attachments/assets/2f38637e-59e6-4e63-9126-f3b6dd05f143" width="80%" controls></video>
+## 🔄 Formats
 
-### 🛰️ Lane Generator (Satellite Map → Lane)
+OpenDRIVE, Lanelet2, OpenSCENARIO, ROS maps, and figures like SVG/PDF.
+→ [Full format table](docs/feature-tour.md#-exportimport) ·
+[export formats reference](https://docs.drawtonomy.com/reference/export-formats/)
 
-Switch on the road or satellite map background, then click a road to generate a single lane, or drag to enclose a region and generate every road inside it. OSM road data is fetched and converted into editable Lane shapes aligned to the map.
+## 🤖 AI & automation
 
-<video src="https://github.com/user-attachments/assets/1239b952-211e-418a-840a-fbe9b6c3a0f0" width="80%" controls></video>
+- **[AI Scene Generator](extensions/ai-scene-generator/)** — generate scenes from natural language or OpenSCENARIO XML — by [@vishwesh5](https://github.com/vishwesh5)
+- **[MCP Server](https://www.npmjs.com/package/@drawtonomy/mcp-server)** — let AI agents draw scenes for you
+- **[Headless SDK](https://www.npmjs.com/package/@drawtonomy/sdk)** — generate and export scenes from Node.js, no browser
 
-### ➕ Intersection
+## 🔒 Privacy
 
-Place complex intersection structures with templates in one click.
+Browser-only. No backend, no account, no telemetry — files never leave your
+browser, even the esmini engine runs locally as WebAssembly.
+([details](https://docs.drawtonomy.com/security/))
 
-<video src="https://github.com/user-attachments/assets/fdc4a482-e89b-4386-9cdf-0fa2cd978fd7" width="80%" controls></video>
+## 🧩 Build on it
 
-### 🚙 Rich Drawing Tools & Templates
-
-Drawing tools and shape templates for easily expressing autonomous driving scenarios. You can also [add custom SVG templates](templates/TEMPLATE_GUIDE.md) via PR.
-
-**🚗 Autonomous Driving Focused:**
-
-- Linestring (continuous lines for lane boundaries, etc.)
-- Lane
-- Participants — Vehicle (Sedan, Bus, Truck, Motorcycle templates) and Pedestrian (Walking, Simple templates)
-- Path (Arrow style, Band style)
-- Polygon
-- Crosswalk
-- TrafficLight (vehicle and pedestrian signals)
-- TrafficSign
-- RoadMarking
-- Intersection
-- Others (additional road/scene templates)
-
-**✏️ Basic Shapes:**
-
-- LineArrow
-- Arrow
-- Text
-- Freehand
-- Rectangle
-- Ellipse
-- Image
-
-
-### 🧲 Snap Function
-
-Auto-snaps to existing points and lines. Hold Shift while drawing to temporarily disable snapping.
-
-<video src="https://github.com/user-attachments/assets/5b595d73-4ed6-4644-a36e-1cfd3e44c61d" width="80%" controls></video>
-
-### 🔗 Point Sharing
-
-Hold Alt(Option) and click to share existing points and connect Linestring, Polygon, and Path.
-
-<video src="https://github.com/user-attachments/assets/cdaa0d35-c40e-4a00-b90e-a1c0e48773fa" width="80%" controls></video>
-
-### 🎨 Style Customization
-
-Set color, opacity, width, and style individually. Change default values from the hamburger menu.
-
-<video src="https://github.com/user-attachments/assets/75760e80-9c18-4ed6-8d8f-39ed14708482" width="80%" controls></video>
-
-### ✏️ Segment Editing
-
-Double-click Linestring, Lane, or Polygon to select and edit segments (between two points). Click on a segment to add new points for fine shape adjustments.
-
-<video src="https://github.com/user-attachments/assets/97fa923f-6bfb-4bb0-86ff-ef0ebb05a9d2" width="80%" controls></video>
-
-### 👣 Path Footprint
-
-Generate footprints on a Path with the Generate button. Rectangle or any vehicle template (Sedan, Bus, Truck, etc.) can be set as footprints. Changing the style of one footprint syncs to all — color, template, opacity, and size changes are applied to every footprint simultaneously while maintaining equal intervals. Footprint orientation is automatically calculated from the Path direction, including smooth curves. The Anchor Offset slider lets you shift the reference point along the travel direction — for example, aligning to the base link or front bumper position instead of the center.
-
-<video src="https://github.com/user-attachments/assets/c6633f7d-f596-4a25-9858-93e6324835ff" width="80%" controls></video>
-
-### 🧮 Math Tool (LaTeX)
-
-Place typeset LaTeX equations anywhere on the canvas with the `fx` tool. The source stays editable and renders with KaTeX, so you can write anything from a simple formula to full multi-line systems.
-
-<p align="center">
-  <img src="./docs/images/math-equation.png" width="80%" />
-</p>
-
-### 📦 Export/Import
-
-#### Supported Formats
-
-| Format             | Export | Import | Note                  |
-| ------------------ | :----: | :----: | --------------------- |
-| **SVG**            | ✓      | ✓      |                       |
-| **PNG**            | ✓      | ✓      |                       |
-| **JPG**            | ✓      | ✓      |                       |
-| **PDF**            | ✓      |        |                       |
-| **EPS**            | ✓      |        | No transparency       |
-| **drawtonomy.svg** | ✓      | ✓      | Re-editable           |
-| **OSM (Lanelet2)** | ✓      | ✓      | Export lanes as a Lanelet2 map |
-| **PGM+YAML (ROS)** |        | ✓      | OccupancyGrid map     |
-| **OpenDRIVE (.xodr)** | ✓   | ✓      | ASAM 1.8              |
-| **OpenSCENARIO (.xosc)** | ✓ |       | ASAM 1.3              |
-| **esmini bundle (.zip)** | ✓ |       | .xodr + .xosc together |
-
-> **Note on EPS export**: EPS format does not support transparency. When exporting shapes with opacity settings, the exported EPS will show shapes at full opacity, which may differ from the canvas display. For accurate transparency rendering, use PDF export instead.
-
-<video src="https://github.com/user-attachments/assets/66365b83-4d74-4502-a204-cd9e09ae292b" width="80%" controls></video>
-
-#### [Lanelet2](https://github.com/fzi-forschungszentrum-informatik/Lanelet2) Import / Export
-
-**Import** Lanelet2 OSM format maps for editing. Load the whole map, or pick out
-only the lanes you need before importing — handy for working on a small part of a
-large map. Sample maps: [Autoware Documentation](https://autowarefoundation.github.io/autoware-documentation/main/demos/planning-sim/#download-the-sample-map).
-
-**Export** the lanes you draw back out as a Lanelet2 OSM map. Round-trips
-preserve the original IDs and tags, so maps survive an import/edit/export cycle.
-
-<video src="https://github.com/user-attachments/assets/92cf1c66-b7d4-4142-b637-7dd9eb0a156f" width="80%" controls></video>
-
-<video src="https://github.com/user-attachments/assets/652af370-8bb6-4da4-8a5b-a798b59cf7f5" width="80%" controls></video>
-
-#### OpenDRIVE (.xodr) Import / Export
-
-**Import** ASAM OpenDRIVE (.xodr) maps for editing. As with Lanelet2, load the
-whole map or select only the lanes you need. Plan-view geometry (line / arc /
-clothoid) is evaluated analytically and lane/junction connectivity is rebuilt.
-
-**Export** your scene back out as an OpenDRIVE map. Lane types, road marks, and
-junction connectivity are preserved for high-fidelity round-trips, verified by
-playback in esmini 3.3.0. Implemented in `@drawtonomy/sdk` — see the [Exporter Developer Guide](docs/exporter.md).
-
-<video src="https://github.com/user-attachments/assets/84e16e91-e267-433b-9bd8-94eecf3124a8" width="80%" controls></video>
-
-#### ROS OccupancyGrid Map Import
-
-Import SLAM-generated maps from ROS `map_server` format (.pgm + .yaml). Select both files together in the file dialog. The map is automatically colored (occupied=black, free=white, unknown=gray) and scaled to match lane dimensions.
-
-- `.pgm` + `.yaml` → Uses YAML settings (resolution, thresholds)
-- `.pgm` only → Uses defaults (resolution=0.05 m/px)
-
-Compatible with nav2, cartographer, gmapping, and other SLAM tools.
-
-<p align="center">
-  <img src="./docs/images/ros-occupancy-grid-map.png" width="80%" />
-</p>
-
-#### ASAM Export (OpenDRIVE / OpenSCENARIO / esmini)
-
-Export the current scene as an ASAM-format file or a single zip bundle ready
-for [esmini](https://github.com/esmini/esmini) to play back. Use the **Export
-for esmini** menu item to produce a zip containing both `.xodr` and `.xosc`.
-
-The exporter is implemented in `@drawtonomy/sdk` and is the main extension
-point for adding new shapes, animation features, or entirely new target
-formats (CARLA, Unity, SUMO, …).
-
-The clip below is a single round-trip: draw an intersection, draw a path,
-generate footprints, export the esmini zip, then play the exported `.xosc`
-back in esmini — the vehicle follows the trajectory built from the path.
-
-<video src="https://github.com/user-attachments/assets/1a32b360-5ffc-4967-9c28-e424c1f47aaf" width="80%" controls></video>
-
-📖 **[Exporter Developer Guide](docs/exporter.md)** | [日本語](docs/exporter.ja.md) | 🧪 **[Exporter Playground extension](extensions/exporter-playground/)** for canvas-driven verification
-
-### ▶️ Scenario Simulator
-
-Drop an OpenSCENARIO `.xosc` together with its OpenDRIVE `.xodr` onto the canvas and the storyboard plays back in the browser — seek the timeline, follow the ego vehicle, show ghost trails, and export the run as `.webm`.
-
-The simulation core is [esmini](https://github.com/esmini/esmini) compiled to WebAssembly, used here under [MPL-2.0](https://github.com/esmini/esmini/blob/master/LICENSE) with all credit for the OpenSCENARIO 1.x runtime going to the esmini maintainers.
-
-<video src="https://github.com/user-attachments/assets/98c85e84-b4a3-408e-afa4-f7a6961b345d" width="80%" controls></video>
-
-### 🤖 [AI Scene Generator](extensions/ai-scene-generator/)
-
-Generate editable driving scenes on the canvas from natural language descriptions, OpenSCENARIO XML, or DSL input.
-AI automatically interprets the scenario and places lanes, vehicles, pedestrians, and other elements as fully editable shapes.
-Supports Anthropic Claude, OpenAI GPT, and Google Gemini as AI providers.
-Open from the **Extensions** button at the bottom-right of the canvas.
-
-#### Natural Language
-
-> *Prompt: "A 3-lane highway going left-to-right. An ego sedan (blue) in the center lane, a truck (grey) in the right lane slightly ahead. Show a dashed path for the ego vehicle changing to the left lane."*
-
-<video src="https://github.com/user-attachments/assets/16cb1980-c912-44f0-a606-de2b50d46287" width="80%" controls></video>
-
-#### OpenSCENARIO
-
-Generated from [ASAM OpenSCENARIO DSL - Euro NCAP scenario example](https://publications.pages.asam.net/standards/ASAM_OpenSCENARIO/ASAM_OpenSCENARIO_DSL/latest/annexes/examples.html#_euro_ncap):
-
-<video src="https://github.com/user-attachments/assets/ffcf0cff-11bf-406c-a3cb-9af49994015e" width="80%" controls></video>
-
-**Contributors:** [@vishwesh5](https://github.com/vishwesh5)
-
-## ⌨️ Keyboard Shortcuts
-
-### Tool Switching
-
-| Key  | Function                           |
-| ---- | ---------------------------------- |
-| M    | Hand (pan tool)                    |
-| V    | Select tool                        |
-| L    | Create Linestring                  |
-| N    | Create Lane                        |
-| P    | Participants (Vehicle/Pedestrian)  |
-| H    | Create Path                        |
-| G    | Create Polygon                     |
-| X    | Create Crosswalk                   |
-| Y    | Create Traffic Sign                |
-| R    | Create Road Marking                |
-| O    | Create Others (road/scene templates) |
-| I    | Create Intersection                |
-| W    | Create LineArrow                   |
-| T    | Create Text                        |
-| D    | Create Freehand                    |
-
-### Edit Operations
-
-| Key                        | Function                                        |
-| -------------------------- | ----------------------------------------------- |
-| Ctrl+Z / Cmd+Z             | Undo                                            |
-| Ctrl+Shift+Z / Cmd+Shift+Z | Redo                                            |
-| Ctrl+C / Cmd+C             | Copy                                            |
-| Ctrl+V / Cmd+V             | Paste                                           |
-| Delete / Backspace         | Delete                                          |
-| Shift                      | Temporarily disable snap (while drawing)        |
-| Alt + Click                | Share existing point (Linestring/Polygon/Path)  |
-| Double-click               | Segment editing (Linestring/Lane/Polygon)       |
-
-## 🧩 Extensions
-
-drawtonomy supports an iframe-based extension system. Build custom extensions using the SDK and postMessage API.
+An iframe-based extension system with an SDK and postMessage API:
 
 ```bash
-# Start drawtonomy locally
 pnpm add -g @drawtonomy/dev-server
 drawtonomy-dev-server
-
-# Start your extension
-cd my-extension
-pnpm dev --port 3001
-
-# Open in browser
-open "http://localhost:3000/?ext=http://localhost:3001/manifest.json"
+# then open http://localhost:3000/?ext=http://localhost:3001/manifest.json
 ```
 
-Available npm packages:
+📖 [Extending drawtonomy](https://docs.drawtonomy.com/extend/) ·
+[Extension guide](docs/extensions.md) ·
+[Exporter guide](docs/exporter.md)
 
-| Package | Description |
-|---------|-------------|
-| [`@drawtonomy/sdk`](https://www.npmjs.com/package/@drawtonomy/sdk) | SDK for building extensions (ExtensionClient, shape factory functions, types) |
-| [`@drawtonomy/dev-server`](https://www.npmjs.com/package/@drawtonomy/dev-server) | Local dev server for extension development |
+## 📚 More
 
-📖 **[Extension Development Guide](docs/extensions.md)** | [日本語](docs/extensions.ja.md) | [AI Scene Generator](extensions/ai-scene-generator/) | [Template Preview](extensions/template-preview/)
+- 🎞️ [Feature tour](docs/feature-tour.md)
+- ⌨️ [Keyboard shortcuts](https://docs.drawtonomy.com/reference/shortcuts/)
+- ⚖️ [Comparisons](https://docs.drawtonomy.com/compare/)
+- 💡 [Use cases](https://docs.drawtonomy.com/use-cases/)
+- ❓ [FAQ](https://docs.drawtonomy.com/faq/)
 
-📖 **[Exporter Developer Guide](docs/exporter.md)** | [日本語](docs/exporter.ja.md) — extend OpenDRIVE / OpenSCENARIO output, or add a new target format (CARLA, Unity, SUMO, …)
+<sub>[日本語](README.ja.md)</sub>
