@@ -59,9 +59,9 @@ Any public `.xosc` on GitHub runs with one click:
 The [**drawtonomy for GitHub**](https://docs.drawtonomy.com/integrations/github-extension/)
 extension plays them right where they live:
 
-<div align="center">
-  <video src="https://github.com/user-attachments/assets/a8e85a81-114c-4250-8b85-1c5db7c86607" width="80%" controls></video>
-</div>
+<p align="center">
+  <img src="./docs/videos/github-extension-demo.gif" width="80%" />
+</p>
 
 ## 🔄 Formats
 

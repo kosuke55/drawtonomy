@@ -55,9 +55,9 @@ GitHub 上の公開 `.xosc` はワンクリックで再生できます:
 [**drawtonomy for GitHub**](https://docs.drawtonomy.com/ja/integrations/github-extension/)
 拡張を使えば、シナリオは GitHub 上の置かれた場所でそのまま再生されます:
 
-<div align="center">
-  <video src="https://github.com/user-attachments/assets/a8e85a81-114c-4250-8b85-1c5db7c86607" width="80%" controls></video>
-</div>
+<p align="center">
+  <img src="./docs/videos/github-extension-demo.gif" width="80%" />
+</p>
 
 ## 🔄 対応フォーマット
 
