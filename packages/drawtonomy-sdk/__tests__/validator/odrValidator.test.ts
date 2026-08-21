@@ -95,7 +95,7 @@ describe('mutation harness self-check', () => {
  * layer lands, so a detection the code cannot yet make is a `todo` rather than
  * a failure — while the mutation itself is still proven to apply above.
  */
-const IMPLEMENTED_LAYERS: readonly string[] = []
+const IMPLEMENTED_LAYERS: readonly string[] = ['xml.']
 
 const isImplemented = (rule: string): boolean =>
   IMPLEMENTED_LAYERS.some(prefix => rule.startsWith(prefix))
