@@ -447,6 +447,14 @@ export const roadJunctionAttrWithoutMembership: Mutation = {
       const id = attrOf(road.text, 'id')
       if (id === null || members.has(id)) continue
       if (attrOf(road.text, 'junction') === junctionId) continue
+      // Require a road that links to none of the junction's roads, so the
+      // defect is unambiguously a spurious membership claim rather than a
+      // lost <connection> record. The validator distinguishes the two by
+      // exactly this evidence, so the mutation must pin down which it is.
+      const linkTargets = (road.text.match(/<(?:predecessor|successor)\b[^>]*>/g) ?? []).map(
+        t => attrOf(t, 'elementId') ?? ''
+      )
+      if (linkTargets.some(t => members.has(t) || t === junctionId)) continue
       const openEnd = road.text.indexOf('>')
       const mutatedOpen = withAttr(road.text.slice(0, openEnd + 1), 'junction', junctionId)
       const newRoad = mutatedOpen + road.text.slice(openEnd + 1)
