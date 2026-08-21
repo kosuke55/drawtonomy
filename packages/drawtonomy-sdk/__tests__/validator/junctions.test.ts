@@ -78,7 +78,7 @@ describe('checkJunctions', () => {
            <predecessor elementType="road" elementId="1" contactPoint="end"/>
            <successor elementType="road" elementId="2" contactPoint="start"/>
          </link>
-         <planView><geometry s="0" x="100" y="8" hdg="0" length="20"><line/></geometry></planView>
+         <planView><geometry s="0" x="100" y="0" hdg="0" length="20"><line/></geometry></planView>
          ${laneBlock}
        </road></OpenDRIVE>`
     )

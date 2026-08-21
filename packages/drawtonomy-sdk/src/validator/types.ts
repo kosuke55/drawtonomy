@@ -99,6 +99,12 @@ export interface OdrGeometryThresholds {
    * plan-view geometry lengths. Default 0.01 (1 %).
    */
   lengthMismatchRatio?: number
+  /**
+   * How far below zero a lane width may evaluate before it is reported (m).
+   * Default 0.001 — see the calibration note in layers/geometry.ts: lanes that
+   * taper to exactly zero land a few 1e-16 below it in floating point.
+   */
+  negativeWidthToleranceMeters?: number
 }
 
 /** Options for {@link validateOpenDrive}. */
@@ -119,6 +125,7 @@ export interface ResolvedGeometryThresholds {
   planViewHeadingRad: number
   roadLinkGapMeters: number
   lengthMismatchRatio: number
+  negativeWidthToleranceMeters: number
 }
 
 export const DEFAULT_GEOMETRY_THRESHOLDS: ResolvedGeometryThresholds = {
@@ -126,6 +133,7 @@ export const DEFAULT_GEOMETRY_THRESHOLDS: ResolvedGeometryThresholds = {
   planViewHeadingRad: 0.005,
   roadLinkGapMeters: 0.5,
   lengthMismatchRatio: 0.01,
+  negativeWidthToleranceMeters: 0.001,
 }
 
 export function resolveGeometryThresholds(
@@ -138,6 +146,9 @@ export function resolveGeometryThresholds(
     roadLinkGapMeters: overrides?.roadLinkGapMeters ?? DEFAULT_GEOMETRY_THRESHOLDS.roadLinkGapMeters,
     lengthMismatchRatio:
       overrides?.lengthMismatchRatio ?? DEFAULT_GEOMETRY_THRESHOLDS.lengthMismatchRatio,
+    negativeWidthToleranceMeters:
+      overrides?.negativeWidthToleranceMeters ??
+      DEFAULT_GEOMETRY_THRESHOLDS.negativeWidthToleranceMeters,
   }
 }
 
