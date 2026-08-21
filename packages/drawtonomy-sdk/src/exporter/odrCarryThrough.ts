@@ -32,6 +32,14 @@ export interface OdrRoadRecord {
   laneShapeIds: string[]
   /** Hash of the road's editable shape state at import time. */
   stateHash: string
+  /**
+   * Hash of the road's *non-geometric* state only (lane attributes /
+   * connectivity / right-of-way and the regulatory shapes, with all boundary
+   * and stop-line point sequences removed). When this still matches at export
+   * but `stateHash` does not, the edit touched only boundary geometry — the
+   * precondition for surgical (lateral-only) width regeneration.
+   */
+  semanticHash?: string
 }
 
 /** Editable state of one lane shape, as fed into the road state hash. */
@@ -112,6 +120,22 @@ export function hashRoadState(
   return (
     (a >>> 0).toString(16).padStart(8, '0') + (b >>> 0).toString(16).padStart(8, '0')
   )
+}
+
+/**
+ * Hash of a road's non-geometric state: `hashRoadState` with every boundary
+ * and stop-line point sequence removed, so only lane attributes /
+ * connectivity / right-of-way and the regulatory shapes' identity contribute.
+ * Used to detect "geometry changed, everything else unchanged" (the surgical
+ * precondition).
+ */
+export function hashRoadSemantics(
+  lanes: readonly CarryLaneState[],
+  regulatory: readonly CarryRegulatoryState[]
+): string {
+  const geomFreeLanes = lanes.map(l => ({ ...l, leftPts: null, rightPts: null }))
+  const geomFreeReg = regulatory.map(r => ({ ...r, stopLinePts: null }))
+  return hashRoadState(geomFreeLanes, geomFreeReg)
 }
 
 // ---------------------------------------------------------------------------

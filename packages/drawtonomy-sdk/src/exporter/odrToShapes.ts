@@ -55,6 +55,7 @@ import {
 import { PIXELS_PER_METER } from './units.js'
 import {
   hashRoadState,
+  hashRoadSemantics,
   type CarryLaneState,
   type CarryRegulatoryState,
   type OdrRoadRecord,
@@ -1717,6 +1718,7 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
       roadRecords[road.id] = {
         laneShapeIds: regLanes.map(r => r.shapeId),
         stateHash: hashRoadState(laneStates, regStatesByRoad.get(road.id) ?? []),
+        semanticHash: hashRoadSemantics(laneStates, regStatesByRoad.get(road.id) ?? []),
       }
     }
     result.sidecar.roadRecords = roadRecords
