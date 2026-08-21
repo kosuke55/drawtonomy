@@ -510,6 +510,7 @@ function viaOpenDrive(imported: ImportedShapes): ImportedShapes {
 const FIXTURES = join(__dirname, '..', 'fixtures')
 const FABRIKSGATAN = join(FIXTURES, 'fabriksgatan.xodr')
 const TWO_PLUS_ONE = join(FIXTURES, 'two_plus_one.xodr')
+const SODERLEDEN = join(FIXTURES, 'soderleden.xodr')
 const LANELET2_REAL = process.env.ROUNDTRIP_LANELET2_OSM ?? ''
 /** Optional extra OpenDRIVE map for the debug matrix (path to a .xodr). */
 const XODR_REAL = process.env.ROUNDTRIP_XODR ?? ''
@@ -1907,7 +1908,10 @@ describe('carry-through export (sidecar verbatim re-emission)', () => {
     const lane = imported.lanes.find(l => l.id === laneId)!
     const ls = imported.linestrings.find(l => l.id === lane.leftBoundaryId)!
     const midPid = ls.pointIds[Math.floor(ls.pointIds.length / 2)]
-    imported.points.find(p => p.id === midPid)!.y += 20
+    // out_b runs along +x (hdg 0); drag the point ALONG the road so the edit is
+    // longitudinal, forcing full regeneration (a lateral nudge would be handled
+    // surgically, keeping the road — and its junction — verbatim).
+    imported.points.find(p => p.id === midPid)!.x += 20
 
     const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
     const doc = extractOdrDocument(SYNTHETIC_XODR)!
@@ -2030,6 +2034,132 @@ describe('carry-through export (sidecar verbatim re-emission)', () => {
 
   it('keeps an unedited round trip fully verbatim on the micro fixture', () => {
     expectVerbatimRoundTrip(readFileSync(MICRO_FIXTURE, 'utf-8'))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Surgical (lateral-only) regeneration
+//
+// When an edit moves boundary points only across the travel direction, the
+// road's plan view / laneOffset / elevation / signals / links are all still
+// valid — only the lane widths changed. Such a road keeps its original <road>
+// element (plan view, laneOffset, s frame, elevation, signals) and rewrites
+// only its lane <width> records, instead of the full-regen exporter rebuilding
+// the reference line from the leftmost boundary (which drops the laneOffset,
+// shifts s, coarsens the elevation profile and drops signals / objects).
+//
+// Any non-lateral edit (a point dragged along the road) must fall back to full
+// regeneration, so the surgical path can never silently emit wrong widths.
+// ---------------------------------------------------------------------------
+describe('surgical (lateral-only) regeneration', () => {
+  /**
+   * Move the middle interior point of a road's first lane boundary
+   * perpendicular to the local road direction (lateral) or along it
+   * (longitudinal). Returns the road id and the moved point's new position.
+   */
+  const nudgeFirstLane = (
+    imported: ReturnType<typeof odrToShapesFull>,
+    roadId: string,
+    direction: 'lateral' | 'longitudinal',
+    amountPx = 12
+  ): { pointId: string; x: number; y: number } => {
+    // Edit the outer boundary of the road's outermost right lane: an unshared
+    // edge, so the lateral move is expressible as a pure width change of that
+    // one lane (a shared edge would redistribute width across two lanes).
+    const record = imported.sidecar.roadRecords![roadId]
+    const rightLanes = record.laneShapeIds
+      .map(id => imported.lanes.find(l => l.id === id)!)
+      .filter(l => Number(l.attributes?.odr_lane_id) < 0)
+      .sort((a, b) => Number(a.attributes!.odr_lane_id) - Number(b.attributes!.odr_lane_id))
+    const lane = rightLanes[0] ?? imported.lanes.find(l => l.id === record.laneShapeIds[0])!
+    const ls = imported.linestrings.find(l => l.id === lane.rightBoundaryId)!
+    const k = Math.floor(ls.pointIds.length / 2)
+    const pid = ls.pointIds[k]
+    const pt = imported.points.find(p => p.id === pid)!
+    const prev = imported.points.find(p => p.id === ls.pointIds[Math.max(0, k - 1)])!
+    const next = imported.points.find(p => p.id === ls.pointIds[Math.min(ls.pointIds.length - 1, k + 1)])!
+    let dx = next.x - prev.x
+    let dy = next.y - prev.y
+    const len = Math.hypot(dx, dy) || 1
+    dx /= len
+    dy /= len
+    if (direction === 'lateral') {
+      pt.x += -dy * amountPx
+      pt.y += dx * amountPx
+    } else {
+      pt.x += dx * amountPx
+      pt.y += dy * amountPx
+    }
+    return { pointId: pid, x: pt.x, y: pt.y }
+  }
+
+  it('keeps plan view / laneOffset / length / elevation and rewrites only widths on a lateral edit (soderleden road 0)', () => {
+    if (!existsSync(SODERLEDEN)) return
+    const xml = readFileSync(SODERLEDEN, 'utf-8')
+    const imported = odrToShapesFull(parseOpenDriveXml(xml))
+    const moved = nudgeFirstLane(imported, '0', 'lateral')
+
+    const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
+
+    const before = parseOpenDriveXml(xml).roads.find(r => r.id === '0')!
+    const after = parseOpenDriveXml(out).roads.find(r => r.id === '0')!
+
+    // The reference line frame is untouched: same length, same plan-view
+    // primitive count, same laneOffset polynomial, same elevation records.
+    expect(after.length).toBeCloseTo(before.length, 6)
+    expect(after.planView.length).toBe(before.planView.length)
+    expect(after.laneOffsets.length).toBe(before.laneOffsets.length)
+    expect(after.laneOffsets[0].a).toBeCloseTo(before.laneOffsets[0].a, 6)
+    expect(after.elevations.length).toBe(before.elevations.length)
+
+    // Every OTHER road stays byte-verbatim (no regeneration blast radius).
+    const baseDoc = extractOdrDocument(xml)!
+    const outDoc = extractOdrDocument(out)!
+    const outById = new Map(outDoc.roads.map(r => [r.id, r]))
+    expect(outDoc.roads.length).toBe(baseDoc.roads.length)
+    for (const r of baseDoc.roads) {
+      if (r.id === '0') continue
+      expect(outById.get(r.id)?.text).toBe(r.text)
+    }
+
+    // The lateral edit survived: a re-imported boundary point sits on the
+    // moved position (the width was recomputed to reproduce it).
+    const re = importXodr(out)
+    const hit = re.points.some(p => Math.hypot(p.x - moved.x, p.y - moved.y) < 1)
+    expect(hit).toBe(true)
+
+    // Semantic identity through the round trip.
+    const rep = measureFidelity(imported, re)
+    expect(rep.matchedLanes).toBe(rep.laneCountBefore)
+    expect(rep.edgesPreserved).toBe(rep.edgesBefore)
+  })
+
+  it('falls back to full regeneration on a longitudinal edit (soderleden road 0)', () => {
+    if (!existsSync(SODERLEDEN)) return
+    const xml = readFileSync(SODERLEDEN, 'utf-8')
+    const imported = odrToShapesFull(parseOpenDriveXml(xml))
+    nudgeFirstLane(imported, '0', 'longitudinal', 30)
+
+    const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
+    const before = parseOpenDriveXml(xml).roads.find(r => r.id === '0')!
+    const after = parseOpenDriveXml(out).roads.find(r => r.id === '0')!
+
+    // Full regeneration: the reference line is rebuilt from the boundaries, so
+    // the laneOffset is folded in (no <laneOffset a=3.5> survives) and the
+    // fitted length differs from the original. This is the safe fallback.
+    const laneOffsetGone =
+      after.laneOffsets.length === 0 || Math.abs((after.laneOffsets[0]?.a ?? 0) - before.laneOffsets[0].a) > 0.5
+    const lengthChanged = Math.abs(after.length - before.length) > 0.1
+    expect(laneOffsetGone || lengthChanged).toBe(true)
+  })
+
+  it('keeps an unedited round trip verbatim on soderleden (surgical never fires without an edit)', () => {
+    if (!existsSync(SODERLEDEN)) return
+    const xml = readFileSync(SODERLEDEN, 'utf-8')
+    const imported = odrToShapesFull(parseOpenDriveXml(xml))
+    const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
+    const doc = extractOdrDocument(xml)!
+    for (const road of doc.roads) expect(out).toContain(road.text)
   })
 })
 
