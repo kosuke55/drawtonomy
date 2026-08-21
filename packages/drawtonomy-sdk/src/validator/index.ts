@@ -7,6 +7,11 @@
 
 export { validateOpenDrive, buildReport } from './validateOpenDrive.js'
 export {
+  parseEsminiOutput,
+  esminiSkipped,
+  type EsminiRunOutput,
+} from './esminiAdapter.js'
+export {
   DEFAULT_GEOMETRY_THRESHOLDS,
   countFindings,
   deriveVerdict,
