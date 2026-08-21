@@ -37,13 +37,15 @@ import { sampleAtParam, type Point2D } from './laneCenterline.js'
 import { evalGeometry } from './odrGeometry.js'
 import { fitPlanView, type FittedSamplePose } from './odrGeometryFit.js'
 import { fitElevationProfile, type ElevationSample } from './odrElevationFit.js'
-import type { OdrGeometry } from './opendriveParser.js'
+import { parseOpenDriveXml, type OdrGeometry, type OdrRoad } from './opendriveParser.js'
+import { buildSurgicalRoad, laneShapeKey, type LaneShapeKey } from './odrSurgical.js'
 import { originToProjString } from './projection.js'
 import { escapeXml, fmt, fmtPrecise, pxToEnuX, pxToEnuY, pxToMeter } from './units.js'
 import {
   appendControlRecords,
   dropControlRecords,
   extractOdrDocument,
+  hashRoadSemantics,
   hashRoadState,
   rewriteRoadLinkTargets,
   type CarryLaneState,
@@ -2163,6 +2165,13 @@ interface CarryPlan {
   consumedShapeIds: Set<string>
   headerText: string | null
   verbatimRoads: OdrDocRoad[]
+  /**
+   * Surgically regenerated roads (edit was lateral-only): the original <road>
+   * text with only its lane <width> records rewritten, keyed by road id.
+   * These roads are treated as clean (kept verbatim except for the widths),
+   * so their lanes are excluded from full regeneration.
+   */
+  surgicalRoadText: Map<string, string>
   /** Original junction ids that must be regenerated (members changed). */
   dirtyJunctionIds: Set<string>
   verbatimJunctionTexts: string[]
@@ -2209,6 +2218,16 @@ function planCarryThrough(
   if (!doc) return null
   const docRoadById = new Map(doc.roads.map(r => [r.id, r]))
   const docJunctionById = new Map(doc.junctions.map(j => [j.id, j]))
+
+  // Parsed original roads, for surgical (lateral-only) width recomputation.
+  // Parsing failures leave `parsedRoadById` empty, disabling the surgical
+  // path and falling back to full regeneration for every edited road.
+  const parsedRoadById = new Map<string, OdrRoad>()
+  try {
+    for (const r of parseOpenDriveXml(sidecar.rawXml).roads) parsedRoadById.set(r.id, r)
+  } catch {
+    // ignore; surgical simply stays unavailable
+  }
 
   // laneShapeId -> recorded road id (over every record).
   const laneRoadOf = new Map<string, string>()
@@ -2320,9 +2339,28 @@ function planCarryThrough(
     return states
   }
 
+  // Live lane shapes of a recorded road keyed by (odr_lane_id, odr_section_s),
+  // for surgical width recomputation. Null when any recorded lane shape is
+  // missing or lacks the odr identifiers.
+  const laneShapesByKey = (rec: OdrRoadRecord): Map<LaneShapeKey, LaneShape> | null => {
+    const map = new Map<LaneShapeKey, LaneShape>()
+    for (const lid of rec.laneShapeIds) {
+      const shape = shapeMap.get(lid)
+      if (!shape || shape.type !== 'lane') return null
+      const lane = shape as unknown as LaneShape
+      const odrLaneId = parseInt(lane.props.attributes?.odr_lane_id ?? '', 10)
+      const sectionS = parseFloat(lane.props.attributes?.odr_section_s ?? '')
+      if (!Number.isFinite(odrLaneId) || !Number.isFinite(sectionS)) return null
+      map.set(laneShapeKey(odrLaneId, sectionS), lane)
+    }
+    return map
+  }
+
   // Seed dirtiness: hash mismatch, missing shapes, or references that leave
-  // the recorded set.
+  // the recorded set. An edited road whose edit is purely lateral is rewritten
+  // surgically (only its lane widths change) and stays clean.
   const dirty = new Set<string>()
+  const surgicalRoadText = new Map<string, string>()
   for (const [rid, rec] of Object.entries(records)) {
     const docRoad = docRoadById.get(rid)
     if (!docRoad) {
@@ -2337,8 +2375,27 @@ function planCarryThrough(
       continue
     }
     const laneStates = exportLaneStates(rec)
-    if (!laneStates || hashRoadState(laneStates, regStatesByRoad.get(rid) ?? []) !== rec.stateHash) {
-      dirty.add(rid)
+    const regStates = regStatesByRoad.get(rid) ?? []
+    if (!laneStates || hashRoadState(laneStates, regStates) !== rec.stateHash) {
+      // The road changed. When only its boundary geometry moved (the road's
+      // non-geometric state — lane attributes / connectivity / right-of-way /
+      // regulatory shapes — still matches) AND the geometry moved only
+      // laterally, keep its plan view / laneOffset / elevation / signals /
+      // objects / links verbatim and rewrite only the lane <width> records.
+      // Any other change (moved traffic light, edited attributes, longitudinal
+      // drag, lane add/remove) fails the check and the road regenerates fully.
+      const semanticUnchanged =
+        laneStates != null &&
+        rec.semanticHash !== undefined &&
+        hashRoadSemantics(laneStates, regStates) === rec.semanticHash
+      const parsed = semanticUnchanged ? parsedRoadById.get(rid) : undefined
+      const laneShapes = parsed ? laneShapesByKey(rec) : null
+      const surgical =
+        parsed && laneShapes
+          ? buildSurgicalRoad(parsed, docRoad.text, laneShapes, shapeMap)
+          : null
+      if (surgical !== null) surgicalRoadText.set(rid, surgical)
+      else dirty.add(rid)
     }
   }
 
@@ -2482,6 +2539,7 @@ function planCarryThrough(
     consumedShapeIds,
     headerText: doc.headerText,
     verbatimRoads,
+    surgicalRoadText,
     dirtyJunctionIds,
     verbatimJunctionTexts,
     verbatimControllers,
@@ -2861,7 +2919,10 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
           junctionMap.set(jref, String(replacement))
         }
       }
-      lines.push(rewriteRoadLinkTargets(r.text, rewriteMap, junctionMap ?? new Map()))
+      // Surgical roads reuse the verbatim emission path (same link rewriting)
+      // but start from the width-rewritten text instead of the original.
+      const baseText = carry.surgicalRoadText.get(r.id) ?? r.text
+      lines.push(rewriteRoadLinkTargets(baseText, rewriteMap, junctionMap ?? new Map()))
     }
   }
 
