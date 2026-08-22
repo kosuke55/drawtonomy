@@ -90,8 +90,8 @@ export interface OdrGeometryThresholds {
    */
   planViewHeadingRad?: number
   /**
-   * Maximum allowed position gap at a road-to-road link contact point (m).
-   * Default 0.5.
+   * Maximum allowed distance between the lane-boundary cross sections of two
+   * linked roads at their contact point (m). Default 0.3.
    */
   roadLinkGapMeters?: number
   /**
@@ -131,7 +131,7 @@ export interface ResolvedGeometryThresholds {
 export const DEFAULT_GEOMETRY_THRESHOLDS: ResolvedGeometryThresholds = {
   planViewGapMeters: 0.02,
   planViewHeadingRad: 0.005,
-  roadLinkGapMeters: 0.5,
+  roadLinkGapMeters: 0.3,
   lengthMismatchRatio: 0.01,
   negativeWidthToleranceMeters: 0.001,
 }

@@ -24,24 +24,40 @@
 //   road length vs sum       observed max 4.0e-16    default 1 %      (huge)
 //
 // Between roads it is a different story, and the reason is structural rather
-// than a matter of precision. `road@length`-scale gaps at a link are normal:
+// than a matter of precision. `road@length`-scale gaps between *reference
+// lines* at a link are normal:
 //
 //   1. A road carrying a <laneOffset> has its reference line laterally shifted
 //      from the lane geometry. Two roads with different offsets meet along
-//      their *lanes* while their reference lines stay apart by exactly the
-//      offset difference. fabriksgatan's connecting roads (laneOffset a=1.75)
-//      linking to mainlines (a=0) produce a uniform 1.75 m; multi_intersections
-//      produces 3.75 m the same way. Both maps are correct.
+//      their *lanes* while their reference lines stay apart. fabriksgatan's
+//      connecting roads (laneOffset a=1.75) linking to mainlines (a=0) produce
+//      a uniform 1.75 m; multi_intersections produces 3.75 m the same way. Both
+//      maps are correct.
 //   2. Some shipped maps simply contain link records their geometry does not
 //      honour: soderleden road 7 declares its predecessor to be road 2 at that
-//      road's end, 66 m from where road 7 actually begins. esmini drives this
-//      map regardless, because it routes through the junction rather than the
-//      stray link.
+//      road's end, tens of metres from where road 7 actually begins. esmini
+//      drives this map regardless, because it routes through the junction
+//      rather than the stray link.
 //
-// So the road-link check is reported as a *warning*: it is real evidence worth
-// surfacing, but it must not redden a map that ships and works. The lane offset
-// difference is subtracted before comparing, which removes cause (1) exactly
-// and leaves cause (2) visible.
+// An earlier revision of this rule compared reference-line endpoints and
+// subtracted |laneOffsetA - laneOffsetB| as slack. That proxy is wrong whenever
+// the offset varies with s or the two roads meet at an angle: measured over a
+// real map, every one of its ten reports was a false positive whose lanes in
+// fact touched to 0.000 m. The rule therefore measures what it actually claims
+// to measure — the distance between the two roads' *lane boundary cross
+// sections* at the contact — which removes cause (1) by construction, with no
+// slack term to tune, and leaves cause (2) visible.
+//
+// What is compared is the *minimum* distance between the two boundary sets,
+// i.e. "do these two cross sections touch anywhere", not "are they congruent".
+// That is deliberate: lane counts and widths routinely differ across a link at
+// merges, ramps and junction connectors (91 of 156 links on one measured map),
+// so requiring congruence would re-introduce false positives of a new shape.
+// A road whose lanes are wholly displaced from its neighbour's — the soderleden
+// case — still separates every pair of boundaries and is still reported.
+//
+// The check is still reported as a *warning*: it is real evidence worth
+// surfacing, but it must not redden a map that ships and works.
 //
 // Lane widths need a tolerance for the opposite reason — not structure, but
 // arithmetic. Merge and exit lanes are authored to close at exactly zero, e.g.
@@ -53,7 +69,12 @@
 // the two cleanly rather than splitting a continuum.
 
 import { evalGeometry } from '../../exporter/odrGeometry.js'
-import type { OdrMap, OdrRoad, OdrWidth } from '../../exporter/opendriveParser.js'
+import type {
+  OdrLaneSection,
+  OdrMap,
+  OdrRoad,
+  OdrWidth,
+} from '../../exporter/opendriveParser.js'
 import type { OdrFinding, ResolvedGeometryThresholds } from '../types.js'
 
 /** Wrap an angle to (-pi, pi]. */
@@ -101,6 +122,91 @@ function poseAtEnd(road: OdrRoad, at: 'start' | 'end'): Pose | null {
 /** Station of a road's start or end. */
 const stationAtEnd = (road: OdrRoad, at: 'start' | 'end'): number =>
   at === 'start' ? 0 : road.length
+
+/**
+ * Width of a lane at `ds` metres into its lane section.
+ *
+ * A `<width>` record applies from its own `sOffset` until the next one, and its
+ * polynomial is in `ds - sOffset`. Records before the first `sOffset` (which a
+ * conforming file does not produce, but a hand-edited one might) fall back to
+ * the first record evaluated at its own origin.
+ */
+function laneWidthAt(widths: readonly OdrWidth[], ds: number): number {
+  if (widths.length === 0) return 0
+  let applicable = widths[0]
+  for (const rec of widths) {
+    if (rec.sOffset <= ds) applicable = rec
+    else break
+  }
+  return evalCubic(applicable, Math.max(ds - applicable.sOffset, 0))
+}
+
+/** The lane section covering station `s` (the last one starting at or before it). */
+function sectionAt(road: OdrRoad, s: number): OdrLaneSection | null {
+  if (road.laneSections.length === 0) return null
+  let applicable = road.laneSections[0]
+  for (const section of road.laneSections) {
+    if (section.s <= s + 1e-9) applicable = section
+    else break
+  }
+  return applicable
+}
+
+interface Point {
+  x: number
+  y: number
+}
+
+/**
+ * World positions of every lane boundary at a road's start or end.
+ *
+ * The boundaries are the centre line (the reference line shifted laterally by
+ * `<laneOffset>`) plus the running sum of lane widths outward in each
+ * direction: left lanes accumulate in +t, right lanes in -t, where the lateral
+ * unit vector is the reference-line normal `(-sin hdg, cos hdg)`.
+ *
+ * Returns null when the road has no plan view to evaluate. A road without lane
+ * sections still yields its centre point, which is the best available
+ * statement of where it ends.
+ */
+function laneCrossSection(road: OdrRoad, at: 'start' | 'end'): Point[] | null {
+  const pose = poseAtEnd(road, at)
+  if (!pose) return null
+
+  const s = stationAtEnd(road, at)
+  const nx = -Math.sin(pose.hdg)
+  const ny = Math.cos(pose.hdg)
+
+  const offsets: number[] = [laneOffsetAt(road, s)]
+  const section = sectionAt(road, s)
+  if (section) {
+    // `ds` is measured from the section's own start, which is where a
+    // `<width>` record's sOffset is relative to.
+    const ds = Math.max(s - section.s, 0)
+    for (const side of [section.left, section.right] as const) {
+      let t = offsets[0]
+      for (const lane of side) {
+        const width = laneWidthAt(lane.widths, ds)
+        t += side === section.left ? width : -width
+        offsets.push(t)
+      }
+    }
+  }
+
+  return offsets.map(t => ({ x: pose.x + nx * t, y: pose.y + ny * t }))
+}
+
+/** Smallest distance between any point of `a` and any point of `b`. */
+function minPointDistance(a: readonly Point[], b: readonly Point[]): number {
+  let best = Infinity
+  for (const p of a) {
+    for (const q of b) {
+      const d = Math.hypot(p.x - q.x, p.y - q.y)
+      if (d < best) best = d
+    }
+  }
+  return best
+}
 
 export function checkGeometry(
   map: OdrMap,
@@ -219,28 +325,37 @@ export function checkGeometry(
       if (!target) continue // layer 2 reported the dangling link
 
       const myEnd = which === 'successor' ? 'end' : 'start'
-      const theirEnd = link.contactPoint ?? (which === 'successor' ? 'start' : 'end')
-      const mine = poseAtEnd(road, myEnd)
-      const theirs = poseAtEnd(target, theirEnd)
-      if (!mine || !theirs) continue
+      const mine = laneCrossSection(road, myEnd)
+      if (!mine) continue
 
-      // Subtract the lane-offset difference: two roads whose lanes meet can
-      // have reference lines apart by exactly that amount, and flagging it
-      // would redden fabriksgatan and multi_intersections, which are correct.
-      const myOffset = laneOffsetAt(road, stationAtEnd(road, myEnd))
-      const theirOffset = laneOffsetAt(target, stationAtEnd(target, theirEnd))
-      const offsetSlack = Math.abs(myOffset - theirOffset)
+      // With an explicit contactPoint there is one cross section to compare
+      // against. Without one, the link is under-specified, so both of the
+      // target's ends are tried and the nearer is taken: reporting the larger
+      // of two readings would be inventing a defect the document never
+      // asserted.
+      const theirEnds: readonly ('start' | 'end')[] = link.contactPoint
+        ? [link.contactPoint]
+        : ['start', 'end']
 
-      const raw = Math.hypot(mine.x - theirs.x, mine.y - theirs.y)
-      const gap = Math.max(raw - offsetSlack, 0)
+      let gap = Infinity
+      let theirEnd: 'start' | 'end' = theirEnds[0]
+      for (const end of theirEnds) {
+        const theirs = laneCrossSection(target, end)
+        if (!theirs) continue
+        const d = minPointDistance(mine, theirs)
+        if (d < gap) {
+          gap = d
+          theirEnd = end
+        }
+      }
+      if (!Number.isFinite(gap)) continue
+
       if (gap > thresholds.roadLinkGapMeters) {
         findings.push({
           severity: 'warning',
           category: 'MAP_DEFECT',
           rule: 'geom.road-link-gap',
-          message:
-            `road ${road.id} <${which}> declares road ${target.id} at its ${theirEnd}, but the two reference lines are ${gap.toFixed(3)} m apart` +
-            (offsetSlack > 0 ? ` (after allowing ${offsetSlack.toFixed(3)} m of lane offset)` : ''),
+          message: `road ${road.id} <${which}> declares road ${target.id} at its ${theirEnd}, but the lane boundaries of the two roads are ${gap.toFixed(3)} m apart at the contact`,
           location: { roadId: road.id },
         })
       }
