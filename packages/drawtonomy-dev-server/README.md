@@ -39,6 +39,31 @@ open "http://localhost:3000/?ext=http://localhost:3001/manifest.json"
 - This dev server runs locally on HTTP, so localhost extensions work without issues
 - Always up-to-date with `drawtonomy.com` — no manual version management
 
+## AI scenario generation (bring your own key)
+
+drawtonomy can generate a driving scenario from a plain-text description. The
+generation loop runs in your browser, but browsers cannot call the AI vendors
+directly — each vendor sets its own CORS policy, and some refuse browser-origin
+requests outright. This server therefore exposes one route,
+`POST /api/ai-scenario/llm-relay`, and forwards the request for the page.
+
+Enter your own API key in the editor (the AI panel has a provider picker and a
+key field). Supported providers:
+
+| Provider | Key from |
+|---|---|
+| Anthropic | https://console.anthropic.com/ |
+| OpenAI | https://platform.openai.com/api-keys |
+| Gemini | https://aistudio.google.com/apikey |
+
+The key is sent with each request as a header, used only to build the outgoing
+call, and then discarded. It is never written to disk, never added to the
+server's environment, and never logged. Requests are billed to your own account
+by the provider you pick.
+
+The relay is a development convenience bound to the same localhost surface as
+the file serving — do not expose this server to a network you do not control.
+
 ## Options
 
 | Environment Variable | Default | Description |
