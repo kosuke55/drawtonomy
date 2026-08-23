@@ -4,6 +4,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from 'fs
 import { join, extname, dirname } from 'path'
 import { tmpdir, homedir } from 'os'
 import https from 'https'
+import { handleLlmRelay } from './llmRelay.mjs'
 
 const HOST_URL = process.env.DRAWTONOMY_HOST || 'https://www.drawtonomy.com'
 const PORT = parseInt(process.env.PORT || '3000', 10)
@@ -189,6 +190,20 @@ async function main() {
   }
 
   const server = createServer((req, res) => {
+    // The AI relay is the one dynamic route. It answers for its own path and
+    // returns false for everything else, so static serving below is unchanged.
+    handleLlmRelay(req, res).then((handled) => {
+      if (!handled) serveStatic(req, res)
+    }, (err) => {
+      console.error(`  AI relay failed: ${err?.message ?? err}`)
+      if (!res.headersSent) {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' })
+      }
+      res.end(JSON.stringify({ ok: false, error: 'The AI relay failed.', kind: 'server' }))
+    })
+  })
+
+  function serveStatic(req, res) {
     let urlPath = req.url.split('?')[0]
     if (urlPath === '/') urlPath = '/index.html'
 
@@ -223,7 +238,7 @@ async function main() {
         res.end('Not found')
       }
     }
-  })
+  }
 
   server.listen(PORT, () => {
     console.log()
