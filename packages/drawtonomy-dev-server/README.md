@@ -70,6 +70,7 @@ the file serving — do not expose this server to a network you do not control.
 |---------------------|---------|-------------|
 | `PORT` | `3000` | Server port |
 | `DRAWTONOMY_HOST` | `https://www.drawtonomy.com` | Host to download from |
+| `DRAWTONOMY_LLM_BASE_URL` | _(unset)_ | Send AI requests to this host instead of the real providers — for testing without a key |
 
 ```bash
 # Custom port
