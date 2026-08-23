@@ -37,6 +37,26 @@ export const DEFAULT_VENDOR = 'anthropic'
 export const DEFAULT_MAX_TOKENS = 16000
 export const DEFAULT_TIMEOUT_MS = 180000
 
+/**
+ * Point every vendor at a different base URL.
+ *
+ * Set `DRAWTONOMY_LLM_BASE_URL` to run the relay against a local stand-in
+ * instead of the real vendors - useful when developing the relay itself, or
+ * when testing the generation flow without spending on API calls. The path and
+ * headers are unchanged, so the stand-in sees exactly what a vendor would.
+ */
+const BASE_URL_OVERRIDE = process.env.DRAWTONOMY_LLM_BASE_URL || ''
+
+/** Apply the override, keeping the vendor's own path. */
+function withBaseOverride(url) {
+  if (BASE_URL_OVERRIDE === '') return url
+  const target = new URL(url)
+  const base = new URL(BASE_URL_OVERRIDE)
+  target.protocol = base.protocol
+  target.host = base.host
+  return target.toString()
+}
+
 /** Statuses worth a retry: rate limiting and transient server faults. */
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504, 529])
 const MAX_RETRIES = 2
@@ -234,7 +254,7 @@ export async function callVendor(args) {
     const timer = setTimeout(() => controller.abort(), timeoutMs)
     let response
     try {
-      response = await fetchImpl(vendor.endpoint(model), {
+      response = await fetchImpl(withBaseOverride(vendor.endpoint(model)), {
         method: 'POST',
         headers: vendor.headers(apiKey),
         body,
