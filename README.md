@@ -74,7 +74,7 @@ OpenDRIVE, Lanelet2, OpenSCENARIO, ROS maps, and figures like SVG/PDF.
 - **[AI Scene Generator](extensions/ai-scene-generator/)** — generate scenes from natural language or OpenSCENARIO XML — by [@vishwesh5](https://github.com/vishwesh5)
 - **[MCP Server](https://www.npmjs.com/package/@drawtonomy/mcp-server)** — let AI agents draw scenes for you
 - **[Headless SDK](https://www.npmjs.com/package/@drawtonomy/sdk)** — generate and export scenes from Node.js, no browser
-- **AI Scenario Generation** coming soon!!
+- **[AI Scenario Generation](https://docs.drawtonomy.com/ja/scenario/ai-generation/)** - generate OpenSCENARIO XML with AI
 
 https://github.com/user-attachments/assets/005a2049-de22-4946-88db-89873dc59547
 
