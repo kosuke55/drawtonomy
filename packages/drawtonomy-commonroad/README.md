@@ -1,6 +1,7 @@
 # drawtonomy-cr
 
-[日本語](README.ja.md)
+<img width="1455" height="721" alt="image" src="https://github.com/user-attachments/assets/aba6f95b-6d78-484e-90ff-31ec3d8bf5a1" />
+
 
 CommonRoad connector for [drawtonomy](https://drawtonomy.com). Bring your own planner.
 
@@ -174,3 +175,6 @@ container after `open` has started makes it appear in the tab.
 ## License
 
 Apache-2.0. See [`LICENSE`](LICENSE).
+
+
+[日本語](README.ja.md)
