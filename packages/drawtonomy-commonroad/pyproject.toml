@@ -1,0 +1,95 @@
+[project]
+name = "drawtonomy-commonroad"
+version = "0.1.0"
+description = "CommonRoad connector for drawtonomy: official checker verdict sidecars and planning traces"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "drawtonomy" }]
+keywords = [
+    "commonroad",
+    "autonomous-driving",
+    "motion-planning",
+    "scenario",
+    "simulation",
+    "verification",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    # The <2026 upper bound exists for compatibility with the checker.
+    # commonroad-io 2026.1 removed `commonroad.geometry.shape`, which
+    # commonroad-drivability-checker 2025.4.0 imports, so installing 2026.1
+    # makes the verdict fail with ModuleNotFoundError.
+    # The APIs verdict.py and trace.py use themselves (CommonRoadFileReader /
+    # CommonRoadSolutionReader / TrajectoryType) work on anything from 2024.1
+    # through 2026.1, so this pin is entirely the checker's doing and can be
+    # relaxed as soon as the checker supports the 2026 series of io.
+    "commonroad-io>=2024.1,<2026",
+]
+
+[project.optional-dependencies]
+# The official drivability checker. Only manylinux_x86_64 wheels are published,
+# so this is Linux x86_64 only. The io upper bound is repeated here for the same
+# reason as above, so installing just the extra cannot resolve to 2026.
+checker = [
+    "commonroad-io>=2024.1,<2026",
+    "commonroad-drivability-checker>=2024.1",
+]
+# The triangulation `boundary_collision` needs (Shewchuk's Triangle).
+# **Deliberately not a default dependency**: Triangle is free for non-commercial
+# use, but commercial use requires the author's permission, which makes it
+# non-free. Without it `boundary_collision` is reported as SKIP rather than
+# FAIL, and the other three checks still run. Install it, having checked the
+# license, only if you want `boundary_collision` judged.
+boundary = [
+    "triangle",
+]
+test = [
+    "pytest>=8.0.0",
+]
+
+[project.urls]
+Homepage = "https://drawtonomy.com"
+Documentation = "https://docs.drawtonomy.com/integrations/commonroad/"
+Source = "https://github.com/kosuke55/drawtonomy/tree/main/packages/drawtonomy-commonroad"
+Issues = "https://github.com/kosuke55/drawtonomy/issues"
+
+[project.scripts]
+drawtonomy-cr = "drawtonomy_cr.cli:main"
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/drawtonomy_cr"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src",
+    "tests",
+    "docs",
+    "examples",
+    "README.md",
+    "README.ja.md",
+    "LICENSE",
+    "pyproject.toml",
+]
+exclude = [
+    "**/__pycache__",
+    "**/.pytest_cache",
+    ".venv",
+    "dist",
+]
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
