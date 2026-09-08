@@ -49,6 +49,7 @@ drawtonomy には二つの顔があります。
 - **[再生機能](https://docs.drawtonomy.com/ja/scenario/playback/)** — シーク・Follow Ego・ゴーストトレイル・`.webm` 書き出し
 - **[PASS / FAIL 判定](https://docs.drawtonomy.com/ja/scenario/end-and-fail-conditions/)** — 実行のたびに判定
 - **[esmini 対応 zip](https://docs.drawtonomy.com/ja/guides/export-asam/)** — `.xodr` + `.xosc` を書き出し
+- **[CommonRoad](https://docs.drawtonomy.com/ja/integrations/commonroad/)** — シナリオを書き出し、planner の solution を公式判定つきで再生: **[CommonRoad シナリオを再生してみる](https://www.drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/cutin_commonroad.xml&trace=planner_solution.planning-trace.json&verdict=planner_solution.verdict.json)**
 
 GitHub 上の公開 `.xosc` はワンクリックで再生できます:
 **[シナリオを再生してみる](https://drawtonomy.com/?open=https://github.com/esmini/esmini/blob/master/resources/xosc/acc-test.xosc)**。

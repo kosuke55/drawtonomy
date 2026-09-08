@@ -53,6 +53,7 @@ author a full OpenSCENARIO storyboard yourself.
 - **[Full playback](https://docs.drawtonomy.com/scenario/playback/)** — seek, Follow Ego, ghost trails, `.webm` export
 - **[PASS / FAIL verdicts](https://docs.drawtonomy.com/scenario/end-and-fail-conditions/)** on every run
 - **[esmini-ready export](https://docs.drawtonomy.com/guides/export-asam/)** — `.xodr` + `.xosc` zip for desktop esmini
+- **[CommonRoad](https://docs.drawtonomy.com/integrations/commonroad/)** — export scenarios, replay planner solutions with the official verdict: **[Play a CommonRoad scenario](https://www.drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/cutin_commonroad.xml&trace=planner_solution.planning-trace.json&verdict=planner_solution.verdict.json)**
 
 Any public `.xosc` on GitHub runs with one click:
 **[Play a live scenario](https://drawtonomy.com/?open=https://github.com/esmini/esmini/blob/master/resources/xosc/acc-test.xosc)**.
