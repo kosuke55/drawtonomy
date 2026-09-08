@@ -1,0 +1,30 @@
+{
+  "schema": "drawtonomy-verdict/1",
+  "benchmarkId": "KS2:JB1:ZAM_Untitled202609080119-1_1_T-1:2020a",
+  "scenarioId": "ZAM_Untitled202609080119-1_1_T-1",
+  "dt": 0.1,
+  "tool": {
+    "name": "commonroad-drivability-checker",
+    "version": "2025.4.0"
+  },
+  "generatedAt": "2026-09-07T16:20:13Z",
+  "checks": [
+    {
+      "name": "obstacle_collision",
+      "status": "PASS"
+    },
+    {
+      "name": "boundary_collision",
+      "status": "PASS"
+    },
+    {
+      "name": "goal_reached",
+      "status": "PASS"
+    },
+    {
+      "name": "solution_feasible",
+      "status": "PASS",
+      "vehicleModel": "KS"
+    }
+  ]
+}

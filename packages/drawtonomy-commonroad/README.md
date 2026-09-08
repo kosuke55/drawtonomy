@@ -138,6 +138,24 @@ thing that can be connected, and its README explains the two modes it ships with
 `examples/reactive_planner/` connects commonroad-reactive-planner end to end.
 Both are examples: replace the planner half with yours and keep the hand-off half.
 
+### Open the results in your browser
+
+The output of both examples is committed under `tests/fixtures/`, and drawtonomy
+can open a CommonRoad file straight from GitHub through the `?open=` URL
+parameter, with the solution's trace and verdict named next to it. Nothing to
+install:
+
+| example | scenario | result | open |
+|---|---|---|---|
+| reactive planner | cut-in (`cutin_commonroad.xml`) | PASS 4/4 | [open](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/cutin_commonroad.xml&trace=planner_solution.planning-trace.json&verdict=planner_solution.verdict.json) |
+| IDM planner, `idm` mode | straight road (`straight_commonroad.xml`) | PASS 4/4 | [open](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_idm_solution.planning-trace.json&verdict=straight_idm_solution.verdict.json) |
+| IDM planner, `naive` mode | straight road | FAIL, obstacle collision at 3.7 s | [open](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_naive_solution.planning-trace.json&verdict=straight_naive_solution.verdict.json) |
+
+The URL is `?open=<GitHub file URL>&trace=<file>&verdict=<file>`, with the
+companions relative to the opened file. A solution without a trace goes in
+`&solution=<file>` instead. See [`tests/fixtures/ATTRIBUTION.md`](tests/fixtures/ATTRIBUTION.md)
+for where each fixture comes from.
+
 ## Contract documents
 
 | document | what it specifies |

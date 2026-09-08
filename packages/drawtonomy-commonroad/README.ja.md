@@ -137,6 +137,23 @@ commonroad-io と numpy だけです。接続できる最小の構成であり�
 つないだ例です。どちらもあくまで例なので、プランナ側をご自身のものに差し替え、
 受け渡し側はそのまま使ってください。
 
+### 結果をブラウザで開く
+
+両サンプルの出力は `tests/fixtures/` にコミットしてあり、drawtonomy は URL の
+`?open=` パラメータで CommonRoad ファイルを GitHub から直接開けます。solution の
+trace と verdict は隣に名前で指定します。インストールは不要です:
+
+| サンプル | シナリオ | 結果 | 開く |
+|---|---|---|---|
+| reactive planner | カットイン (`cutin_commonroad.xml`) | PASS 4/4 | [開く](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/cutin_commonroad.xml&trace=planner_solution.planning-trace.json&verdict=planner_solution.verdict.json) |
+| IDM planner `idm` モード | 直線道路 (`straight_commonroad.xml`) | PASS 4/4 | [開く](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_idm_solution.planning-trace.json&verdict=straight_idm_solution.verdict.json) |
+| IDM planner `naive` モード | 直線道路 | FAIL、3.7 秒で障害物衝突 | [開く](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_naive_solution.planning-trace.json&verdict=straight_naive_solution.verdict.json) |
+
+URL の形は `?open=<GitHub のファイル URL>&trace=<ファイル>&verdict=<ファイル>` で、
+付随ファイルは開いたファイルからの相対パスです。trace の無い solution は
+`&solution=<ファイル>` で指定します。各 fixture の出どころは
+[`tests/fixtures/ATTRIBUTION.md`](tests/fixtures/ATTRIBUTION.md) を参照してください。
+
 ## 契約ドキュメント
 
 | ドキュメント | 規定している内容 |

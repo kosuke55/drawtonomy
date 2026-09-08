@@ -36,6 +36,13 @@ two modes give the two verdicts:
 | `idm` | PASS | PASS |
 | `naive` | FAIL (t=124..130, obstacle 15) | PASS |
 
+The same two runs on the straight road `tests/fixtures/straight_commonroad.xml`
+(one lane, a slower vehicle ahead of the ego) are committed as
+`tests/fixtures/straight_idm_solution.*` and `straight_naive_solution.*`, and can be
+opened in drawtonomy straight from GitHub: [`idm`, PASS 4/4](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_idm_solution.planning-trace.json&verdict=straight_idm_solution.verdict.json) and
+[`naive`, FAIL at 3.7 s](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_naive_solution.planning-trace.json&verdict=straight_naive_solution.verdict.json). `tests/test_example_idm.py` regenerates
+them from this file, so they stay what the example writes.
+
 ## What to read
 
 The file has two halves. `PLANNER-SPECIFIC` is the planning: route, IDM, the

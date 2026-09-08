@@ -34,6 +34,13 @@ drawtonomy-cr open out/
 | `idm` | PASS | PASS |
 | `naive` | FAIL (t=124..130, obstacle 15) | PASS |
 
+直線道路 `tests/fixtures/straight_commonroad.xml` (1 車線、ego の前に遅い車が 1 台)
+での同じ 2 通りの結果は `tests/fixtures/straight_idm_solution.*` と
+`straight_naive_solution.*` としてコミットしてあり、GitHub から直接 drawtonomy で
+開けます: [`idm`、PASS 4/4](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_idm_solution.planning-trace.json&verdict=straight_idm_solution.verdict.json) と [`naive`、3.7 秒で FAIL](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_naive_solution.planning-trace.json&verdict=straight_naive_solution.verdict.json)。
+`tests/test_example_idm.py` がこのファイルから再生成して一致を検査するので、
+サンプルが書き出すものと食い違いません。
+
 ## 読みどころ
 
 ファイルは 2 つに分かれています。`PLANNER-SPECIFIC` が planning 本体 (経路、IDM、
