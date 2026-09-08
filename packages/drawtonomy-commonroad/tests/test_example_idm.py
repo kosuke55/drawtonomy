@@ -61,3 +61,38 @@ def test_no_trace_flag_writes_only_the_solution(idm_planner, fixtures, tmp_path)
     assert idm_planner.main([scenario, str(tmp_path), "--no-trace"]) == 0
     assert (tmp_path / "planner_solution.xml").is_file()
     assert not (tmp_path / "planner_solution.planning-trace.json").exists()
+
+
+@pytest.mark.parametrize("mode", ["idm", "naive"])
+def test_committed_straight_fixtures_are_what_the_example_writes(idm_planner, fixtures, tmp_path, mode):
+    """`fixtures/straight_<mode>_solution.*` are the example's own output on
+    `straight_commonroad.xml` (a straight road with a slower leader
+    ahead of the ego). They are served as the demo links in the README, so
+    they must stay reproducible from the planner they claim to come from."""
+    from commonroad.common.solution import CommonRoadSolutionReader
+
+    scenario = str(fixtures / "straight_commonroad.xml")
+    assert idm_planner.main([scenario, str(tmp_path), "--mode", mode, "--name", mode]) == 0
+    fresh = CommonRoadSolutionReader.open(str(tmp_path / f"{mode}.xml"))
+    committed = CommonRoadSolutionReader.open(str(fixtures / f"straight_{mode}_solution.xml"))
+    fresh_states = fresh.planning_problem_solutions[0].trajectory.state_list
+    committed_states = committed.planning_problem_solutions[0].trajectory.state_list
+    assert len(fresh_states) == len(committed_states) == 180
+    for a, b in zip(fresh_states, committed_states):
+        assert a.time_step == b.time_step
+        assert abs(a.position[0] - b.position[0]) < 1e-6
+        assert abs(a.position[1] - b.position[1]) < 1e-6
+        assert abs(a.velocity - b.velocity) < 1e-6
+
+    fresh_trace = json.loads((tmp_path / f"{mode}.planning-trace.json").read_text())
+    committed_trace = json.loads((fixtures / f"straight_{mode}_solution.planning-trace.json").read_text())
+    assert fresh_trace["tracks"] == committed_trace["tracks"]
+
+    verdict = json.loads((fixtures / f"straight_{mode}_solution.verdict.json").read_text())
+    assert verdict["scenarioId"] == "ZAM_Untitled202609080119-1_1_T-1"
+    statuses = {c["name"]: c["status"] for c in verdict["checks"]}
+    if mode == "idm":
+        assert statuses == {"obstacle_collision": "PASS", "boundary_collision": "PASS",
+                            "goal_reached": "PASS", "solution_feasible": "PASS"}
+    else:
+        assert statuses["obstacle_collision"] == "FAIL"
