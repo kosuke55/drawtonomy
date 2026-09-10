@@ -2305,3 +2305,91 @@ describe('left-side bundle regeneration (lane-id sign + reference direction)', (
     expect(leftAfter).toBe(leftBefore)
   })
 })
+
+describe('sparse polyline reference lines', () => {
+  // Seven vertices, 17-37 m apart: a hand-drawn boundary, not a sampled curve.
+  // Reading them as curve samples would swing the road up to 1.8 m off the
+  // drawing, so the exporter emits them as chord <line> primitives with a
+  // heading break at each vertex (legal OpenDRIVE: every <geometry> carries
+  // its own hdg). Both the export and the re-import must preserve the folds.
+  const VERTICES: [number, number][] = [
+    [-3.499416, 580.440876],
+    [24.827922, 604.24312],
+    [39.464213, 612.032581],
+    [58.29425, 615.448512],
+    [76.186171, 614.639438],
+    [95.918704, 608.797543],
+    [1994.0389730778652 / 16.67, 9825.840205448205 / 16.67],
+  ]
+
+  function polylineXodr(): string {
+    const geoms: string[] = []
+    let s = 0
+    for (let i = 1; i < VERTICES.length; i++) {
+      const [ax, ay] = VERTICES[i - 1]
+      const [bx, by] = VERTICES[i]
+      const length = Math.hypot(bx - ax, by - ay)
+      const hdg = Math.atan2(by - ay, bx - ax)
+      geoms.push(
+        `<geometry s="${s}" x="${ax}" y="${ay}" hdg="${hdg}" length="${length}"><line/></geometry>`
+      )
+      s += length
+    }
+    return `<?xml version="1.0"?>
+<OpenDRIVE>
+  <header revMajor="1" revMinor="6"/>
+  <road name="polyline" length="${s}" id="1" junction="-1">
+    <planView>
+      ${geoms.join('\n      ')}
+    </planView>
+    <lanes>
+      <laneSection s="0">
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+</OpenDRIVE>`
+  }
+
+  it('survives xodr -> shapes -> xodr with the same vertices and no bulge', () => {
+    const snapshot = snapshotFrom(importXodr(polylineXodr()))
+    if (!snapshot.origin) snapshot.origin = FALLBACK_ORIGIN
+    const reparsed = parseOpenDriveXml(exportToOpenDrive(snapshot))
+    expect(reparsed.roads.length).toBeGreaterThan(0)
+
+    const chordSum = VERTICES.slice(1).reduce(
+      (acc, v, i) => acc + Math.hypot(v[0] - VERTICES[i][0], v[1] - VERTICES[i][1]),
+      0
+    )
+    // The lane boundaries are offset from the reference line, so match the
+    // road whose length is closest to the drawn polyline.
+    const road = reparsed.roads.reduce((best, r) =>
+      Math.abs(r.length - chordSum) < Math.abs(best.length - chordSum) ? r : best
+    )
+    expect(road.length).toBeCloseTo(chordSum, 1)
+
+    // Densely evaluate the exported reference line and confirm it never leaves
+    // the drawn chord polyline: this is the property the old curve-through-
+    // every-vertex fit violated by 1.8 m.
+    let worst = 0
+    for (const sample of sampleReferenceLine(road, { maxStepMeters: 0.5 })) {
+      let best = Infinity
+      for (let i = 1; i < VERTICES.length; i++) {
+        const [ax, ay] = VERTICES[i - 1]
+        const [bx, by] = VERTICES[i]
+        const dx = bx - ax
+        const dy = by - ay
+        const len2 = dx * dx + dy * dy
+        let t = ((sample.x - ax) * dx + (sample.y - ay) * dy) / len2
+        t = Math.max(0, Math.min(1, t))
+        best = Math.min(best, Math.hypot(sample.x - (ax + t * dx), sample.y - (ay + t * dy)))
+      }
+      worst = Math.max(worst, best)
+    }
+    expect(worst).toBeLessThan(1e-3)
+  })
+})

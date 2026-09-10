@@ -13,16 +13,20 @@
 //   chord/heading geometry of a circle), else a cubic Hermite emitted as
 //   paramPoly3. Every accepted fit is verified against the original samples:
 //   maximum position deviation <= posTol and end-heading deviation <= hdgTol.
-// - C1 continuity is guaranteed by construction: each primitive starts at the
-//   analytic end pose of the previous one, and end headings are constrained
-//   to the sampled tangents. When no primitive fits even a single step, the
-//   span degrades — but G1 continuity is a hard invariant at every non-corner
-//   joint (it outranks the position tolerance): such a step takes the
-//   unverified Hermite (chain pose -> end sample + sampled tangent) or the
-//   chain-tangent arc through the endpoint. Only a genuine corner — a vertex
-//   whose implied turn radius is tighter than any drivable road fold —
-//   degrades to the plain chord <line>, confining the heading break to the
-//   corner itself.
+// - The input is only a list of points, so before anything is fitted each
+//   interior vertex is classified: may it be read as a sample OF a smooth
+//   curve, or is it a fold the author drew? The test is whether the curve
+//   reading would move the geometry off the drawn chords by more than the
+//   position tolerance (see "Polyline vertices" below). Folds are honoured
+//   as <line> endpoints with a heading break (G0); everything else is a
+//   curve sample.
+// - Position continuity is unconditional: every primitive starts exactly
+//   where its predecessor ended. Between curve samples the chaining is also
+//   G1 (headings are constrained to the sampled tangents). When no primitive
+//   fits even a single step between curve samples, G1 still outranks the
+//   position tolerance: such a step takes the unverified Hermite (chain pose
+//   -> end sample + sampled tangent) or the chain-tangent arc through the
+//   endpoint, rather than a chord that would kink the road.
 //
 // No external dependencies.
 
@@ -114,11 +118,14 @@ function distToPolyline(p: FitPoint, pts: readonly FitPoint[], i0: number, i1: n
 }
 
 /**
- * Fit a plan-view primitive sequence to a polyline of reference-line samples.
+ * Fit a plan-view primitive sequence to a polyline of reference-line points.
  *
- * The returned geometries are C1-continuous (each starts at the previous
- * one's analytic end pose) except across degraded sharp-corner chords, and
- * deviate from the input samples by at most the position tolerance.
+ * The returned geometries always chain position-exactly (each starts at the
+ * previous one's analytic end pose) and never leave the drawn polyline by
+ * more than the position tolerance. Heading is continuous too, except at
+ * vertices where a smooth reading would itself breach that tolerance — there
+ * the fit keeps the chords the caller drew and lets the heading break, which
+ * is legal OpenDRIVE since every `<geometry>` carries its own `hdg`.
  */
 export function fitPlanView(
   points: readonly FitPoint[],
@@ -249,38 +256,73 @@ export function fitPlanView(
     hdg[i] = median(rawHdg.slice(i - half, i + half + 1))
   }
 
-  // --- Corner flags -----------------------------------------------------------
-  // A polyline vertex is a genuine corner only when its turn is both sharp
-  // AND tight. The deflection angle alone cannot tell a deliberate corner
-  // from a smooth curve that was merely sampled coarsely: a road-scale bend
-  // traced with long chords shows large per-vertex deflections too. The
-  // discriminator is the implied radius of the turn,
-  //   R = min(adjacent chord length) / (2·sin(deflection / 2)),
-  // the radius of the circle that would produce this deflection over the
-  // shorter adjacent chord. Coarsely sampled smooth curves keep R at road
-  // scale; only a real fold (an intersection-grade kink, R below a few
-  // meters) carries a genuine tangent discontinuity. Only there are
-  // end-heading constraints waived (the segmentation naturally breaks at the
-  // corner and the heading discontinuity stays on it).
-  const CORNER_TURN_RAD = 0.3
-  const CORNER_MAX_RADIUS_M = 4
-  const corner: boolean[] = new Array(m).fill(false)
+  // --- Polyline vertices ------------------------------------------------------
+  // The input is a bare list of points; nothing in it says whether the author
+  // meant a smooth curve sampled at these stations or a polyline whose corners
+  // are exactly these vertices. Both readings are legitimate, so the fitter
+  // picks the one that does not misrepresent the drawing:
+  //
+  //   A vertex may be read as a sample OF a smooth curve only when doing so
+  //   does not move the geometry away from the drawn chords by more than the
+  //   position tolerance.
+  //
+  // The displacement is measurable in closed form. For interior vertex i with
+  // adjacent chords c1, c2 and deflection θ, the circle through vertices
+  // i-1, i, i+1 has radius
+  //   R = min(c1, c2) / (2·sin(θ/2)),
+  // and over a chord of length L that circle departs from the chord by the
+  // sagitta
+  //   h = L² / (8R).
+  // Evaluating it on the shorter chord (the one R is derived from) keeps the
+  // measure self-consistent: it is exactly the quantity an adaptive reference-
+  // line sampler bounds when it refines a curve until the midpoint chord
+  // deviation drops under its tolerance, so a curve sampled *legitimately*
+  // always lands at h <= that tolerance while a sparse polyline traced with
+  // road-length chords lands far above it.
+  //
+  // Above the threshold the vertex is a polyline vertex: the fit must pass
+  // through it as a <line> endpoint and let the heading break there (G0).
+  // Below it the vertex is a curve sample and the usual G1 chaining applies.
+  //
+  // The threshold sits a factor POLYLINE_SAGITTA_MARGIN above posTol rather
+  // than exactly at it, because a sampler that refines *to* its tolerance
+  // emits vertices whose sagitta lands just under that tolerance: measured
+  // across the bundled real-world maps (esmini, CARLA), the worst curve-sample
+  // sagitta is 0.048 m at the 0.05 m default — 96% of the way to the line.
+  // Classifying those as folds would shatter genuine curves into chords, so
+  // the threshold must clear the sampler's own output with room to spare.
+  // 1.5x does that (0.075 m vs the measured 0.048 m) while still catching
+  // folds drawn with chords as short as ~2.5 m; a polyline drawn at
+  // road scale clears it by an order of magnitude.
+  //
+  // This subsumes the previous corner rule (a fold tight enough to have been
+  // classified a corner — implied radius under a few metres with a sharp
+  // deflection — has a sagitta far past any tolerance), so no separate
+  // radius test remains.
+  const POLYLINE_SAGITTA_MARGIN = 1.5
+  const polylineSagittaTol = posTol * POLYLINE_SAGITTA_MARGIN
+  const polylineVertex: boolean[] = new Array(m).fill(false)
   for (let i = 1; i < m - 1; i++) {
     const defl = Math.abs(wrapAngle(chordAngle(i) - chordAngle(i - 1)))
-    if (defl <= CORNER_TURN_RAD) continue
-    const impliedRadius = Math.min(chordLen(i - 1), chordLen(i)) / (2 * Math.sin(defl / 2))
-    corner[i] = impliedRadius < CORNER_MAX_RADIUS_M
+    if (defl < 1e-12) continue
+    const shorter = Math.min(chordLen(i - 1), chordLen(i))
+    if (shorter < MIN_SEG_LENGTH) continue
+    // h = L²/(8R) with R = L/(2 sin(θ/2)) collapses to L·sin(θ/2)/4.
+    const sagitta = (shorter * Math.sin(Math.min(defl, Math.PI) / 2)) / 4
+    polylineVertex[i] = sagitta > polylineSagittaTol
   }
 
   /**
-   * End-heading acceptance for a segment ending at sample j. Corners carry no
-   * reliable tangent; C1 continuity is unaffected (it is enforced by chaining
-   * start poses, not by this check). The very last sample IS constrained: its
-   * heading defines the contact cross-section shared with the successor road,
-   * so a primitive may not land there pointing off the data tangent.
+   * End-heading acceptance for a segment ending at sample j. Polyline vertices
+   * carry no curve tangent to honour — the geometry is meant to break there —
+   * so the constraint is waived. C1 continuity elsewhere is unaffected (it is
+   * enforced by chaining start poses, not by this check). The very last sample
+   * IS constrained: its heading defines the contact cross-section shared with
+   * the successor road, so a primitive may not land there pointing off the
+   * data tangent.
    */
   const headingOk = (j: number, endHdg: number): boolean =>
-    corner[j] || Math.abs(wrapAngle(hdg[j] - endHdg)) <= hdgTol
+    polylineVertex[j] || Math.abs(wrapAngle(hdg[j] - endHdg)) <= hdgTol
 
   // --- Primitive candidates (all endpoint-constrained at the chain pose). ---
 
@@ -472,9 +514,25 @@ export function fitPlanView(
     return h.cand
   }
 
-  /** Simplest passing primitive for the span [i..j]. */
-  const bestFit = (pose: GeomPose, i: number, j: number, chained: boolean): Candidate | null =>
-    tryLine(pose, i, j, chained) ?? tryArc(pose, i, j) ?? tryParamPoly3(pose, i, j)
+  /**
+   * Simplest passing primitive for the span [i..j].
+   *
+   * A span may not swallow a polyline vertex in its interior: a curved
+   * primitive drawn through such a vertex is precisely the misrepresentation
+   * the classification exists to prevent, and even a <line> through it would
+   * erase a fold the author drew. Only <line> may span interior vertices at
+   * all here, and only because tryLine additionally checks every one of them
+   * against the position tolerance — which a curve-sample vertex passes by
+   * definition.
+   */
+  const spansPolylineVertex = (i: number, j: number): boolean => {
+    for (let k = i + 1; k < j; k++) if (polylineVertex[k]) return true
+    return false
+  }
+  const bestFit = (pose: GeomPose, i: number, j: number, chained: boolean): Candidate | null => {
+    if (spansPolylineVertex(i, j)) return null
+    return tryLine(pose, i, j, chained) ?? tryArc(pose, i, j) ?? tryParamPoly3(pose, i, j)
+  }
 
   // --- Greedy chained segmentation. ------------------------------------------
   const geometries: OdrGeometry[] = []
@@ -484,7 +542,14 @@ export function fitPlanView(
   let sCum = 0
   let i = 0
   while (i < m - 1) {
-    const chained = geometries.length > 0
+    // A polyline vertex is where the drawing folds: the incoming tangent has
+    // no authority past it. Restart the chain exactly on the vertex and let
+    // the next primitive choose its own direction, so the leg leaving the
+    // fold is the chord the author drew (and the heading break lands on the
+    // vertex, which is legal — every <geometry> carries its own hdg).
+    const leavingFold = i > 0 && polylineVertex[i]
+    if (leavingFold) pose = { x: pts[i].x, y: pts[i].y, hdg: pose.hdg }
+    const chained = geometries.length > 0 && !leavingFold
     let fit = bestFit(pose, i, i + 1, chained)
     let j = i + 1
     if (fit) {
@@ -519,12 +584,12 @@ export function fitPlanView(
       // No primitive fit even a single step. Two very different situations
       // reach here and must be resolved differently:
       //
-      //  - A genuine corner (implied turn radius below CORNER_MAX_RADIUS_M):
-      //    its tangent is undefined, so a heading break at the vertex is
-      //    correct. Degrade to the plain chord <line> (position-continuous;
-      //    the break stays confined to the corner).
+      //  - A polyline vertex on either end of the step: the drawing folds
+      //    here, so a heading break at the vertex is what the author drew.
+      //    Degrade to the plain chord <line> (position-exact at both
+      //    vertices; the break stays confined to the fold).
       //
-      //  - A non-corner vertex the primitive candidates rejected only on
+      //  - A curve-sample vertex the primitive candidates rejected only on
       //    tolerance — e.g. a cubic whose sampled-tangent endpoint condition
       //    makes it bulge just past posTol on a coarse step. Here G1
       //    continuity is a hard invariant that outranks the position
@@ -536,6 +601,12 @@ export function fitPlanView(
       //    tracking the data tangents), falling back to the chain-tangent
       //    arc through the endpoint (C1 at its start joint) and only then —
       //    for pathological steps such as reversals — to the chord line.
+      const isFold = polylineVertex[i] || polylineVertex[i + 1]
+      // Leaving a fold, the chain heading is the tangent the PREVIOUS piece
+      // ended with and carries no authority over this step — honouring it
+      // would bend the chord the author drew. Restart the pose on the vertex
+      // itself so the emitted chord is exact at both ends.
+      if (isFold && polylineVertex[i]) pose = { x: pts[i].x, y: pts[i].y, hdg: pose.hdg }
       const cdx = pts[i + 1].x - pose.x
       const cdy = pts[i + 1].y - pose.y
       const chord = Math.hypot(cdx, cdy)
@@ -548,9 +619,8 @@ export function fitPlanView(
       }
       const chordHdg = Math.atan2(cdy, cdx)
       const deflection = wrapAngle(chordHdg - pose.hdg)
-      const isCorner = corner[i] || corner[i + 1]
       fit = null
-      if (!isCorner) {
+      if (!isFold) {
         if (Math.abs(deflection) <= 1e-9) {
           // Endpoint already lies on the incoming ray: a chain-heading line
           // keeps C1 (the raw chord heading would equal it here anyway).
