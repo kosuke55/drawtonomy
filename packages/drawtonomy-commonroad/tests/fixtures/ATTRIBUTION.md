@@ -16,6 +16,12 @@ scenario. The solution files were written by the planners, the `.verdict.json`
 files by `drawtonomy-cr verdict` (commonroad-drivability-checker), and the
 `.planning-trace.json` file by `TraceWriter`.
 
+`cutin_openscenario.planning-trace.json` is `planner_solution.planning-trace.json`
+with the track addressed by `"name": "Ego"` instead of `"role": "ego"`, so that the
+same planner result can be opened on the OpenSCENARIO original (esmini
+`resources/xosc/cut-in.xosc`), whose entity is named `Ego`. The states are
+unchanged, and `"frame": "center"` still describes them.
+
 ## `straight_*`
 
 `straight_commonroad.xml` was drawn in drawtonomy: one straight road, an ego and
