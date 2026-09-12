@@ -148,11 +148,21 @@ trace と verdict は隣に名前で指定します。インストールは不�
 | reactive planner | カットイン (`cutin_commonroad.xml`) | PASS 4/4 | [開く](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/cutin_commonroad.xml&trace=planner_solution.planning-trace.json&verdict=planner_solution.verdict.json) |
 | IDM planner `idm` モード | 直線道路 (`straight_commonroad.xml`) | PASS 4/4 | [開く](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_idm_solution.planning-trace.json&verdict=straight_idm_solution.verdict.json) |
 | IDM planner `naive` モード | 直線道路 | FAIL、3.7 秒で障害物衝突 | [開く](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_naive_solution.planning-trace.json&verdict=straight_naive_solution.verdict.json) |
+| reactive planner | カットインの **OpenSCENARIO 版** (esmini `cut-in.xosc`) | PASS 4/4 | [開く](https://drawtonomy.com/?open=https%3A%2F%2Fgithub.com%2Fesmini%2Fesmini%2Fblob%2Fmaster%2Fresources%2Fxosc%2Fcut-in.xosc&trace=https%3A%2F%2Fgithub.com%2Fkosuke55%2Fdrawtonomy%2Fblob%2Fmain%2Fpackages%2Fdrawtonomy-commonroad%2Ftests%2Ffixtures%2Fcutin_openscenario.planning-trace.json&verdict=https%3A%2F%2Fgithub.com%2Fkosuke55%2Fdrawtonomy%2Fblob%2Fmain%2Fpackages%2Fdrawtonomy-commonroad%2Ftests%2Ffixtures%2Fplanner_solution.verdict.json) |
 
 URL の形は `?open=<GitHub のファイル URL>&trace=<ファイル>&verdict=<ファイル>` で、
 付随ファイルは開いたファイルからの相対パスです。trace の無い solution は
 `&solution=<ファイル>` で指定します。各 fixture の出どころは
 [`tests/fixtures/ATTRIBUTION.md`](tests/fixtures/ATTRIBUTION.md) を参照してください。
+
+最後の行は、CommonRoad 版の変換元である **OpenSCENARIO のシナリオに同じ planner の結果**
+を載せます。trace は CommonRoad 専用の形式ではありません。どの actor を動かすかを
+trace 自身が持ち、drawtonomy はそれをシーンと突き合わせます。CommonRoad なら
+`"role": "ego"` (planning problem が ego なので名前を持たない)、OpenSCENARIO なら
+`"name": "<エンティティ名>"` (ここでは `"Ego"`) で指定します。
+`cutin_openscenario.planning-trace.json` は `planner_solution.planning-trace.json` の
+その 1 項目だけを変えたものです。別リポジトリの付随ファイルは、この行のように
+GitHub の URL をそのまま書きます。
 
 ## 契約ドキュメント
 

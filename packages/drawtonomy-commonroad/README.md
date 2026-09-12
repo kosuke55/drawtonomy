@@ -150,11 +150,21 @@ install:
 | reactive planner | cut-in (`cutin_commonroad.xml`) | PASS 4/4 | [open](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/cutin_commonroad.xml&trace=planner_solution.planning-trace.json&verdict=planner_solution.verdict.json) |
 | IDM planner, `idm` mode | straight road (`straight_commonroad.xml`) | PASS 4/4 | [open](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_idm_solution.planning-trace.json&verdict=straight_idm_solution.verdict.json) |
 | IDM planner, `naive` mode | straight road | FAIL, obstacle collision at 3.7 s | [open](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_naive_solution.planning-trace.json&verdict=straight_naive_solution.verdict.json) |
+| reactive planner | cut-in as **OpenSCENARIO** (esmini `cut-in.xosc`) | PASS 4/4 | [open](https://drawtonomy.com/?open=https%3A%2F%2Fgithub.com%2Fesmini%2Fesmini%2Fblob%2Fmaster%2Fresources%2Fxosc%2Fcut-in.xosc&trace=https%3A%2F%2Fgithub.com%2Fkosuke55%2Fdrawtonomy%2Fblob%2Fmain%2Fpackages%2Fdrawtonomy-commonroad%2Ftests%2Ffixtures%2Fcutin_openscenario.planning-trace.json&verdict=https%3A%2F%2Fgithub.com%2Fkosuke55%2Fdrawtonomy%2Fblob%2Fmain%2Fpackages%2Fdrawtonomy-commonroad%2Ftests%2Ffixtures%2Fplanner_solution.verdict.json) |
 
 The URL is `?open=<GitHub file URL>&trace=<file>&verdict=<file>`, with the
 companions relative to the opened file. A solution without a trace goes in
 `&solution=<file>` instead. See [`tests/fixtures/ATTRIBUTION.md`](tests/fixtures/ATTRIBUTION.md)
 for where each fixture comes from.
+
+The last row opens the **same planner result on the OpenSCENARIO original** the
+CommonRoad scenario was converted from. A trace is not tied to CommonRoad: it
+says which actor it drives, and drawtonomy matches that against the scene.
+Address the track by `"role": "ego"` for a CommonRoad scenario (a planning
+problem is the ego, so it carries no name) and by `"name": "<entity>"` for an
+OpenSCENARIO one (`"Ego"` here). `cutin_openscenario.planning-trace.json` is
+`planner_solution.planning-trace.json` with that one field changed. Companions
+in another repository are given as full GitHub URLs, as that row does.
 
 ## Contract documents
 
