@@ -22,7 +22,7 @@ the trace extends it.
 | Visual | Means | Source |
 | --- | --- | --- |
 | **Path line** | the authored spec, what the scenario *asks* the actor to do | the scenario you drew |
-| **Ghost** | the authored ego, where the scenario said the vehicle would be | the scene, once a trace or solution is loaded |
+| **Ghost** | stamps of what the actor *actually drove*, laid along the whole run | the trajectory being played back: `driven` once a trace is loaded, otherwise the recording |
 | **Moving vehicle** | what the actor *actually drove* | `driven` (or the solution's trajectory) |
 | **Planned trajectory** | the planner's output, what the planner *decided* | the latest plan, or the future of a plain replay |
 
@@ -131,8 +131,8 @@ with, so drawtonomy needs the same body to draw. `vehicle` records it:
 
 - the **moving vehicle** is drawn, collision-checked and given its trajectory width at the
   planner's `length` x `width`, not the authored size;
-- the **ghost** keeps the authored size, so the difference between what was authored and
-  what was planned stays visible;
+- the **ghost** stamps use the same size, because a ghost is a stamp of the vehicle that is
+  driving;
 - `refToCenter` is used for the centre-to-reference-point conversion of `frame: "center"`
   files. When omitted the authored vehicle's reference offset is used.
 
@@ -209,8 +209,9 @@ A mismatch is refused with an error naming both identifiers, and nothing is load
 ## Loading
 
 A trace **on its own is enough**. Dropping one installs it as the loaded replay: the matched
-actors move along their `driven` states, the authored actors become ghosts, and the planned
-trajectory shows the latest plan. Nothing else has to be loaded.
+actors move along their `driven` states, their ghosts are redrawn along the same states, and
+the planned trajectory shows the latest plan. Nothing else has to be loaded. Actors the trace
+does not name keep the ghosts of the recording.
 
 Loading a solution is optional, and it follows the ordinary rule that **any replay file
 replaces the current one**: drawtonomy keeps exactly one replay loaded.
