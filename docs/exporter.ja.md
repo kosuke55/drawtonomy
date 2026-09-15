@@ -63,7 +63,7 @@ OSM XML をエディタが扱える形式（point / linestring / lane）に戻�
 
 | drawtonomy の図形 | OpenDRIVE 要素 | 備考 |
 | --- | --- | --- |
-| **Lane** | `<road>` 1本 | 1 レーン = 1 独立した道路 |
+| **Lane** | `<road>` の一部 | 横に隣接する同方向レーンは 1 本の road にまとめられます |
 | **TrafficLight** | 最近傍の road 上の `<signal>` | vehicle / pedestrian タイプのみ |
 | **Crosswalk** | `<object type="crosswalk">` | 道路に垂直に配置 |
 | **Polygon** (3点以上) | `<outline>` 付き `<object type="patch">` | 交差点・エリアのビジュアル |
@@ -73,18 +73,26 @@ OSM XML をエディタが扱える形式（point / linestring / lane）に戻�
 
 各 road の仕様:
 
-- **ジオメトリは直線のみ。** 道路参照線はレーンの左右境界からサンプリングされ
-  `<line>` セグメントとして出力されます。`arc`、`spiral`、`poly3` は生成されません。
-- **固定レーン構成。** すべての road に左レーン (`id=1`)、センターレーン (`id=0`)、
-  右レーン (`id=-1`) の3本が `type="driving"` で配置されます。複数レーンや複数
-  レーンセクションは表現されません。
-- **Road marks** は `solid white 0.13 m` にハードコードされています。
-- **ジャンクションなし。** すべての road は `junction="-1"` を持ち、`<junction>`
-  要素は一切生成されません。交差点はポリゴンパッチと、レーンの `next` / `prev`
-  接続 (先頭エントリのみ) から派生した predecessor/successor リンクで表現されます。
-- **高度・スーパーエレベーションなし。** `elevationProfile` と `lateralProfile`
-  は空で出力されます (平面の道路)。
-- スケールは **16.67 px/m** 固定、地理的原点は `0` です。
+- **解析的な plan-view ジオメトリ。** 参照線のポリラインは `odrGeometryFit` が
+  `<line>` / `<arc>` / `<paramPoly3>` にフィットさせます。`.xodr` からインポートして
+  編集しなかった road は、carry-through で元のジオメトリをそのまま保持します。
+- **レーン束。** 横に隣接する同方向のレーン (境界ラインストリングの共有で判定) は
+  1 本の `<road>` にまとめられ、内側から外側へ `-1, -2, …` として出力されます。
+  束全体が `<left>` 側由来ならそちらに出力されます。レーン幅はフィット済み参照線の
+  法線に沿って測った区分線形の `<width>` レコードになります。
+- **Road marks** は境界ごとに解決され、carry-through も尊重します。ハードコードでは
+  ありません。
+- **ジャンクションを出力します。** road レベルのリンクでは表現できない分岐・合流は
+  `<junction>` と短い接続 road として合成され、標準的な incoming → connecting →
+  outgoing の構造になります (`planConnectivity` を参照)。ただし精度は由来によって
+  異なります。インポートした未編集の `.xodr` から carry-through した junction は元の
+  トポロジーを高い忠実度で再現しますが、手描きのレーンから合成した junction はまだ
+  十分な信頼性がありません。
+- **高度** は road が各点の高さを持つ場合に出力されます。高さを持たない road (描画した
+  内容すべてと、平面マップからインポートした road) は空の `<elevationProfile/>` を
+  出力し続けます。スーパーエレベーションは未対応で、`lateralProfile` は空のままです。
+- `<header>` には常に `<geoReference>` を出力します。carry-through の場合は元ファイルの
+  ヘッダーを保持します。
 
 ### OpenSCENARIO (`.xosc`) への変換
 
@@ -522,8 +530,8 @@ function exportToOpenDrive(snapshot: DrawtonomySnapshot): string
 OpenDRIVE 1.8 の XML 文字列を返します。`LaneShape` は `<road>`、
 `TrafficLightShape` は `<signal>`、`CrosswalkShape` と `PolygonShape` は
 `<object>` として出力されます。レーン接続 (`next` / `prev`) は road レベルと
-lane レベルの `<link>` 要素として書かれます。junction はまだ未対応です
-(後述 [ロードマップ](#ロードマップ))。
+lane レベルの `<link>` 要素として書かれ、road レベルのリンクでは表現できない
+分岐・合流は `<junction>` と短い接続 road として合成されます。
 
 ### `exportToOpenScenario(snapshot, options?)`
 
@@ -796,15 +804,8 @@ px ↔ m 変換係数と y 軸反転を全 exporter で一貫させるための�
 
 ### シェイプ対応
 
-- `TrafficSign` → OpenDRIVE `<signal>` (stop / yield / 速度制限等)
 - `Others` (例: 建物) → OpenDRIVE `<object type="building">`
 - 自転車テンプレート → `<Vehicle vehicleCategory="bicycle">`
-
-### レーン接続
-
-- junction (`<junction>`) 出力。3 本以上のレーンが端点を共有する場合の
-  分岐情報。`LaneShape` は既に `next` / `prev` を持っているので、
-  そのデータから判定できる。
 
 ### アニメーション機能
 
