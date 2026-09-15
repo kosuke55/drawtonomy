@@ -65,7 +65,7 @@ exact scope keeps the output honest — here is precisely what is emitted.
 
 | drawtonomy shape | OpenDRIVE element | Notes |
 | --- | --- | --- |
-| **Lane** | one `<road>` | 1 lane = 1 independent road |
+| **Lane** | part of a `<road>` | laterally adjacent same-direction lanes share one road |
 | **TrafficLight** | `<signal>` on the nearest road | vehicle / pedestrian type only |
 | **Crosswalk** | `<object type="crosswalk">` | placed perpendicular to the road |
 | **Polygon** (≥3 points) | `<object type="patch">` + `<outline>` | fills intersection / area visuals |
@@ -75,20 +75,30 @@ text, images — is **not** written to the `.xodr`.
 
 How far each road goes:
 
-- **Straight-line geometry only.** The reference line is sampled from the
-  lane's left/right boundaries and emitted as `<line>` segments. No `arc`,
-  `spiral`, or `poly3`.
-- **Fixed lane layout.** Every road gets one left lane (`id=1`), one center
-  lane (`id=0`), and one right lane (`id=-1`), all `type="driving"`.
-  Multi-lane roads and multiple lane sections are not represented.
-- **Road marks** are hard-coded to a `solid white 0.13 m` line.
-- **No junctions.** Every road carries `junction="-1"` and **no `<junction>`
-  element is generated.** Intersections are conveyed only by the polygon patch
-  and by predecessor/successor links derived from the lane's `next` / `prev`
-  connections (first entry only).
-- **No elevation / superelevation** — `elevationProfile` and `lateralProfile`
-  are emitted empty (flat, planar roads).
-- Scale is fixed at **16.67 px/m**; the geographic origin is `0`.
+- **Analytic plan-view geometry.** The reference polyline is fitted into
+  `<line>`, `<arc>`, and `<paramPoly3>` primitives by `odrGeometryFit`. Roads
+  imported from a `.xodr` and left unedited keep their original geometry
+  verbatim through carry-through.
+- **Lane bundles.** Laterally adjacent same-direction lanes (detected through
+  shared boundary linestrings) are grouped into one `<road>` and emitted as
+  lanes `-1, -2, …` from inner to outer, or on the `<left>` side when the whole
+  bundle came from there. Lane widths are piecewise-linear `<width>` records
+  measured along the fitted reference normals.
+- **Road marks** are resolved per boundary and honor carry-through, rather than
+  being hard-coded.
+- **Junctions are emitted.** Branch and merge edges that road-level links
+  cannot express are synthesized into `<junction>` elements with short
+  connecting roads, so the standard incoming → connecting → outgoing structure
+  holds (see `planConnectivity`). Accuracy differs by origin: junctions carried
+  through from an imported, unedited `.xodr` reproduce the original topology
+  with high fidelity, while junctions synthesized from hand-drawn lanes are not
+  yet reliable.
+- **Elevation** is emitted from per-point heights when the road carries them;
+  roads without heights (all drawn content, and imported roads from flat maps)
+  keep emitting an empty `<elevationProfile/>`. Superelevation is not
+  supported — `lateralProfile` stays empty.
+- A `<geoReference>` is always written into the `<header>`. Carry-through keeps
+  the source file's original header.
 
 ### Into OpenSCENARIO (`.xosc`)
 
@@ -536,8 +546,9 @@ function exportToOpenDrive(snapshot: DrawtonomySnapshot): string
 Returns an OpenDRIVE 1.8 XML string. Each `LaneShape` becomes a `<road>`;
 each `TrafficLightShape` becomes a `<signal>`; each `CrosswalkShape` and
 `PolygonShape` becomes an `<object>`. Lane connectivity (`next` / `prev`) is
-written as road-level and lane-level `<link>` elements. Junctions are not
-yet emitted (see [Roadmap](#roadmap)).
+written as road-level and lane-level `<link>` elements, and branch / merge
+edges that those links cannot express are synthesized into `<junction>`
+elements with short connecting roads.
 
 ### `exportToOpenScenario(snapshot, options?)`
 
@@ -812,15 +823,8 @@ changes outside of `packages/drawtonomy-sdk/src/exporter/`.
 
 ### Shape coverage
 
-- `TrafficSign` → OpenDRIVE `<signal>` (stop / yield / speed limit)
 - `Others` (e.g. buildings) → OpenDRIVE `<object type="building">`
 - Bicycle template → `<Vehicle vehicleCategory="bicycle">`
-
-### Lane connectivity
-
-- Junction emission (`<junction>`) for lanes that share endpoints with 3+
-  other lanes. The required `next` / `prev` data is already present on
-  `LaneShape`.
 
 ### Animation features
 
