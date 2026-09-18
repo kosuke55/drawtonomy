@@ -1,5 +1,7 @@
 {
   "schema": "drawtonomy-verdict/1",
+  "scenarioFingerprint": "sha256:914a4300443dcf4bc585c7e43769983b4932c22bf69be37ac02bd086c1d5ab33",
+  "solutionFingerprint": "sha256:b671bc93924fdd60379006c98d180c1dc1bf86e613e0bdd21d29a2a6b8f097fc",
   "benchmarkId": "KS2:JB1:ZAM_Untitled202609011139-1_1_T-1:2020a",
   "scenarioId": "ZAM_Untitled202609011139-1_1_T-1",
   "dt": 0.1,
@@ -7,7 +9,7 @@
     "name": "commonroad-drivability-checker",
     "version": "2025.4.0"
   },
-  "generatedAt": "2026-09-03T04:53:00Z",
+  "generatedAt": "2026-09-18T13:57:35Z",
   "checks": [
     {
       "name": "solved_all_problems",
