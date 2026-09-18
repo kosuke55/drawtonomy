@@ -655,7 +655,7 @@ def test_an_equally_old_verdict_is_not_stale_whatever_the_file_sizes(
 
 
 def test_startup_does_not_serve_a_verdict_older_than_the_solution(
-    results: Path, capsys
+    results: Path, capsys, monkeypatch
 ) -> None:
     """At startup a verdict older than the solution is left out of the URL, and
     one line names the command that recomputes it.
@@ -664,6 +664,8 @@ def test_startup_does_not_serve_a_verdict_older_than_the_solution(
     produced, typically in Docker, so rerunning the planner leaves a colliding
     solution sitting next to a PASS verdict. That pair is not served.
     """
+    # This path assumes no local checker; otherwise startup recomputes the verdict.
+    monkeypatch.setattr("drawtonomy_cr.cli.checker_available", lambda: False)
     verdict = results / "planner_solution.verdict.json"
     now = time.time()
     _set_mtime(verdict, now - 60)

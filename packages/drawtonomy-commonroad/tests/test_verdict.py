@@ -111,7 +111,10 @@ def test_verdict_output_shape_matches_the_committed_fixture(fixtures, tmp_path):
     want = json.loads((fixtures / "cutin_solution.verdict.json").read_text("utf-8"))
 
     assert got["schema"] == want["schema"]
-    assert sorted(got.keys()) == sorted(want.keys())
+    assert set(got) == set(want) | {"scenarioFingerprint", "solutionFingerprint"}
+    for key, filename in (("scenarioFingerprint", "cutin_commonroad.xml"),
+                          ("solutionFingerprint", "cutin_solution.xml")):
+        assert got[key] == verdict_mod._input_fingerprint((fixtures / filename).read_bytes())
     assert [c["name"] for c in got["checks"]] == [c["name"] for c in want["checks"]]
     assert got["tool"]["name"] == "commonroad-drivability-checker"
     assert got["scenarioId"] == want["scenarioId"]

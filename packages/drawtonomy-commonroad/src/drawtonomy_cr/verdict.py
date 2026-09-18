@@ -27,8 +27,10 @@ The output schema is `drawtonomy-verdict/1`, specified in
 """
 
 import datetime
+import hashlib
 import json
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 #: Exit code used when commonroad-drivability-checker is not installed.
 CHECKER_MISSING_EXIT_CODE = 3
@@ -470,16 +472,33 @@ def _feasibility_detail(scenario, pps, solution) -> dict:
     return {}
 
 
+def _input_fingerprint(raw: bytes) -> str:
+    """SHA-256 of UTF-8 text, without one leading BOM, with LF line endings."""
+    text = raw.decode("utf-8-sig").replace("\r\n", "\n").replace("\r", "\n")
+    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
 def build_verdict(scenario_path: Path, solution_path: Path) -> dict:
-    """Build the verdict sidecar. Pure: writing it is the caller's job."""
+    """Build a verdict bound to the captured inputs; writing it is the caller's job."""
     if not checker_available():
         raise CheckerNotInstalled(CHECKER_MISSING_MESSAGE)
 
     from commonroad.common.file_reader import CommonRoadFileReader
     from commonroad.common.solution import CommonRoadSolutionReader
 
-    scenario, pps = CommonRoadFileReader(str(scenario_path)).open()
-    solution = CommonRoadSolutionReader.open(str(solution_path))
+    # Read each source once. The official readers and the fingerprints must use
+    # the same captured bytes even if a planner overwrites the original files.
+    scenario_bytes = scenario_path.read_bytes()
+    solution_bytes = solution_path.read_bytes()
+    scenario_fingerprint = _input_fingerprint(scenario_bytes)
+    solution_fingerprint = _input_fingerprint(solution_bytes)
+    with TemporaryDirectory(prefix="drawtonomy-verdict-") as directory:
+        scenario_input = Path(directory) / "scenario.xml"
+        solution_input = Path(directory) / "solution.xml"
+        scenario_input.write_bytes(scenario_bytes)
+        solution_input.write_bytes(solution_bytes)
+        scenario, pps = CommonRoadFileReader(str(scenario_input)).open()
+        solution = CommonRoadSolutionReader.open(str(solution_input))
 
     checks = _run_official_checks(scenario, pps, solution)
     by_name = {c["name"]: c for c in checks}
@@ -502,6 +521,8 @@ def build_verdict(scenario_path: Path, solution_path: Path) -> dict:
 
     return {
         "schema": SCHEMA,
+        "scenarioFingerprint": scenario_fingerprint,
+        "solutionFingerprint": solution_fingerprint,
         "benchmarkId": solution.benchmark_id,
         "scenarioId": str(scenario.scenario_id),
         "dt": float(scenario.dt),
