@@ -69,12 +69,17 @@ drawtonomy-cr verdict scenario.xml solution.xml
 | `FAIL` | 公式チェックが実行され、例外を送出した。`message` にその例外が入ります。 |
 | `SKIP` | 必要なツールが無いため、チェックを**実行できなかった**。solution に対する判定ではありません。 |
 
-`drawtonomy-cr verdict` が書き出す 4 つのチェックは、順に
-`obstacle_collision`, `boundary_collision`, `goal_reached`,
+`drawtonomy-cr verdict` が書き出す 7 つのチェックは、順に
+`solved_all_problems`, `goal_reached`, `starts_at_correct_state`,
+`obstacle_collision`, `boundary_collision`, `ego_collision`,
 `solution_feasible` で、公式の
-`commonroad_dc.feasibility.solution_checker` が提供する 4 つです。`name` は自由な
-文字列なので、他の生成側が別の名前を書いても構いませんが、この 4 つを推奨セット
-とします。
+`commonroad_dc.feasibility.solution_checker.valid_solution` が実行するものと
+同じ集合・同じ順序です (CommonRoad 公式サイトの受理判定の基準でもあります)。
+`name` は自由な文字列なので、他の生成側が別の名前を書いても構いませんが、
+この 7 つを推奨セットとします。
+
+`message` は常に 1 行です。公式の `starts_at_correct_state` の本文には改行が
+含まれますが、`; ` に置き換えて 1 文として書き出します。
 
 ### チェックに現れうるフィールド
 
@@ -144,7 +149,7 @@ drawtonomy-cr verdict scenario.xml solution.xml
 }
 ```
 
-残り 3 つのチェックは実行され、`drawtonomy-cr verdict` の終了コードも 0 のままです。
+残り 6 つのチェックは実行され、`drawtonomy-cr verdict` の終了コードも 0 のままです。
 消費側は SKIP を FAIL として描画せず、「判定済み」の数にも含めるべきではありません。
 
 ## サイドカーと solution の対応付け

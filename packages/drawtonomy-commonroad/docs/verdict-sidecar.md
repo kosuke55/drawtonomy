@@ -68,11 +68,18 @@ kinematic feasibility judgement drawtonomy cannot produce on its own.
 | `FAIL` | The official check ran and raised. `message` carries the exception. |
 | `SKIP` | The check **could not be run**, because a tool it needs is missing. This is not a judgement about the solution. |
 
-The four checks written by `drawtonomy-cr verdict`, in order, are
-`obstacle_collision`, `boundary_collision`, `goal_reached` and
-`solution_feasible` - the four the official
-`commonroad_dc.feasibility.solution_checker` provides. `name` is a free string,
-so other producers may write other names, but these four are the recommended set.
+The seven checks written by `drawtonomy-cr verdict`, in order, are
+`solved_all_problems`, `goal_reached`, `starts_at_correct_state`,
+`obstacle_collision`, `boundary_collision`, `ego_collision` and
+`solution_feasible` - exactly the checks the official
+`commonroad_dc.feasibility.solution_checker.valid_solution` runs, in its order,
+which is the basis for acceptance on the CommonRoad website. `name` is a free
+string, so other producers may write other names, but these seven are the
+recommended set.
+
+`message` is always one line: the official `starts_at_correct_state` text
+contains newlines, and they are written as `; ` so the message reads as a single
+sentence.
 
 ### Fields that may appear on a check
 
@@ -145,7 +152,7 @@ with a one-line message naming the next step:
 }
 ```
 
-The other three checks still run, and `drawtonomy-cr verdict` still exits 0.
+The other six checks still run, and `drawtonomy-cr verdict` still exits 0.
 A consumer should exclude SKIP from what it counts as judged, rather than
 rendering it as FAIL.
 

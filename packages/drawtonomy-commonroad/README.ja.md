@@ -13,7 +13,7 @@ scenario.xml  (CommonRoad 2020a, exported from drawtonomy)
       +-- optional --> solution.planning-trace.json   (drawtonomy_cr.trace.TraceWriter)
       |
       v (drawtonomy-cr post-processes)
-solution.verdict.json   (drawtonomy-verdict/1, the official checker's 4 verdicts)
+solution.verdict.json   (drawtonomy-verdict/1, the official checker's 7 verdicts)
 ```
 
 **必須のファイルは solution XML だけ**です。それ以外はすべて任意で、リプレイと
@@ -30,7 +30,7 @@ pip install "drawtonomy-commonroad[boundary]"     # + the road boundary check
 `[boundary]` の extra は Shewchuk の Triangle を追加します。`boundary_collision` は
 これを使って道路を三角形分割します。Triangle は非商用利用は無償ですが商用利用には
 作者の許諾が必要なため、既定の依存関係には入れていません。無い場合 `boundary_collision`
-は FAIL ではなく SKIP として報告され、残り 3 つのチェックは実行されます。
+は FAIL ではなく SKIP として報告され、残り 6 つのチェックは実行されます。
 
 ## `drawtonomy-cr verdict`
 
@@ -38,8 +38,10 @@ pip install "drawtonomy-commonroad[boundary]"     # + the road boundary check
 drawtonomy-cr verdict scenario.xml solution.xml [-o out.json]
 ```
 
-公式チェッカの 4 つのテスト (`obstacle_collision`, `boundary_collision`,
-`goal_reached`, `solution_feasible`) を実行し、結果を `drawtonomy-verdict/1`
+公式の `valid_solution` と同じ 7 つのテストを同じ順で 1 つずつ実行し
+(`solved_all_problems`, `goal_reached`, `starts_at_correct_state`,
+`obstacle_collision`, `boundary_collision`, `ego_collision`,
+`solution_feasible`)、結果を `drawtonomy-verdict/1`
 サイドカーとして solution の隣に書き出します (`-o` を省略した場合は
 `<solution stem>.verdict.json`)。solution と一緒に drawtonomy へドロップすると、
 PASS / FAIL バッジ、衝突したタイムステップ、関与した障害物を確認できます。
@@ -145,10 +147,10 @@ trace と verdict は隣に名前で指定します。インストールは不�
 
 | サンプル | シナリオ | 結果 | 開く |
 |---|---|---|---|
-| reactive planner | カットイン (`cutin_commonroad.xml`) | PASS 4/4 | [開く](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/cutin_commonroad.xml&trace=planner_solution.planning-trace.json&verdict=planner_solution.verdict.json) |
-| IDM planner `idm` モード | 直線道路 (`straight_commonroad.xml`) | PASS 4/4 | [開く](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_idm_solution.planning-trace.json&verdict=straight_idm_solution.verdict.json) |
-| IDM planner `naive` モード | 直線道路 | FAIL、3.7 秒で障害物衝突 | [開く](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_naive_solution.planning-trace.json&verdict=straight_naive_solution.verdict.json) |
-| reactive planner | カットインの **OpenSCENARIO 版** (esmini `cut-in.xosc`) | PASS 4/4 | [開く](https://drawtonomy.com/?open=https%3A%2F%2Fgithub.com%2Fesmini%2Fesmini%2Fblob%2Fmaster%2Fresources%2Fxosc%2Fcut-in.xosc&trace=https%3A%2F%2Fgithub.com%2Fkosuke55%2Fdrawtonomy%2Fblob%2Fmain%2Fpackages%2Fdrawtonomy-commonroad%2Ftests%2Ffixtures%2Fcutin_openscenario.planning-trace.json&verdict=https%3A%2F%2Fgithub.com%2Fkosuke55%2Fdrawtonomy%2Fblob%2Fmain%2Fpackages%2Fdrawtonomy-commonroad%2Ftests%2Ffixtures%2Fplanner_solution.verdict.json) |
+| reactive planner | カットイン (`cutin_commonroad.xml`) | PASS 7/7 | [開く](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/cutin_commonroad.xml&trace=planner_solution.planning-trace.json&verdict=planner_solution.verdict.json) |
+| IDM planner `idm` モード | 直線道路 (`straight_commonroad.xml`) | FAIL, 初期状態の 1 ステップ後から始まる (6/7) | [開く](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_idm_solution.planning-trace.json&verdict=straight_idm_solution.verdict.json) |
+| IDM planner `naive` モード | 直線道路 | FAIL、3.7 秒で障害物衝突 (5/7) | [開く](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_naive_solution.planning-trace.json&verdict=straight_naive_solution.verdict.json) |
+| reactive planner | カットインの **OpenSCENARIO 版** (esmini `cut-in.xosc`) | PASS 7/7 | [開く](https://drawtonomy.com/?open=https%3A%2F%2Fgithub.com%2Fesmini%2Fesmini%2Fblob%2Fmaster%2Fresources%2Fxosc%2Fcut-in.xosc&trace=https%3A%2F%2Fgithub.com%2Fkosuke55%2Fdrawtonomy%2Fblob%2Fmain%2Fpackages%2Fdrawtonomy-commonroad%2Ftests%2Ffixtures%2Fcutin_openscenario.planning-trace.json&verdict=https%3A%2F%2Fgithub.com%2Fkosuke55%2Fdrawtonomy%2Fblob%2Fmain%2Fpackages%2Fdrawtonomy-commonroad%2Ftests%2Ffixtures%2Fplanner_solution.verdict.json) |
 
 URL の形は `?open=<GitHub のファイル URL>&trace=<ファイル>&verdict=<ファイル>` で、
 付随ファイルは開いたファイルからの相対パスです。trace の無い solution は
