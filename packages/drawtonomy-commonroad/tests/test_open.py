@@ -613,9 +613,45 @@ def test_busy_port_exits_2_with_one_line(results: Path, capsys) -> None:
 
 
 def _set_mtime(path: Path, when: float) -> None:
-    """Set the mtime explicitly. `_stat_mtime` folds in the size too, so keep
-    the gaps whole seconds wide."""
+    """Set the mtime explicitly."""
     os.utime(path, (when, when))
+
+
+def test_an_equally_old_verdict_is_not_stale_whatever_the_file_sizes(
+    results: Path,
+) -> None:
+    """A verdict written in the same instant as the solution is fresh.
+
+    `verdict_is_stale` used to read `_stat_mtime`, which adds `size * 1e-9` to
+    the mtime so that a rewrite of the same length still counts as a change.
+    Across two *different* files that term is noise: a solution XML runs to tens
+    of kilobytes and a verdict JSON to under one, so the solution looked up to
+    ~50 us newer than the verdict for no reason but its size. Any pair written
+    within that margin - which is every pair on a filesystem whose mtimes are
+    coarse enough for both writes to land in one tick - was reported as
+    "verdict is older than the solution and is not shown", and a perfectly good
+    verdict was withheld. It showed up as this suite failing on some CI runners
+    and passing on others with the same code.
+    """
+    from drawtonomy_cr.serve import verdict_is_stale
+
+    verdict = results / "planner_solution.verdict.json"
+    solution = results / "planner_solution.xml"
+    # The size gap that did the damage; the test is pointless without it.
+    assert solution.stat().st_size > verdict.stat().st_size * 10
+
+    same = time.time()
+    _set_mtime(verdict, same)
+    _set_mtime(solution, same)
+    assert verdict_is_stale(verdict, solution, verdict_is_ours=False) is False
+
+    # A verdict even slightly newer is likewise fresh, however much smaller.
+    _set_mtime(verdict, same + 0.001)
+    assert verdict_is_stale(verdict, solution, verdict_is_ours=False) is False
+
+    # And a genuinely older one is still caught: the check is not weakened.
+    _set_mtime(verdict, same - 0.001)
+    assert verdict_is_stale(verdict, solution, verdict_is_ours=False) is True
 
 
 def test_startup_does_not_serve_a_verdict_older_than_the_solution(

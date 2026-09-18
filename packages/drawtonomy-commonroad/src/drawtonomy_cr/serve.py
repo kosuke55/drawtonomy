@@ -290,10 +290,20 @@ def verdict_is_stale(
     solution change, so it is not considered here; only a user-provided verdict
     is. If either file cannot be stat'ed, nothing is called stale - the reason it
     is unreadable is not guessed at.
+
+    This compares the plain mtimes, **not** `_stat_mtime`. That helper folds the
+    file size into the number so that a write which leaves the mtime alone still
+    registers as a change; that is right when one file is compared with its own
+    earlier self, and wrong here, where two *different* files are ordered. A
+    solution XML is tens of kilobytes and a verdict JSON is under one, so the
+    size term alone made the solution look up to ~50 us newer than the verdict.
+    Whenever both files were written within that margin - the ordinary case, and
+    guaranteed on a filesystem whose mtimes are coarse enough that the two writes
+    share a tick - a perfectly fresh verdict was declared stale and withheld.
     """
     if verdict_is_ours or verdict is None or solution is None:
         return False
-    v, sol = _stat_mtime(verdict), _stat_mtime(solution)
+    v, sol = _mtime(verdict), _mtime(solution)
     if v is None or sol is None:
         return False
     return v < sol
@@ -558,13 +568,32 @@ class ResultServer(ThreadingHTTPServer):
 # --------------------------------------------------------------------------
 
 
+def _mtime(path: Path) -> float | None:
+    """The plain modification time, for ordering two different files.
+
+    Use this - never `_stat_mtime` - when the question is "was A written before
+    B". `_stat_mtime`'s size term is meaningless across files and biases the
+    comparison towards the larger one.
+    """
+    try:
+        return path.stat().st_mtime
+    except OSError:
+        return None
+
+
 def _stat_mtime(path: Path) -> float | None:
+    """A change token for **one** file watched over time.
+
+    Size is folded in too, to catch a write that grows the file while leaving the
+    mtime unchanged (some editors overwrite this way). The result is only ever
+    compared with an earlier reading of the same path - comparing it across two
+    different files orders them by size as much as by time, so use `_mtime` for
+    that.
+    """
     try:
         st = path.stat()
     except OSError:
         return None
-    # Size is folded in too, to catch a write that grows the file while leaving
-    # the mtime unchanged (some editors overwrite this way).
     return st.st_mtime + st.st_size * 1e-9
 
 
