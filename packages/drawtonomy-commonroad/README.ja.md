@@ -150,19 +150,20 @@ commonroad-io と numpy だけです。接続できる最小の構成であり�
 
 両サンプルの出力は `tests/fixtures/` にコミットしてあり、drawtonomy は URL の
 `?open=` パラメータで CommonRoad ファイルを GitHub から直接開けます。solution の
-trace と verdict は隣に名前で指定します。インストールは不要です:
+判定を見るリンクは solution と verdict、計画を見るリンクは trace を読み込みます。インストールは不要です:
 
-| サンプル | シナリオ | 結果 | 開く |
-|---|---|---|---|
-| reactive planner | カットイン (`cutin_commonroad.xml`) | PASS 7/7 | [開く](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/cutin_commonroad.xml&trace=planner_solution.planning-trace.json&verdict=planner_solution.verdict.json) |
-| IDM planner `idm` モード | 直線道路 (`straight_commonroad.xml`) | FAIL, 初期状態の 1 ステップ後から始まる (6/7) | [開く](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_idm_solution.planning-trace.json&verdict=straight_idm_solution.verdict.json) |
-| IDM planner `naive` モード | 直線道路 | FAIL、3.7 秒で障害物衝突 (5/7) | [開く](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_naive_solution.planning-trace.json&verdict=straight_naive_solution.verdict.json) |
-| reactive planner | カットインの **OpenSCENARIO 版** (esmini `cut-in.xosc`) | PASS 7/7 | [開く](https://drawtonomy.com/?open=https%3A%2F%2Fgithub.com%2Fesmini%2Fesmini%2Fblob%2Fmaster%2Fresources%2Fxosc%2Fcut-in.xosc&trace=https%3A%2F%2Fgithub.com%2Fkosuke55%2Fdrawtonomy%2Fblob%2Fmain%2Fpackages%2Fdrawtonomy-commonroad%2Ftests%2Ffixtures%2Fcutin_openscenario.planning-trace.json&verdict=https%3A%2F%2Fgithub.com%2Fkosuke55%2Fdrawtonomy%2Fblob%2Fmain%2Fpackages%2Fdrawtonomy-commonroad%2Ftests%2Ffixtures%2Fplanner_solution.verdict.json) |
+| サンプル | シナリオ | 結果 | 判定を見る | 計画を見る |
+|---|---|---|---|---|
+| reactive planner | カットイン (`cutin_commonroad.xml`) | PASS 7/7 | [判定](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/cutin_commonroad.xml&solution=planner_solution.xml&verdict=planner_solution.verdict.json) | [計画](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/cutin_commonroad.xml&trace=planner_solution.planning-trace.json) |
+| IDM planner `idm` モード | 直線道路 (`straight_commonroad.xml`) | FAIL, 初期状態の 1 ステップ後から始まる (6/7) | [判定](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&solution=straight_idm_solution.xml&verdict=straight_idm_solution.verdict.json) | [計画](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_idm_solution.planning-trace.json) |
+| IDM planner `naive` モード | 直線道路 | FAIL、3.7 秒で障害物衝突 (5/7) | [判定](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&solution=straight_naive_solution.xml&verdict=straight_naive_solution.verdict.json) | [計画](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_naive_solution.planning-trace.json) |
+| reactive planner | カットインの **OpenSCENARIO 版** (esmini `cut-in.xosc`) | traceのみ | — | [計画](https://drawtonomy.com/?open=https%3A%2F%2Fgithub.com%2Fesmini%2Fesmini%2Fblob%2Fmaster%2Fresources%2Fxosc%2Fcut-in.xosc&trace=https%3A%2F%2Fgithub.com%2Fkosuke55%2Fdrawtonomy%2Fblob%2Fmain%2Fpackages%2Fdrawtonomy-commonroad%2Ftests%2Ffixtures%2Fcutin_openscenario.planning-trace.json) |
 
-URL の形は `?open=<GitHub のファイル URL>&trace=<ファイル>&verdict=<ファイル>` で、
-付随ファイルは開いたファイルからの相対パスです。trace の無い solution は
-`&solution=<ファイル>` で指定します。各 fixture の出どころは
-[`tests/fixtures/ATTRIBUTION.md`](tests/fixtures/ATTRIBUTION.md) を参照してください。
+判定を見るリンクは `?open=<GitHub file URL>&solution=<file>&verdict=<file>` です。
+計画を見るリンクは verdict を付けず `&trace=<file>` を使います。trace 単体では
+判定対象の solution との同一性を確認できないため、trace と verdict を同時に指定すると
+判定は未照合表示になります。付随ファイル名は開くファイルからの相対パスです。
+出所と再生成方法は [`tests/fixtures/ATTRIBUTION.md`](tests/fixtures/ATTRIBUTION.md) を参照してください。
 
 最後の行は、CommonRoad 版の変換元である **OpenSCENARIO のシナリオに同じ planner の結果**
 を載せます。trace は CommonRoad 専用の形式ではありません。どの actor を動かすかを

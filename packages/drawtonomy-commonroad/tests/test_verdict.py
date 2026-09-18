@@ -363,6 +363,9 @@ def test_committed_verdict_fixtures_carry_the_seven_checks(fixtures, name):
     order, so the demo links show what the CommonRoad website would say."""
     v = json.loads((fixtures / f"{name}.verdict.json").read_text("utf-8"))
     assert v["schema"] == "drawtonomy-verdict/1"
+    scenario = "straight_commonroad.xml" if name.startswith("straight_") else "cutin_commonroad.xml"
+    assert v["scenarioFingerprint"] == verdict_mod._input_fingerprint((fixtures / scenario).read_bytes())
+    assert v["solutionFingerprint"] == verdict_mod._input_fingerprint((fixtures / f"{name}.xml").read_bytes())
     assert [c["name"] for c in v["checks"]] == list(verdict_mod.OFFICIAL_CHECK_NAMES)
     for check in v["checks"]:
         assert check["status"] in ("PASS", "FAIL", "SKIP")

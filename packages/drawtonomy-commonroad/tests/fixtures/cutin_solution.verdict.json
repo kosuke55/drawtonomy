@@ -9,7 +9,7 @@
     "name": "commonroad-drivability-checker",
     "version": "2025.4.0"
   },
-  "generatedAt": "2026-09-03T04:52:49Z",
+  "generatedAt": "2026-09-18T13:57:37Z",
   "checks": [
     {
       "name": "solved_all_problems",
@@ -45,7 +45,17 @@
     {
       "name": "solution_feasible",
       "status": "FAIL",
-      "message": "Exception: infeasible for planning problems [16]",
+      "message": "1 of 217 state transitions (0.2-0.2 s) needs an acceleration beyond the PM limit of 11.5 m/s^2; position drifts up to 0.0 cm from the simulated state (tolerance 2 cm).",
+      "timeSteps": [
+        2,
+        2
+      ],
+      "planningProblemId": 16,
+      "reason": "acceleration",
+      "infeasibleTransitions": 1,
+      "transitions": 217,
+      "maxPositionError": 0.0,
+      "accelerationLimit": 11.5,
       "vehicleModel": "PM"
     }
   ]

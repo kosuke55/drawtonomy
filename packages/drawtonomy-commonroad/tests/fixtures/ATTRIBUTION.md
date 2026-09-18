@@ -30,3 +30,20 @@ contains no third-party content. `straight_idm_solution.*` and
 `straight_naive_solution.*` are the output of `examples/idm_planner/idm_planner.py`
 in its two modes on that scenario, judged with `drawtonomy-cr verdict`.
 `tests/test_example_idm.py` regenerates them and checks that they match.
+
+## Verdict regeneration (2026-09-18)
+
+All four verdicts were regenerated with `drawtonomy-cr verdict`, using
+commonroad-io 2024.3, commonroad-drivability-checker 2025.4.0 and triangle
+20250106. Both input fingerprints identify the committed XML files. The seven
+check statuses are unchanged; collision/feasibility details come from this run.
+
+For `planner_solution` and `cutin_solution`, use `cutin_commonroad.xml` as the
+scenario; for both `straight_*_solution` files, use `straight_commonroad.xml`:
+
+```sh
+drawtonomy-cr verdict tests/fixtures/cutin_commonroad.xml tests/fixtures/planner_solution.xml
+```
+
+The XML and planning traces have not been modified. A CommonRoad verdict checks
+the solution XML, not the separate planning-trace JSON or OpenSCENARIO source.
