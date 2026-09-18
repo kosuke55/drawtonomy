@@ -184,8 +184,11 @@ def plan(scenario, planning_problem, mode):
 
 
 def write_solution(scenario, planning_problem, states, path):
-    # A CommonRoad solution starts at step 1: the initial state is not part of it.
-    trajectory = Trajectory(initial_time_step=1, state_list=states[1:])
+    # The solution starts at the planning problem's initial state. The official
+    # `starts_at_correct_state` compares the first solution state with that
+    # initial state - time step included - so dropping it and starting at step 1
+    # is rejected by the official checker (and by commonroad.in.tum.de).
+    trajectory = Trajectory(initial_time_step=states[0].time_step, state_list=states)
     solution = Solution(scenario.scenario_id, [PlanningProblemSolution(
         planning_problem_id=planning_problem.planning_problem_id,
         vehicle_model=VehicleModel.KS,
@@ -212,10 +215,10 @@ def write_trace(scenario, states, path):
     # driven states: write() checks that each plan's head equals what was
     # driven, and a re-simulation would differ in the sixth decimal.
     every = max(1, int(round(1.0 / float(scenario.dt))))
-    for k in range(1, len(states), every):
+    for k in range(0, len(states), every):
         w.plan(states=states[k:])
-    w.driven(states[1:])
-    w.write(path, solution=states[1:], replanning_frequency=every)
+    w.driven(states)
+    w.write(path, solution=states, replanning_frequency=every)
 
 
 def main(argv=None):
