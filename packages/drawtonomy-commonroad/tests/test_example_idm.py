@@ -105,10 +105,29 @@ def test_committed_straight_fixtures_are_what_the_example_writes(idm_planner, fi
 
     verdict = json.loads((fixtures / f"straight_{mode}_solution.verdict.json").read_text())
     assert verdict["scenarioId"] == "ZAM_Untitled202609080119-1_1_T-1"
+    names = [c["name"] for c in verdict["checks"]]
+    # The seven official checks, in the order valid_solution runs them.
+    assert names == [
+        "solved_all_problems",
+        "goal_reached",
+        "starts_at_correct_state",
+        "obstacle_collision",
+        "boundary_collision",
+        "ego_collision",
+        "solution_feasible",
+    ]
     statuses = {c["name"]: c["status"] for c in verdict["checks"]}
+    # Both example solutions start one step after the planning problem's initial
+    # state, which the official starts_at_correct_state rejects. That is the
+    # official verdict, kept as the example shows it rather than hidden.
+    assert statuses["starts_at_correct_state"] == "FAIL"
+    assert statuses["solved_all_problems"] == "PASS"
+    assert statuses["ego_collision"] == "PASS"  # a single ego cannot hit itself
     if mode == "idm":
-        assert statuses == {"obstacle_collision": "PASS", "boundary_collision": "PASS",
-                            "goal_reached": "PASS", "solution_feasible": "PASS"}
+        assert statuses["obstacle_collision"] == "PASS"
+        assert statuses["boundary_collision"] == "PASS"
+        assert statuses["goal_reached"] == "PASS"
+        assert statuses["solution_feasible"] == "PASS"
     else:
         assert statuses["obstacle_collision"] == "FAIL"
 

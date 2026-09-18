@@ -6,9 +6,13 @@ The only authority on the verdict is the official stack (commonroad-io +
 commonroad-drivability-checker). No geometry is reimplemented here (shapely is
 not used). This module does exactly three things:
 
-1. Call the four official checks (obstacle_collision / boundary_collision /
-   goal_reached / solution_feasible) and record PASS / FAIL from whether they
-   raised.
+1. Call the same seven official checks `valid_solution` runs, in the same order
+   (solved_all_problems / goal_reached / starts_at_correct_state /
+   obstacle_collision / boundary_collision / ego_collision / solution_feasible),
+   one by one, and record PASS / FAIL from whether they raised. Calling them
+   individually rather than through `valid_solution` is the only difference:
+   `valid_solution` stops at the first failure and returns a single bool, while
+   the sidecar has to report every check.
 2. The official API only raises, so the colliding time steps and the obstacle
    involved are recovered by applying the official collision checker
    (create_collision_checker plus the same ego collision object solution_checker
@@ -96,13 +100,48 @@ def _is_triangle_missing(exc: BaseException) -> bool:
     )
 
 
+#: The seven official checks, in the order the official `valid_solution` runs
+#: them. `name` in the sidecar is the official function name, so the sidecar and
+#: the official API can be read side by side.
+OFFICIAL_CHECK_NAMES = (
+    "solved_all_problems",
+    "goal_reached",
+    "starts_at_correct_state",
+    "obstacle_collision",
+    "boundary_collision",
+    "ego_collision",
+    "solution_feasible",
+)
+
+
+def _one_line(text: str) -> str:
+    """Collapse a multi-line official exception text into a single line.
+
+    `starts_at_correct_state` raises with newlines ("...\\nExpected time_step=0
+    \\nReceived time_step=1"). The sidecar `message` is shown as one line under
+    the check, so the breaks become "; " and the text is otherwise untouched.
+    """
+    parts = [part.strip() for part in str(text).splitlines()]
+    return "; ".join(part for part in parts if part)
+
+
 def _run_official_checks(scenario, pps, solution) -> list:
-    """The four official checks. An exception becomes FAIL plus its message."""
+    """The seven official checks, in the official order.
+
+    An exception becomes FAIL plus its message. The three collision checks
+    (`obstacle_collision`, `boundary_collision`, `ego_collision`) return a bool
+    as well as raising - the official code raises on every collision it finds
+    and returns False otherwise - so a returned True is treated as FAIL with the
+    same message style.
+    """
     from commonroad_dc.feasibility.solution_checker import (
         boundary_collision,
+        ego_collision,
         goal_reached,
         obstacle_collision,
         solution_feasible,
+        solved_all_problems,
+        starts_at_correct_state,
     )
 
     def _feasible():
@@ -111,16 +150,34 @@ def _run_official_checks(scenario, pps, solution) -> list:
         if infeasible:
             raise Exception(f"infeasible for planning problems {infeasible}")
 
+    def _no_collision(fn, what):
+        """A collision check: True means a collision was found."""
+
+        def run():
+            if fn(scenario, pps, solution):
+                raise Exception(f"there is a collision between {what}")
+
+        return run
+
+    runners = {
+        "solved_all_problems": lambda: solved_all_problems(pps, solution),
+        "goal_reached": lambda: goal_reached(scenario, pps, solution),
+        "starts_at_correct_state": lambda: starts_at_correct_state(solution, pps),
+        "obstacle_collision": _no_collision(
+            obstacle_collision, "the scenario obstacles and the ego vehicle"
+        ),
+        "boundary_collision": _no_collision(
+            boundary_collision, "lanelet boundaries and the ego vehicle"
+        ),
+        "ego_collision": _no_collision(ego_collision, "ego vehicles"),
+        "solution_feasible": _feasible,
+    }
+
     checks = []
-    for name, fn in (
-        ("obstacle_collision", lambda: obstacle_collision(scenario, pps, solution)),
-        ("boundary_collision", lambda: boundary_collision(scenario, pps, solution)),
-        ("goal_reached", lambda: goal_reached(scenario, pps, solution)),
-        ("solution_feasible", _feasible),
-    ):
+    for name in OFFICIAL_CHECK_NAMES:
         entry = {"name": name}
         try:
-            fn()
+            runners[name]()
             entry["status"] = "PASS"
         except Exception as e:
             if _is_triangle_missing(e):
@@ -131,14 +188,14 @@ def _run_official_checks(scenario, pps, solution) -> list:
                 entry["message"] = TRIANGLE_MISSING_MESSAGE
             else:
                 entry["status"] = "FAIL"
-                entry["message"] = f"{type(e).__name__}: {e}"
+                entry["message"] = f"{type(e).__name__}: {_one_line(e)}"
         checks.append(entry)
     return checks
 
 
 def _ego_collision_object(pps, pp_solution, dt):
-    """The same ego collision object solution_checker uses for all four checks.
-    Input-vector solutions are integrated by the official code inside it."""
+    """The same ego collision object solution_checker uses for every collision
+    check. Input-vector solutions are integrated by the official code inside it."""
     from commonroad_dc.feasibility.solution_checker import (
         _create_pp_solution_collision_object,
     )
@@ -219,6 +276,40 @@ def _boundary_timing(scenario, pps, solution) -> dict:
             if ego.obstacle_at_time(t) is not None
             and boundary.collide(ego.obstacle_at_time(t))
         ]
+        return {"timeSteps": [hit_steps[0], hit_steps[-1]]} if hit_steps else {}
+    except Exception:
+        return {}
+
+
+def _ego_collision_timing(scenario, pps, solution) -> dict:
+    """The [first, last] steps at which two ego vehicles of the solution overlap.
+
+    The official `ego_collision` adds each planning problem solution's collision
+    object to one checker in turn and raises on the first overlap, so it names no
+    time step. The same official collision objects are compared here pair by pair
+    per step. A single-ego solution can never collide with itself, so this
+    returns nothing for it.
+    """
+    try:
+        pp_solutions = list(solution.planning_problem_solutions)
+        if len(pp_solutions) < 2:
+            return {}
+        egos = [_ego_collision_object(pps, s, scenario.dt) for s in pp_solutions]
+        start = min(e.time_start_idx() for e in egos)
+        end = max(e.time_end_idx() for e in egos)
+        hit_steps = []
+        for t in range(start, end + 1):
+            at_t = [e.obstacle_at_time(t) for e in egos]
+            found = False
+            for i in range(len(at_t)):
+                for j in range(i + 1, len(at_t)):
+                    if at_t[i] is not None and at_t[j] is not None and at_t[i].collide(at_t[j]):
+                        found = True
+                        break
+                if found:
+                    break
+            if found:
+                hit_steps.append(t)
         return {"timeSteps": [hit_steps[0], hit_steps[-1]]} if hit_steps else {}
     except Exception:
         return {}
@@ -397,6 +488,8 @@ def build_verdict(scenario_path: Path, solution_path: Path) -> dict:
         by_name["obstacle_collision"].update(_collision_timing(scenario, pps, solution))
     if by_name["boundary_collision"]["status"] == "FAIL":
         by_name["boundary_collision"].update(_boundary_timing(scenario, pps, solution))
+    if by_name["ego_collision"]["status"] == "FAIL":
+        by_name["ego_collision"].update(_ego_collision_timing(scenario, pps, solution))
     if by_name["solution_feasible"]["status"] == "FAIL":
         try:
             by_name["solution_feasible"].update(_feasibility_detail(scenario, pps, solution))

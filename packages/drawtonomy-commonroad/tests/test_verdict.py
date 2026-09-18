@@ -181,13 +181,16 @@ def test_rank_reason_tie_is_stable_across_hash_seeds():
 
 
 class _FakeChecks:
-    """Stand-in for the four functions of
+    """Stand-in for the seven functions of
     `commonroad_dc.feasibility.solution_checker`.
 
     `_run_official_checks` imports them from that module, so injecting it into
     `sys.modules` reproduces "only boundary fails, with the triangle exception"
     even where the checker cannot be installed - its wheels are Linux x86_64
     only.
+
+    The three collision checks return False (no collision) here, which is what
+    the official ones return when they find nothing.
     """
 
     #: The exact wording the official commonroad_dc.boundary.triangle_builder
@@ -198,28 +201,44 @@ class _FakeChecks:
     )
 
     @staticmethod
+    def solved_all_problems(*a, **kw):
+        return True
+
+    @staticmethod
+    def goal_reached(*a, **kw):
+        return True
+
+    @staticmethod
+    def starts_at_correct_state(*a, **kw):
+        return True
+
+    @staticmethod
     def obstacle_collision(*a, **kw):
-        return None
+        return False
 
     @staticmethod
     def boundary_collision(*a, **kw):
         raise _FakeChecks.TRIANGLE_EXC
 
     @staticmethod
-    def goal_reached(*a, **kw):
-        return None
+    def ego_collision(*a, **kw):
+        return False
 
     @staticmethod
     def solution_feasible(*a, **kw):
         return {}
 
 
-def _install_fake_checker(monkeypatch, boundary_exc=None):
+def _install_fake_checker(monkeypatch, boundary_exc=None, **overrides):
+    """Inject a fake solution_checker module. `overrides` replaces single checks."""
     import types
 
     mod = types.ModuleType("commonroad_dc.feasibility.solution_checker")
-    mod.obstacle_collision = _FakeChecks.obstacle_collision
+    mod.solved_all_problems = _FakeChecks.solved_all_problems
     mod.goal_reached = _FakeChecks.goal_reached
+    mod.starts_at_correct_state = _FakeChecks.starts_at_correct_state
+    mod.obstacle_collision = _FakeChecks.obstacle_collision
+    mod.ego_collision = _FakeChecks.ego_collision
     mod.solution_feasible = _FakeChecks.solution_feasible
     exc = _FakeChecks.TRIANGLE_EXC if boundary_exc is None else boundary_exc
 
@@ -227,9 +246,134 @@ def _install_fake_checker(monkeypatch, boundary_exc=None):
         raise exc
 
     mod.boundary_collision = boundary_collision
+    for name, fn in overrides.items():
+        setattr(mod, name, fn)
     for name in ("commonroad_dc", "commonroad_dc.feasibility"):
         monkeypatch.setitem(sys.modules, name, types.ModuleType(name))
     monkeypatch.setitem(sys.modules, "commonroad_dc.feasibility.solution_checker", mod)
+
+
+def test_checks_are_the_seven_official_ones_in_the_official_order(monkeypatch):
+    """The sidecar runs exactly what the official `valid_solution` runs.
+
+    drawtonomy has no reason to judge a solution by a different set, so the
+    names and the order are those of `valid_solution`: solved_all_problems,
+    goal_reached, starts_at_correct_state, obstacle_collision,
+    boundary_collision, ego_collision, solution_feasible.
+    """
+    _install_fake_checker(monkeypatch)
+
+    class _S:
+        dt = 0.1
+
+    names = [c["name"] for c in verdict_mod._run_official_checks(_S(), None, None)]
+    assert names == [
+        "solved_all_problems",
+        "goal_reached",
+        "starts_at_correct_state",
+        "obstacle_collision",
+        "boundary_collision",
+        "ego_collision",
+        "solution_feasible",
+    ]
+    assert names == list(verdict_mod.OFFICIAL_CHECK_NAMES)
+
+
+def test_multiline_official_message_becomes_one_line(monkeypatch):
+    """`starts_at_correct_state` raises over several lines; the sidecar is one.
+
+    The official text is "...\\nExpected time_step=0\\nReceived time_step=1".
+    The app prints `message` as a single line under the check, so the breaks
+    become "; " and nothing else is changed.
+    """
+
+    def starts_at_correct_state(*a, **kw):
+        raise Exception(
+            "Planning Problem Solution trajectory does not start at the "
+            "initial_state of the planning problem with ID: 1\n"
+            "Expected time_step=0\n"
+            "Received time_step=1"
+        )
+
+    _install_fake_checker(monkeypatch, starts_at_correct_state=starts_at_correct_state)
+
+    class _S:
+        dt = 0.1
+
+    by_name = {c["name"]: c for c in verdict_mod._run_official_checks(_S(), None, None)}
+    entry = by_name["starts_at_correct_state"]
+    assert entry["status"] == "FAIL"
+    assert "\n" not in entry["message"]
+    assert entry["message"] == (
+        "Exception: Planning Problem Solution trajectory does not start at the "
+        "initial_state of the planning problem with ID: 1; "
+        "Expected time_step=0; Received time_step=1"
+    )
+
+
+def test_one_line_leaves_a_single_line_message_untouched():
+    assert verdict_mod._one_line("a single line") == "a single line"
+    assert verdict_mod._one_line("a\n\nb") == "a; b"
+
+
+def test_a_collision_check_returning_true_is_fail(monkeypatch):
+    """The collision checks return a bool as well as raising.
+
+    The official ones raise on every collision they find, but the signature
+    returns bool, so a True with no exception has to be a FAIL too - never a
+    silent PASS.
+    """
+    _install_fake_checker(
+        monkeypatch,
+        boundary_exc=Exception("boundary"),
+        obstacle_collision=lambda *a, **kw: True,
+        ego_collision=lambda *a, **kw: True,
+    )
+
+    class _S:
+        dt = 0.1
+
+    by_name = {c["name"]: c for c in verdict_mod._run_official_checks(_S(), None, None)}
+    assert by_name["obstacle_collision"]["status"] == "FAIL"
+    assert (
+        by_name["obstacle_collision"]["message"]
+        == "Exception: there is a collision between the scenario obstacles and the ego vehicle"
+    )
+    assert by_name["ego_collision"]["status"] == "FAIL"
+    assert by_name["ego_collision"]["message"] == "Exception: there is a collision between ego vehicles"
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "cutin_solution",
+        "planner_solution",
+        "straight_idm_solution",
+        "straight_naive_solution",
+    ],
+)
+def test_committed_verdict_fixtures_carry_the_seven_checks(fixtures, name):
+    """Every committed sidecar is the seven official checks in the official
+    order, so the demo links show what the CommonRoad website would say."""
+    v = json.loads((fixtures / f"{name}.verdict.json").read_text("utf-8"))
+    assert v["schema"] == "drawtonomy-verdict/1"
+    assert [c["name"] for c in v["checks"]] == list(verdict_mod.OFFICIAL_CHECK_NAMES)
+    for check in v["checks"]:
+        assert check["status"] in ("PASS", "FAIL", "SKIP")
+        # A message is one line: the app prints it under the check.
+        assert "\n" not in check.get("message", "")
+
+
+def test_the_new_three_checks_pass_when_they_do_not_raise(monkeypatch):
+    _install_fake_checker(monkeypatch)
+
+    class _S:
+        dt = 0.1
+
+    by_name = {c["name"]: c for c in verdict_mod._run_official_checks(_S(), None, None)}
+    assert by_name["solved_all_problems"]["status"] == "PASS"
+    assert by_name["starts_at_correct_state"]["status"] == "PASS"
+    assert by_name["ego_collision"]["status"] == "PASS"
 
 
 def test_missing_triangle_is_skip_not_fail(monkeypatch):
@@ -252,11 +396,11 @@ def test_missing_triangle_is_skip_not_fail(monkeypatch):
     # Not the long official exception text: one line, with the next step.
     assert "pip install triangle" in verdict_mod.TRIANGLE_MISSING_MESSAGE
     assert "\n" not in verdict_mod.TRIANGLE_MISSING_MESSAGE
-    # The other three checks still run: a missing tool does not abandon the
+    # The other six checks still run: a missing tool does not abandon the
     # whole verdict.
-    assert by_name["obstacle_collision"]["status"] == "PASS"
-    assert by_name["goal_reached"]["status"] == "PASS"
-    assert by_name["solution_feasible"]["status"] == "PASS"
+    for name in verdict_mod.OFFICIAL_CHECK_NAMES:
+        if name != "boundary_collision":
+            assert by_name[name]["status"] == "PASS", name
 
 
 def test_other_boundary_exceptions_are_still_fail(monkeypatch):

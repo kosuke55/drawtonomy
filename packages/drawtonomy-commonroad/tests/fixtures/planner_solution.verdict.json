@@ -10,6 +10,18 @@
   "generatedAt": "2026-09-03T04:53:00Z",
   "checks": [
     {
+      "name": "solved_all_problems",
+      "status": "PASS"
+    },
+    {
+      "name": "goal_reached",
+      "status": "PASS"
+    },
+    {
+      "name": "starts_at_correct_state",
+      "status": "PASS"
+    },
+    {
       "name": "obstacle_collision",
       "status": "PASS"
     },
@@ -18,7 +30,7 @@
       "status": "PASS"
     },
     {
-      "name": "goal_reached",
+      "name": "ego_collision",
       "status": "PASS"
     },
     {

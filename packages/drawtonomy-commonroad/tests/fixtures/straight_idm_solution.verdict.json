@@ -10,6 +10,19 @@
   "generatedAt": "2026-09-07T16:20:13Z",
   "checks": [
     {
+      "name": "solved_all_problems",
+      "status": "PASS"
+    },
+    {
+      "name": "goal_reached",
+      "status": "PASS"
+    },
+    {
+      "name": "starts_at_correct_state",
+      "status": "FAIL",
+      "message": "SolutionCheckerException: Planning Problem Solution trajectory does not start at the initial_state of the planning problem with ID: 3; Expected time_step=0; Received time_step=1"
+    },
+    {
       "name": "obstacle_collision",
       "status": "PASS"
     },
@@ -18,7 +31,7 @@
       "status": "PASS"
     },
     {
-      "name": "goal_reached",
+      "name": "ego_collision",
       "status": "PASS"
     },
     {
