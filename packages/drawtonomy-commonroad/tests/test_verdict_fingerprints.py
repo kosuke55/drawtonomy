@@ -37,6 +37,48 @@ def test_only_one_bom_is_removed_and_invalid_utf8_is_rejected():
         verdict._input_fingerprint(b"\xff")
 
 
+#: The contract's four ordinary shapes of the same document. Every one of them
+#: must reduce to the identical fingerprint, because the normalization is the
+#: only thing standing between "the user saved this on Windows" and the app
+#: refusing the verdict as a mismatched input.
+BOM = b"\xef\xbb\xbf"
+CANONICAL = b"<solution>\n  <state/>\n</solution>\n"
+
+
+@pytest.mark.parametrize(
+    "name,raw",
+    [
+        ("no bom, lf", CANONICAL),
+        ("one bom, lf", BOM + CANONICAL),
+        ("no bom, crlf", CANONICAL.replace(b"\n", b"\r\n")),
+        ("one bom, crlf", BOM + CANONICAL.replace(b"\n", b"\r\n")),
+        ("no bom, lone cr", CANONICAL.replace(b"\n", b"\r")),
+        ("one bom, lone cr", BOM + CANONICAL.replace(b"\n", b"\r")),
+    ],
+)
+def test_one_bom_and_every_line_ending_reduce_to_the_same_fingerprint(name, raw):
+    assert verdict._input_fingerprint(raw) == verdict._input_fingerprint(CANONICAL), name
+
+
+def test_two_leading_boms_are_a_known_divergence_from_the_browser():
+    """A second BOM is content here, and is not in the app's browser reader.
+
+    The app reads the dropped file with `File.text()`, which removes one UTF-8
+    BOM, and then removes one more U+FEFF while normalizing - so a file starting
+    with two BOMs loses both there and only one here. This is documented rather
+    than emulated: the double BOM is not a shape real CommonRoad files take, and
+    matching it would mean the SDK could not reproduce the hash of a file whose
+    content legitimately begins with U+FEFF.
+    """
+    assert verdict._input_fingerprint(BOM + BOM + CANONICAL) != verdict._input_fingerprint(
+        BOM + CANONICAL
+    )
+    # What the app would arrive at for that input, for the record.
+    assert verdict._input_fingerprint(BOM + CANONICAL) == verdict._input_fingerprint(
+        CANONICAL
+    )
+
+
 @pytest.mark.parametrize("fail_reader", [False, True])
 def test_readers_use_captured_bytes_and_temporary_files_are_cleaned(monkeypatch, tmp_path, fail_reader):
     from commonroad.common.solution import CommonRoadSolutionReader

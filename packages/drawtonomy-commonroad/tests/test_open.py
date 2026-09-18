@@ -23,6 +23,7 @@ from pathlib import Path
 
 import pytest
 
+from drawtonomy_cr import verdict as verdict_mod
 from drawtonomy_cr.cli import main
 from drawtonomy_cr.serve import (
     ResultServer,
@@ -209,6 +210,29 @@ def test_serves_the_scenario_with_scoped_cors(server: ResultServer) -> None:
     assert headers["Vary"] == "Origin"
     # Results change on every planner run, so a stale one is never handed back.
     assert headers["Cache-Control"] == "no-store"
+
+
+def test_the_verdict_is_served_byte_for_byte_with_its_fingerprints(
+    server: ResultServer, results: Path
+) -> None:
+    """`open` hands the verdict to the app unchanged.
+
+    The app refuses a verdict whose fingerprints do not match the inputs it
+    loaded, so the server must not reserialize the JSON on the way out - a
+    reordered or reformatted body would still parse but is not what the checker
+    wrote.
+    """
+    on_disk = (results / "planner_solution.verdict.json").read_bytes()
+    status, _, body = _request(server, "/planner_solution.verdict.json")
+    assert status == 200
+    assert body == on_disk
+
+    served = json.loads(body)
+    assert served["scenarioFingerprint"].startswith("sha256:")
+    assert served["solutionFingerprint"].startswith("sha256:")
+    assert served["solutionFingerprint"] == verdict_mod._input_fingerprint(
+        (results / "planner_solution.xml").read_bytes()
+    )
 
 
 def test_app_origin_is_configurable_for_local_dev(results: Path) -> None:

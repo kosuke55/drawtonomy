@@ -51,6 +51,14 @@ PASS / FAIL badges, the colliding time steps and the obstacle involved.
 Exit codes: `0` when the sidecar was written (a FAIL verdict lives inside the JSON,
 it is not an error), `3` when the checker is not installed.
 
+The sidecar also records `scenarioFingerprint` and `solutionFingerprint`:
+`sha256:` plus 64 lowercase hex digits over each input, read as UTF-8 with one
+leading BOM removed and CRLF or CR turned into LF. They let the app confirm that
+the files you loaded are the files that were checked; it shows **Checker
+unchecked** for a verdict that has none. They identify content, not authenticity,
+so re-run the checker after editing an input rather than copying a fingerprint
+across.
+
 Format: [`docs/verdict-sidecar.md`](docs/verdict-sidecar.md).
 
 ## `drawtonomy_cr.trace.TraceWriter`
