@@ -53,10 +53,30 @@ kinematic feasibility judgement drawtonomy cannot produce on its own.
 | `schema` | string | Always `drawtonomy-verdict/1`. Required; it is how a consumer recognises the file. |
 | `benchmarkId` | string | The solution's benchmark id, verbatim from the CommonRoad solution (`<model>:<cost>:<scenario id>:<version>`). |
 | `scenarioId` | string | The scenario's id, from the scenario XML. Used to pair the sidecar with a loaded replay. |
+| `scenarioFingerprint` | string | SHA-256 identity of the captured scenario XML; optional in older sidecars. |
+| `solutionFingerprint` | string | SHA-256 identity of the captured solution XML; optional in older sidecars. |
 | `dt` | number | The scenario's time step in seconds. Converts `timeSteps` to seconds. |
 | `tool` | object | `{ "name": "commonroad-drivability-checker", "version": ... }`. The version is the installed one, read at write time, or `"unknown"` if it cannot be determined. |
 | `generatedAt` | string | UTC timestamp, whole seconds, ISO 8601 with a `Z` suffix. |
 | `checks` | array | One entry per check, in the order the checks were run. |
+
+## Input fingerprints
+
+New verdicts include `scenarioFingerprint` and `solutionFingerprint`, formatted
+as `sha256:` followed by 64 lowercase hexadecimal digits. Each input is decoded
+as UTF-8, one leading BOM is removed, and CRLF or CR line endings become LF.
+SHA-256 is computed over the UTF-8 encoding of that text. Other whitespace,
+comments, attribute order and the final newline remain significant; this is not
+XML canonicalization or an authenticity signature.
+
+Each file is read once. The official readers parse temporary copies of those
+same captured bytes, so replacing an input during checking cannot change the
+identity recorded in the result. The two files are captured sequentially, not
+as an atomic pair; finish writing both before invoking the command.
+
+The schema remains `drawtonomy-verdict/1`. Older sidecars without these fields
+remain valid, but cannot establish content identity. Re-run the checker to
+produce fingerprints for a result; do not add them to an old verdict manually.
 
 ## `checks[]`
 
