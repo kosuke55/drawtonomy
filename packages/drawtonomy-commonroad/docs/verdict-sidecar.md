@@ -23,6 +23,8 @@ kinematic feasibility judgement drawtonomy cannot produce on its own.
 ```json
 {
   "schema": "drawtonomy-verdict/1",
+  "scenarioFingerprint": "sha256:ab05c49e60196793208aab6954101f23ccfb73b77354df4dbbc32510257c82cc",
+  "solutionFingerprint": "sha256:e36c70fc553135846be4b705e69145dc3a38e84109a3a59c25edf8b996ebbba9",
   "benchmarkId": "PM1:JB1:ZAM_Example-1_1_T-1:2020a",
   "scenarioId": "ZAM_Example-1_1_T-1",
   "dt": 0.1,
@@ -75,8 +77,19 @@ identity recorded in the result. The two files are captured sequentially, not
 as an atomic pair; finish writing both before invoking the command.
 
 The schema remains `drawtonomy-verdict/1`. Older sidecars without these fields
-remain valid, but cannot establish content identity. Re-run the checker to
-produce fingerprints for a result; do not add them to an old verdict manually.
+remain valid, but cannot establish content identity, and the app labels them
+**Checker unchecked**. Re-run the checker to produce fingerprints for a result;
+do not add them to an old verdict manually.
+
+### Known divergence: two leading BOMs
+
+This package removes exactly one leading BOM. The app's browser reader removes
+one in `File.text()` and then one more U+FEFF while normalizing, so an input
+beginning with two consecutive BOMs loses both there and only one here, and the
+two fingerprints differ for that one shape of input. The divergence is
+deliberate: treating a second BOM as a prefix rather than as content would make
+it impossible to reproduce the hash of a file whose text legitimately begins
+with U+FEFF. Inputs with no BOM or one BOM agree.
 
 ## `checks[]`
 
