@@ -49,6 +49,13 @@ PASS / FAIL バッジ、衝突したタイムステップ、関与した障害�
 終了コード: サイドカーを書き出せたときは `0` (FAIL の verdict は JSON の中身であり、
 エラーではありません)、チェッカが未インストールのときは `3` です。
 
+サイドカーには `scenarioFingerprint` と `solutionFingerprint` も記録されます。値は各入力を
+UTF-8 として読み、先頭の BOM を 1 個除去し、CRLF と CR を LF に正規化したうえで計算した
+`sha256:` + 小文字 16 進 64 桁です。これにより、読み込んだファイルが実際に検査された
+ファイルであることをアプリ側で確認できます。指紋の無い verdict は **Checker unchecked**
+と表示されます。認証ではなく内容の同一性を示すものなので、入力を編集したら指紋を
+書き写すのではなく checker を再実行してください。
+
 フォーマット: [`docs/verdict-sidecar.ja.md`](docs/verdict-sidecar.ja.md)。
 
 ## `drawtonomy_cr.trace.TraceWriter`

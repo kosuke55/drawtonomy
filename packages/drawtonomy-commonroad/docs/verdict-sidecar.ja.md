@@ -24,6 +24,8 @@ drawtonomy-cr verdict scenario.xml solution.xml
 ```json
 {
   "schema": "drawtonomy-verdict/1",
+  "scenarioFingerprint": "sha256:ab05c49e60196793208aab6954101f23ccfb73b77354df4dbbc32510257c82cc",
+  "solutionFingerprint": "sha256:e36c70fc553135846be4b705e69145dc3a38e84109a3a59c25edf8b996ebbba9",
   "benchmarkId": "PM1:JB1:ZAM_Example-1_1_T-1:2020a",
   "scenarioId": "ZAM_Example-1_1_T-1",
   "dt": 0.1,
@@ -54,10 +56,38 @@ drawtonomy-cr verdict scenario.xml solution.xml
 | `schema` | string | 常に `drawtonomy-verdict/1`。必須。消費側はこれでファイルを識別します。 |
 | `benchmarkId` | string | solution のベンチマーク id。CommonRoad の solution からそのまま転記されます (`<model>:<cost>:<scenario id>:<version>`)。 |
 | `scenarioId` | string | シナリオの id。シナリオ XML に由来します。読み込み済みのリプレイとサイドカーを対応付けるのに使います。 |
+| `scenarioFingerprint` | string | 取り込んだシナリオ XML の SHA-256 による同一性。古いサイドカーでは省略されます。 |
+| `solutionFingerprint` | string | 取り込んだ solution XML の SHA-256 による同一性。古いサイドカーでは省略されます。 |
 | `dt` | number | シナリオのタイムステップ (秒)。`timeSteps` を秒に変換します。 |
 | `tool` | object | `{ "name": "commonroad-drivability-checker", "version": ... }`。version は書き出し時に読み取ったインストール済みのもの。判別できない場合は `"unknown"`。 |
 | `generatedAt` | string | UTC のタイムスタンプ。秒単位、`Z` 付きの ISO 8601。 |
 | `checks` | array | チェック 1 件につき 1 エントリ。実行された順に並びます。 |
+
+## 入力の指紋
+
+新しい verdict には `scenarioFingerprint` と `solutionFingerprint` が含まれます。
+値は `sha256:` に続く小文字 16 進 64 桁です。各入力は UTF-8 として読み、先頭の BOM を
+1 個だけ除去し、CRLF と単独の CR を LF に正規化したうえで、そのテキストの UTF-8
+バイト列に対して SHA-256 を計算します。それ以外の空白・コメント・属性順・末尾改行は
+すべて有意です。XML の正規化 (canonicalization) ではなく、真正性の署名でもありません。
+
+ファイルはそれぞれ 1 回だけ読み込みます。公式リーダーが解析するのは取り込んだ同じ
+バイト列の一時コピーなので、検査中に入力が書き換わっても結果に記録される同一性は
+変わりません。2 つのファイルは原子的な対としてではなく順番に取り込まれるため、
+コマンドを実行する前に両方の書き込みを終えてください。
+
+schema は `drawtonomy-verdict/1` のままです。これらのフィールドが無い古いサイドカーも
+有効ですが、内容の同一性は確認できず、アプリでは **Checker unchecked** として扱われます。
+指紋を得るには checker を再実行してください。古い verdict に手で書き足してはいけません。
+
+### 既知の差異: 先頭 BOM が 2 個連続する入力
+
+本パッケージは先頭の BOM を 1 個だけ除去します。一方アプリのブラウザ読み込み経路では
+`File.text()` が BOM を 1 個除去し、その後の指紋計算がさらに U+FEFF を 1 個除去するため、
+BOM が 2 個連続する入力では最大 2 個が除去されます。この特殊な入力に限り両者の指紋は
+一致しません。これは意図的な差異です。2 個目の BOM を本文として扱わないと、本文が
+正当に U+FEFF で始まるファイルの指紋を再現できなくなるためです。BOM が無い入力と
+1 個の入力では両者は一致します。
 
 ## `checks[]`
 
