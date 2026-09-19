@@ -76,9 +76,15 @@ text, images — is **not** written to the `.xodr`.
 How far each road goes:
 
 - **Analytic plan-view geometry.** The reference polyline is fitted into
-  `<line>`, `<arc>`, and `<paramPoly3>` primitives by `odrGeometryFit`. Roads
-  imported from a `.xodr` and left unedited keep their original geometry
-  verbatim through carry-through.
+  `<line>`, `<arc>`, `<spiral>`, and `<paramPoly3>` primitives by
+  `odrGeometryFit`. Smooth stretches are fitted as chains of Euler spirals that
+  share curvature at every joint, so a vehicle tracking a lane offset from the
+  reference line sees no curvature step — a step there produces an acceleration
+  spike that grows as the simulation time step shrinks. Corners the author drew
+  still break heading, and a stretch the spiral chain cannot fit at least as
+  closely as the simpler primitives keeps those instead. Roads imported from a
+  `.xodr` and left unedited keep their original geometry verbatim through
+  carry-through.
 - **Lane bundles.** Laterally adjacent same-direction lanes (detected through
   shared boundary linestrings) are grouped into one `<road>` and emitted as
   lanes `-1, -2, …` from inner to outer, or on the `<left>` side when the whole
