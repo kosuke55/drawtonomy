@@ -1453,7 +1453,12 @@ describe('plan-view geometry fitting (export quality)', () => {
     // for this road (5 cm chord tolerance on R = 50 m); the fitter must get
     // far below that and use curved primitives. Tighten only, never relax.
     expect(geomCount).toBeLessThanOrEqual(16)
-    expect(xml).toContain('<arc ')
+    // The source road is line + spiral + arc + spiral + line, so a curved
+    // primitive is mandatory; which one the fitter picks depends on the
+    // continuity it is delivering (<spiral> chains by default, <arc> when a
+    // constant-curvature span is exactly right), and <line> alone would mean
+    // the decomposition is back.
+    expect(xml).toMatch(/<(arc|spiral) /)
   })
 
   it('keeps the fitted reference line within tolerance of the source boundaries', () => {
@@ -1483,6 +1488,54 @@ describe('plan-view geometry fitting (export quality)', () => {
     expect(r.adjacencyPreserved).toBe(r.adjacencyBefore)
     const maxDevPx = maxBoundaryDeviationPx(before, after)
     expect(maxDevPx / PIXELS_PER_METER).toBeLessThanOrEqual(0.15)
+  })
+
+  it('re-reads every emitted primitive back onto the same reference line', () => {
+    // The XML round trip, not just the in-memory fit: whatever primitive the
+    // fitter chose must serialize, parse and evaluate back to the same curve.
+    // An unhandled primitive used to fall through to <line/>, which silently
+    // straightened the road — the export looked fine and the geometry was
+    // gone, so this test walks the emitted stations rather than the records.
+    const before = importXodr(curvyXml)
+    const xml = exportToOpenDrive(snapshotFrom(before))
+    const exported = parseOpenDriveXml(xml)
+    expect(exported.roads.length).toBeGreaterThan(0)
+    const boundaries = boundaryPolylinesEnu(before)
+    for (const road of exported.roads) {
+      // Every geometry record in the emitted XML must be one the parser
+      // understands (an unknown one throws) and must chain position-exactly.
+      expect(road.planView.length).toBeGreaterThan(0)
+      // Stations are written with six decimals, so consecutive records agree
+      // with the running sum to that precision times the record count rather
+      // than to machine epsilon. The road's own `length` carries a deliberate
+      // margin above the geometry extent (emittedRoadLength), so the sum must
+      // not exceed it and must not fall short by more than that margin.
+      const xmlPrecision = 1e-6 * road.planView.length + 1e-9
+      let station = 0
+      for (const g of road.planView) {
+        expect(Math.abs(g.s - station)).toBeLessThanOrEqual(xmlPrecision)
+        station += g.length
+      }
+      expect(station).toBeLessThanOrEqual(road.length + xmlPrecision)
+      expect(station).toBeGreaterThanOrEqual(road.length - 1e-3)
+      // Chaining is position-exact in the fit; after the round trip it is
+      // exact to the six decimals x/y/hdg are written with (a rounded start
+      // pose plus a rounded length lands a few microns off the analytic end).
+      for (let i = 0; i < road.planView.length - 1; i++) {
+        const end = evalGeometry(road.planView[i], road.planView[i].length)
+        const next = road.planView[i + 1]
+        expect(Math.hypot(end.x - next.x, end.y - next.y)).toBeLessThan(1e-4)
+      }
+      // And the re-evaluated curve must still be the road that was drawn.
+      for (const sample of sampleReferenceLine(road, {
+        maxChordErrorMeters: 0.01,
+        maxStepMeters: 1,
+      })) {
+        expect(Math.min(...boundaries.map(b => distToPolyline(sample, b)))).toBeLessThanOrEqual(
+          0.12
+        )
+      }
+    }
   })
 
   it('keeps a straight road a single <line> geometry (no regression)', () => {

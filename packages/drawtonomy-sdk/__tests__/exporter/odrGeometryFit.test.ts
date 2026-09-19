@@ -138,8 +138,15 @@ describe('fitPlanView', () => {
     expect(maxDeviation(fit.geometries, pts)).toBeLessThanOrEqual(POS_TOL + 0.01)
     expectC1(fit.geometries)
     // A clothoid is neither straight nor constant-curvature over its whole
-    // span, so the fit must use at least one curved primitive.
-    expect(fit.geometries.some(g => g.kind === 'arc' || g.kind === 'paramPoly3')).toBe(true)
+    // span, so the fit must use at least one curved primitive. With curvature
+    // continuity on by default it uses <spiral>, which IS a clothoid — the
+    // exact primitive for this shape, and eight times closer to the samples
+    // than the cubic chain the G1 fit produces (0.006 m vs 0.045 m).
+    expect(
+      fit.geometries.some(
+        g => g.kind === 'arc' || g.kind === 'spiral' || g.kind === 'paramPoly3'
+      )
+    ).toBe(true)
   })
 
   it('classifies a line->arc compound correctly and stays C1', () => {
