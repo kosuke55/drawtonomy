@@ -32,11 +32,25 @@
 
 import type { OdrGeometry } from './opendriveParser.js'
 import { evalGeometry, type GeomPose } from './odrGeometry.js'
+import { fitClothoidRun } from './odrClothoidFit.js'
 
 export interface FitPoint {
   x: number
   y: number
 }
+
+/**
+ * How much continuity consecutive primitives must share.
+ *
+ * - `'g2'` (default): curvature-continuous. Smooth runs are fitted with chains
+ *   of Euler spirals whose knot curvatures are shared, so a vehicle tracking a
+ *   lane offset from the reference line sees no curvature step at any joint.
+ * - `'g1'`: position and tangent only, the greedy line/arc/paramPoly3 fit.
+ *
+ * Folds are unaffected either way: the heading break the author drew is
+ * honoured in both modes.
+ */
+export type PlanViewContinuity = 'g1' | 'g2'
 
 export interface PlanViewFitOptions {
   /** Maximum position deviation between samples and the fit (m). Default 0.05. */
@@ -45,6 +59,8 @@ export interface PlanViewFitOptions {
   maxHdgErrorRad?: number
   /** Moving-median window (odd) for heading de-noising. Default 3; 1 disables. */
   headingMedianWindow?: number
+  /** Continuity the fit must deliver between primitives. Default `'g2'`. */
+  continuity?: PlanViewContinuity
 }
 
 /** Station + pose on the fitted reference line for one input sample. */
@@ -86,6 +102,27 @@ const MIN_EMIT_LENGTH = 1e-3
 const LINE_FINAL_LATERAL_TOL = 1e-3
 /** Largest |chord-to-heading angle| a single arc / Hermite span may subtend. */
 const MAX_TURN_RAD = 1.45
+/**
+ * Factor above posTol at which a vertex's sagitta marks it as a fold rather
+ * than a curve sample. A sampler that refines *to* its tolerance emits
+ * vertices whose sagitta lands just under it (worst measured: 0.048 m at the
+ * 0.05 m default across the bundled real-world maps), so the threshold must
+ * clear the sampler's own output with room to spare. 1.5x does (0.075 m vs
+ * 0.048 m) while still catching folds drawn with chords as short as ~2.5 m.
+ */
+const POLYLINE_SAGITTA_MARGIN = 1.5
+/**
+ * Fewest points a run needs before the spiral fit is attempted. Below this the
+ * heading profile has too few samples to place even one interior knot, and the
+ * greedy fitter's single line or arc is both simpler and exact.
+ */
+const MIN_CLOTHOID_RUN_POINTS = 4
+/**
+ * Curvature step (1/m) at which a joint counts as discontinuous. Far below the
+ * step that produces a measurable acceleration artifact on a lane offset of a
+ * few metres, and far above the rounding of an arc emitted with full precision.
+ */
+const CURVATURE_JOIN_TOL = 1e-9
 
 function wrapAngle(a: number): number {
   while (a > Math.PI) a -= 2 * Math.PI
@@ -118,7 +155,38 @@ function distToPolyline(p: FitPoint, pts: readonly FitPoint[], i0: number, i1: n
 }
 
 /**
- * Fit a plan-view primitive sequence to a polyline of reference-line points.
+ * Classify interior vertices of a polyline as folds (the author drew a corner)
+ * or curve samples. See the long-form rationale at the call site in
+ * `fitPlanViewG1`; the rule is the sagitta test
+ *   h = shorter_chord · sin(θ/2) / 4 > posTol · POLYLINE_SAGITTA_MARGIN.
+ *
+ * Shared so the G2 driver splits runs on exactly the same vertices the G1
+ * fitter breaks heading at — two copies of this rule would drift apart.
+ */
+export function classifyPolylineVertices(
+  pts: readonly FitPoint[],
+  posTol: number
+): boolean[] {
+  const m = pts.length
+  const tol = posTol * POLYLINE_SAGITTA_MARGIN
+  const flags: boolean[] = new Array(m).fill(false)
+  const chordAngle = (i: number): number =>
+    Math.atan2(pts[i + 1].y - pts[i].y, pts[i + 1].x - pts[i].x)
+  const chordLen = (i: number): number =>
+    Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y)
+  for (let i = 1; i < m - 1; i++) {
+    const defl = Math.abs(wrapAngle(chordAngle(i) - chordAngle(i - 1)))
+    if (defl < 1e-12) continue
+    const shorter = Math.min(chordLen(i - 1), chordLen(i))
+    if (shorter < MIN_SEG_LENGTH) continue
+    flags[i] = (shorter * Math.sin(Math.min(defl, Math.PI) / 2)) / 4 > tol
+  }
+  return flags
+}
+
+/**
+ * Fit a plan-view primitive sequence to a polyline of reference-line points,
+ * chaining primitives G1 (position + tangent).
  *
  * The returned geometries always chain position-exactly (each starts at the
  * previous one's analytic end pose) and never leave the drawn polyline by
@@ -127,7 +195,7 @@ function distToPolyline(p: FitPoint, pts: readonly FitPoint[], i0: number, i1: n
  * the fit keeps the chords the caller drew and lets the heading break, which
  * is legal OpenDRIVE since every `<geometry>` carries its own `hdg`.
  */
-export function fitPlanView(
+function fitPlanViewG1(
   points: readonly FitPoint[],
   options: PlanViewFitOptions = {}
 ): PlanViewFit {
@@ -299,18 +367,9 @@ export function fitPlanView(
   // classified a corner — implied radius under a few metres with a sharp
   // deflection — has a sagitta far past any tolerance), so no separate
   // radius test remains.
-  const POLYLINE_SAGITTA_MARGIN = 1.5
-  const polylineSagittaTol = posTol * POLYLINE_SAGITTA_MARGIN
-  const polylineVertex: boolean[] = new Array(m).fill(false)
-  for (let i = 1; i < m - 1; i++) {
-    const defl = Math.abs(wrapAngle(chordAngle(i) - chordAngle(i - 1)))
-    if (defl < 1e-12) continue
-    const shorter = Math.min(chordLen(i - 1), chordLen(i))
-    if (shorter < MIN_SEG_LENGTH) continue
-    // h = L²/(8R) with R = L/(2 sin(θ/2)) collapses to L·sin(θ/2)/4.
-    const sagitta = (shorter * Math.sin(Math.min(defl, Math.PI) / 2)) / 4
-    polylineVertex[i] = sagitta > polylineSagittaTol
-  }
+  // h = L²/(8R) with R = L/(2 sin(θ/2)) collapses to L·sin(θ/2)/4; the rule
+  // itself lives in classifyPolylineVertices so the G2 driver shares it.
+  const polylineVertex = classifyPolylineVertices(pts, posTol)
 
   /**
    * End-heading acceptance for a segment ending at sample j. Polyline vertices
@@ -662,6 +721,203 @@ export function fitPlanView(
   }
 
   // --- Poses on the fitted curve for every input sample. ---------------------
+  const posesByDedup: FittedSamplePose[] = new Array(m)
+  let gIdx = 0
+  for (let k = 0; k < m; k++) {
+    const s = Math.min(stations[k], sCum)
+    while (gIdx < geometries.length - 1 && geometries[gIdx + 1].s <= s + 1e-12) gIdx++
+    const g = geometries[gIdx]
+    const p = evalGeometry(g, Math.min(Math.max(s - g.s, 0), g.length))
+    posesByDedup[k] = { s, x: p.x, y: p.y, hdg: p.hdg }
+  }
+
+  return {
+    geometries,
+    samplePoses: dedupIndex.map(d => posesByDedup[d]),
+    length: sCum,
+  }
+}
+
+/**
+ * Curvature at a primitive's start or end. `null` for a `paramPoly3`, whose
+ * curvature is not an attribute of the record — treating it as unknown is what
+ * makes a Hermite chain count as curvature-discontinuous below, which is
+ * precisely why the spiral fit exists.
+ */
+function boundaryCurvature(g: OdrGeometry, at: 'start' | 'end'): number | null {
+  switch (g.kind) {
+    case 'line':
+      return 0
+    case 'arc':
+      return g.curvature
+    case 'spiral':
+      return at === 'start' ? g.curvStart : g.curvEnd
+    default:
+      return null
+  }
+}
+
+/**
+ * Worst distance between a fitted chain and the points it was fitted to,
+ * measured in both directions (samples to curve and curve to samples) so a fit
+ * that threads the samples but bulges between them scores the bulge.
+ */
+function maxSampleDeviation(
+  geometries: readonly OdrGeometry[],
+  pts: readonly FitPoint[]
+): number {
+  const curve: FitPoint[] = []
+  for (const g of geometries) {
+    const n = Math.max(2, Math.ceil(g.length / 0.25))
+    for (let k = 0; k <= n; k++) {
+      const p = evalGeometry(g, (g.length * k) / n)
+      curve.push({ x: p.x, y: p.y })
+    }
+  }
+  if (curve.length < 2) return Infinity
+  let worst = 0
+  for (const p of pts) worst = Math.max(worst, distToPolyline(p, curve, 0, curve.length - 1))
+  for (const c of curve) worst = Math.max(worst, distToPolyline(c, pts, 0, pts.length - 1))
+  return worst
+}
+
+/** Whether a chain of primitives already shares curvature at every joint. */
+function isCurvatureContinuous(geometries: readonly OdrGeometry[]): boolean {
+  for (let i = 0; i < geometries.length - 1; i++) {
+    const a = boundaryCurvature(geometries[i], 'end')
+    const b = boundaryCurvature(geometries[i + 1], 'start')
+    if (a === null || b === null) return false
+    if (Math.abs(a - b) > CURVATURE_JOIN_TOL) return false
+  }
+  return true
+}
+
+/**
+ * Fit a plan-view primitive sequence to a polyline of reference-line points.
+ *
+ * Default (`continuity: 'g2'`): the polyline is cut at its folds — the
+ * vertices the author drew as corners — and each smooth run between two folds
+ * is fitted by a chain of Euler spirals sharing knot curvatures, so curvature
+ * is continuous everywhere inside a run. That matters because a vehicle
+ * driving a lane at lateral offset `t` advances along the reference line at
+ * ds = v·dt/(1 − κt): a curvature step at a joint stretches one integration
+ * step and shows up as an acceleration spike on an otherwise constant-speed
+ * drive. Folds keep their heading break, which is what was drawn.
+ *
+ * A run the spiral model cannot carry within tolerance (too few points, or a
+ * shape it misses) falls back to the greedy line/arc/paramPoly3 fit for that
+ * run alone, so G2 never costs accuracy — at worst it yields the G1 result.
+ *
+ * `continuity: 'g1'` selects the greedy fit for the whole input, reproducing
+ * the pre-G2 output exactly.
+ *
+ * In both modes the geometries chain position-exactly and stay within the
+ * position tolerance of the drawn polyline.
+ */
+export function fitPlanView(
+  points: readonly FitPoint[],
+  options: PlanViewFitOptions = {}
+): PlanViewFit {
+  if ((options.continuity ?? 'g2') === 'g1') return fitPlanViewG1(points, options)
+
+  const posTol = options.maxPosErrorMeters ?? 0.05
+  const hdgTol = options.maxHdgErrorRad ?? (0.5 * Math.PI) / 180
+
+  // Dedupe exactly as the G1 fitter does, so both paths see the same vertices
+  // and a run handed to the fallback is the run the fallback would have built.
+  const pts: FitPoint[] = []
+  const dedupIndex: number[] = []
+  for (const p of points) {
+    const last = pts[pts.length - 1]
+    if (!last || Math.hypot(p.x - last.x, p.y - last.y) > DEDUPE_EPS) {
+      pts.push({ x: p.x, y: p.y })
+    }
+    dedupIndex.push(pts.length - 1)
+  }
+  if (pts.length >= 2) {
+    const lastIn = points[points.length - 1]
+    const lastKept = pts[pts.length - 1]
+    lastKept.x = lastIn.x
+    lastKept.y = lastIn.y
+  }
+  const m = pts.length
+  if (m < MIN_CLOTHOID_RUN_POINTS) return fitPlanViewG1(points, options)
+
+  // Cut at folds: [runStart[k], runStart[k+1]] is one smooth run, sharing its
+  // boundary vertices with its neighbours.
+  const fold = classifyPolylineVertices(pts, posTol)
+  const bounds: number[] = [0]
+  for (let i = 1; i < m - 1; i++) if (fold[i]) bounds.push(i)
+  bounds.push(m - 1)
+
+  // A run must clear the spiral fit on its own; if any run cannot, that run
+  // (and only that run) goes to the greedy fitter.
+  const geometries: OdrGeometry[] = []
+  const stations: number[] = new Array(m).fill(0)
+  let sCum = 0
+  let anySpiral = false
+  for (let b = 0; b < bounds.length - 1; b++) {
+    const i0 = bounds[b]
+    const i1 = bounds[b + 1]
+    const run = pts.slice(i0, i1 + 1)
+    const startPose = geometries.length > 0 && !fold[i0] ? geometries[geometries.length - 1] : null
+    // Inside a run the chain heading is already exact; across a fold the next
+    // run starts with whatever heading its own data says, which is the break.
+    const startHdg = startPose
+      ? evalGeometry(startPose, startPose.length).hdg
+      : undefined
+
+    // The greedy fit of this run first: when it already comes out curvature-
+    // continuous (a lone line, a lone arc, or a line/arc chain whose joints
+    // happen to match) there is nothing for the spiral chain to improve, and
+    // it is both simpler and exact. Only a run the greedy fit leaves with a
+    // curvature step is worth re-fitting.
+    const greedy = fitPlanViewG1(run, options)
+    let fitted =
+      run.length >= MIN_CLOTHOID_RUN_POINTS && !isCurvatureContinuous(greedy.geometries)
+        ? fitClothoidRun(run, { posTol, hdgTol, startHdg })
+        : null
+
+    // Curvature continuity is not worth buying at the cost of accuracy. Where
+    // the run's shape has a curvature STEP (a line meeting an arc), a uniform
+    // knot grid can only smooth it, and it overshoots on either side the way
+    // any fixed-resolution approximation of a step does — measurably farther
+    // off the data than the greedy fit's Hermite transition, and in many more
+    // pieces. Keep the greedy fit in that case: the joint it leaves is one
+    // curvature step at a place the data itself steps.
+    if (fitted && maxSampleDeviation(fitted.geometries, run) > maxSampleDeviation(greedy.geometries, run)) {
+      fitted = null
+    }
+
+    if (fitted) {
+      anySpiral = anySpiral || fitted.geometries.some(g => g.kind === 'spiral')
+      for (const g of fitted.geometries) {
+        geometries.push({ ...g, s: g.s + sCum })
+      }
+      for (let k = 0; k <= i1 - i0; k++) stations[i0 + k] = sCum + fitted.stations[k]
+      sCum += fitted.length
+      continue
+    }
+
+    // Fallback for this run only: the greedy fit computed above, re-based onto
+    // the running station.
+    const sub = greedy
+    if (sub.geometries.length === 0) {
+      for (let k = 0; k <= i1 - i0; k++) stations[i0 + k] = sCum
+      continue
+    }
+    for (const g of sub.geometries) {
+      geometries.push({ ...g, s: g.s + sCum })
+    }
+    for (let k = 0; k <= i1 - i0; k++) stations[i0 + k] = sCum + sub.samplePoses[k].s
+    sCum += sub.length
+  }
+
+  // A fit with no spiral anywhere carries no G2 benefit, and the greedy fitter
+  // reads the whole polyline at once (so it can span a run boundary with one
+  // primitive and choose simpler shapes). Prefer it in that case.
+  if (!anySpiral) return fitPlanViewG1(points, options)
+
   const posesByDedup: FittedSamplePose[] = new Array(m)
   let gIdx = 0
   for (let k = 0; k < m; k++) {
