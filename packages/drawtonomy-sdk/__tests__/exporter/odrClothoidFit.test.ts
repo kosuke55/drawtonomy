@@ -14,7 +14,7 @@
 //  - `continuity: 'g1'` reproduces the greedy output exactly.
 
 import { describe, it, expect } from 'vitest'
-import { fitPlanView, type FitPoint } from '../../src/exporter/odrGeometryFit'
+import { fitPlanView, runTipTangent, type FitPoint } from '../../src/exporter/odrGeometryFit'
 import { fitClothoidRun } from '../../src/exporter/odrClothoidFit'
 import { evalGeometry } from '../../src/exporter/odrGeometry'
 import type { OdrGeometry } from '../../src/exporter/opendriveParser'
@@ -22,6 +22,12 @@ import type { OdrGeometry } from '../../src/exporter/opendriveParser'
 const POS_TOL = 0.05
 /** Tightest band a floating-point chain can be held to. */
 const EXACT = 1e-9
+
+function wrapAngle(a: number): number {
+  while (a > Math.PI) a -= 2 * Math.PI
+  while (a < -Math.PI) a += 2 * Math.PI
+  return a
+}
 
 /** Curvature at a primitive's start or end; null when the record has none. */
 function boundaryCurvature(g: OdrGeometry, at: 'start' | 'end'): number | null {
@@ -359,23 +365,31 @@ describe('fitPlanView with curvature continuity', () => {
 })
 
 describe('fitClothoidRun', () => {
+  const HDG_TOL = (0.5 * Math.PI) / 180
+  /** The tip headings the exporter pins a run to. */
+  const tips = (pts: FitPoint[]) => ({
+    startHdg: runTipTangent(pts, 'start', HDG_TOL),
+    endHdg: runTipTangent(pts, 'end', HDG_TOL),
+  })
+
   it('declines runs it cannot carry instead of returning a bad fit', () => {
     // Too few points to place even one interior knot.
+    const stub: FitPoint[] = [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 2, y: 0 },
+    ]
     expect(
-      fitClothoidRun([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 }], {
-        posTol: 0.05,
-        hdgTol: 0.01,
-      })
+      fitClothoidRun(stub, { posTol: 0.05, hdgTol: 0.01, ...tips(stub) })
     ).toBeNull()
     // A tolerance no knot count can meet.
-    expect(
-      fitClothoidRun(sCurvePoints(), { posTol: 1e-9, hdgTol: 1e-9 })
-    ).toBeNull()
+    const s = sCurvePoints()
+    expect(fitClothoidRun(s, { posTol: 1e-9, hdgTol: 1e-9, ...tips(s) })).toBeNull()
   })
 
   it('reports the accepted knot count, deviation and end error', () => {
     const pts = sCurvePoints()
-    const result = fitClothoidRun(pts, { posTol: POS_TOL, hdgTol: (0.5 * Math.PI) / 180 })
+    const result = fitClothoidRun(pts, { posTol: POS_TOL, hdgTol: HDG_TOL, ...tips(pts) })
     expect(result).not.toBeNull()
     if (!result) return
     expect(result.knots).toBeGreaterThanOrEqual(2)
@@ -385,19 +399,44 @@ describe('fitClothoidRun', () => {
     expect(result.stations).toHaveLength(pts.length)
   })
 
-  it('honours a pinned start heading exactly', () => {
-    // Runs after a fold are chained onto the previous run's end heading; the
-    // fit may not quietly choose its own.
+  it('meets both pinned tip headings exactly, for any knot count', () => {
+    // These are not hints. A road's tip heading is the contact cross-section
+    // its neighbour is built on, and a lane border sits t metres off the
+    // reference line, so an error dh there opens a t*dh gap between connected
+    // lanes. The fit is held to the pinned value, not converged towards it.
     const pts = sCurvePoints()
-    const pinned = 0.25
-    const result = fitClothoidRun(pts, {
-      posTol: 10,
-      hdgTol: 10,
-      startHdg: pinned,
-      knotCounts: [8],
-    })
+    const pinnedStart = 0.25
+    const pinnedEnd = -0.4
+    for (const knotCount of [4, 6, 8, 12, 16]) {
+      const result = fitClothoidRun(pts, {
+        posTol: 10,
+        hdgTol: 10,
+        startHdg: pinnedStart,
+        endHdg: pinnedEnd,
+        knotCounts: [knotCount],
+      })
+      expect(result).not.toBeNull()
+      if (!result) continue
+      expect(result.geometries[0].hdg).toBeCloseTo(pinnedStart, 12)
+      const tail = result.geometries[result.geometries.length - 1]
+      const end = evalGeometry(tail, tail.length)
+      expect(Math.abs(wrapAngle(end.hdg - pinnedEnd))).toBeLessThan(1e-9)
+    }
+  })
+
+  it('keeps the pinned end heading while closing the end position', () => {
+    // The two constraints are solved together; a fit that satisfied them in
+    // sequence would have each correction undo the other.
+    const pts = sCurvePoints()
+    const t = tips(pts)
+    const result = fitClothoidRun(pts, { posTol: POS_TOL, hdgTol: HDG_TOL, ...t })
     expect(result).not.toBeNull()
     if (!result) return
-    expect(result.geometries[0].hdg).toBeCloseTo(pinned, 12)
+    const tail = result.geometries[result.geometries.length - 1]
+    const end = evalGeometry(tail, tail.length)
+    const last = pts[pts.length - 1]
+    expect(Math.hypot(end.x - last.x, end.y - last.y)).toBeLessThan(1e-6)
+    expect(Math.abs(wrapAngle(end.hdg - t.endHdg))).toBeLessThan(1e-9)
+    expect(Math.abs(wrapAngle(result.geometries[0].hdg - t.startHdg))).toBeLessThan(1e-12)
   })
 })
