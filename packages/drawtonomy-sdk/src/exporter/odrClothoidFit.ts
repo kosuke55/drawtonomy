@@ -25,13 +25,16 @@
 //     assigned to chord arc-length midpoints — second-order accurate, exact on
 //     a circle).
 //  2. With κ piecewise linear on a knot grid, θ(s) = θ0 + ∫κ is LINEAR in the
-//     knot values, so step 1 gives an ordinary least-squares problem. Solve it
-//     for a starting guess.
+//     knot values, so step 1 gives an ordinary least-squares problem. The
+//     run's end heading is θ(L) = θ0 + ∫₀ᴸ κ, linear in the same values, so
+//     pinning it is one equality row on that solve.
 //  3. Polish with Gauss-Newton on the true objective (distance from each input
-//     point to the integrated curve) under a hard equality constraint on the
-//     end position, solved as a KKT system. The constraint is what keeps the
-//     run's end exactly on the point the caller drew, which is a contact point
-//     with the neighbouring road.
+//     point to the integrated curve) under THREE hard equality constraints —
+//     end x, end y, and total turn — solved together as one KKT system. Both
+//     tips are contact cross-sections shared with the neighbouring roads: the
+//     position must land on the point the caller drew, and the heading must
+//     match the tangent the rest of the exporter uses, because a lane border
+//     sits t metres out and a heading error there becomes a t·dh gap.
 //  4. Try knot counts from small to large and keep the first that meets the
 //     position and heading tolerances. Report failure if none does, so the
 //     caller can fall back rather than emit a bad road.
@@ -53,8 +56,20 @@ export interface ClothoidFitOptions {
   hdgTol: number
   /** Knot counts to try, in order. */
   knotCounts?: readonly number[]
-  /** Heading the run must start with; omitted means "free" (use the data). */
-  startHdg?: number
+  /**
+   * Heading the run must START with, exactly.
+   *
+   * Not a hint: a road's end heading is the contact cross-section it shares
+   * with its neighbour, and a lane border sits t metres off the reference
+   * line, so a heading difference dh displaces that border by t·dh. At the
+   * 3.5 m lane half-width of an ordinary road, 0.4 deg becomes a 2.5 cm gap —
+   * past the 1 cm the published quality rules allow between connected lanes.
+   * The caller therefore supplies the same tangent the rest of the exporter
+   * uses, and the fit is held to it rather than estimating its own.
+   */
+  startHdg: number
+  /** Heading the run must END with, exactly. Same contract as `startHdg`. */
+  endHdg: number
 }
 
 export interface ClothoidFitResult {
@@ -162,48 +177,25 @@ function solveLinear(matrix: number[][], rhs: number[]): number[] | null {
  * (station, heading) pair at its midpoint. Headings are unwrapped so the
  * profile is continuous and the least-squares problem below stays linear.
  */
-function headingProfile(pts: readonly ClothoidFitPoint[]): {
-  s: number[]
-  theta: number[]
-  total: number
-  /** Chord direction at s = startChordHalf, i.e. biased by that much turning. */
+function headingProfile(
+  pts: readonly ClothoidFitPoint[],
   startHdg: number
-  startChordHalf: number
-  /** Chord direction at s = L − endChordHalf. */
-  endHdg: number
-  endChordHalf: number
-} {
+): { s: number[]; theta: number[]; total: number } {
   const st = chordStations(pts)
   const total = st[st.length - 1]
   const s: number[] = []
   const theta: number[] = []
-  let prev = 0
+  // Unwrap relative to the given start heading so the profile is continuous
+  // across +-pi and the least-squares problem below stays linear.
+  let prev = startHdg
   for (let i = 0; i < pts.length - 1; i++) {
     let a = Math.atan2(pts[i + 1].y - pts[i].y, pts[i + 1].x - pts[i].x)
-    if (i === 0) prev = a
     a = prev + wrapAngle(a - prev)
     prev = a
     s.push((st[i] + st[i + 1]) / 2)
     theta.push(a)
   }
-  // Endpoint tangents: a chord's direction is the tangent at its MIDPOINT, so
-  // taking the first/last chord direction as the tangent at s = 0 / s = L is
-  // biased by half a chord of turning — 0.7 deg on a 2 m chord at R = 80 m,
-  // already past the default heading tolerance. The bias is κ·(chord/2) and
-  // its correction is applied where κ is known: `fitClothoidRun` uses the
-  // fit's own end knot curvature. Extrapolating θ(s) through the two nearest
-  // chord samples would also remove it, but it doubles the noise in those two
-  // samples, which on hand-drawn input is larger than the bias it removes.
-  const n = theta.length
-  return {
-    s,
-    theta,
-    total,
-    startHdg: theta[0],
-    startChordHalf: s[0],
-    endHdg: theta[n - 1],
-    endChordHalf: total - s[n - 1],
-  }
+  return { s, theta, total }
 }
 
 /**
@@ -227,16 +219,24 @@ function basisIntegral(s: number, knotCount: number, seg: number): number[] {
 }
 
 /**
- * Least-squares knot curvatures matching the sampled heading profile.
+ * Least-squares knot curvatures matching the sampled heading profile, under an
+ * EXACT total-turn constraint.
  *
- * θ(s) − θ0 is linear in the knot values, so this is a normal-equation solve.
+ * θ(s) − θ0 is linear in the knot values, so the fit is a normal-equation
+ * solve. The run's end heading is θ(L) = θ0 + ∫₀ᴸ κ, which is linear in those
+ * same values, so pinning it is one equality row — imposed through a Lagrange
+ * multiplier rather than a penalty, which makes it exact instead of traded off
+ * against the sample residuals. That matters because the end heading is the
+ * contact cross-section the next road is built on.
+ *
  * A tiny second-difference penalty keeps the system well conditioned when the
  * grid is finer than the data supports.
  */
 function fitKnotsToHeading(
   profile: { s: number[]; theta: number[]; total: number },
   knotCount: number,
-  startHdg: number
+  startHdg: number,
+  totalTurn: number
 ): number[] | null {
   const seg = profile.total / knotCount
   const n = knotCount + 1
@@ -262,7 +262,21 @@ function fitKnotsToHeading(
       }
     }
   }
-  return solveLinear(ata, atb)
+  // Total-turn equality: basisIntegral at s = L gives d(theta(L))/d(k), so the
+  // KKT system is [AtA  C^T; C  0] [k; lambda] = [Atb; totalTurn].
+  const turnRow = basisIntegral(profile.total, knotCount, seg)
+  const size = n + 1
+  const kkt: number[][] = Array.from({ length: size }, () => new Array(size).fill(0))
+  const rhs = new Array(size).fill(0)
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) kkt[i][j] = ata[i][j]
+    kkt[i][n] = turnRow[i]
+    kkt[n][i] = turnRow[i]
+    rhs[i] = atb[i]
+  }
+  rhs[n] = totalTurn
+  const solution = solveLinear(kkt, rhs)
+  return solution ? solution.slice(0, n) : null
 }
 
 /**
@@ -344,6 +358,8 @@ function polishKnots(
   x0: number,
   y0: number,
   h0: number,
+  /** Total turn the run must accumulate; held exactly. */
+  totalTurn: number,
   iterations: number,
   /** Sample residual at or below which the shape needs no further work. */
   shapeTol?: number
@@ -351,6 +367,21 @@ function polishKnots(
   const n = initial.length
   const target = pts[pts.length - 1]
   let knots = [...initial]
+
+  // Total turn is integral(kappa) over the run: a fixed weighted sum of the
+  // knot values (trapezoid weights on the uniform grid), so it is exactly
+  // linear and can be held as one more equality row. Every step below is
+  // taken in the subspace that leaves it unchanged, which is what keeps the
+  // run's end heading on the value the caller pinned.
+  const seg = length / (n - 1)
+  const turnWeights = new Array(n).fill(seg)
+  turnWeights[0] = seg / 2
+  turnWeights[n - 1] = seg / 2
+  const turnOf = (k: readonly number[]): number => {
+    let sum = 0
+    for (let i = 0; i < n; i++) sum += turnWeights[i] * k[i]
+    return sum
+  }
 
   /**
    * End offset of the ANALYTIC chain (the geometries that will actually be
@@ -377,6 +408,7 @@ function polishKnots(
     // away; the KKT step is what actually drives it to zero.
     return sum + 1e6 * (e.cx * e.cx + e.cy * e.cy)
   }
+
 
   let current = evaluate(knots)
   let currentCost = cost(current)
@@ -412,8 +444,12 @@ function polishKnots(
 
     let improved = false
     for (const mu of [1e-6, 1e-4, 1e-2, 1]) {
-      // Assemble the KKT system.
-      const size = n + 2
+      // Assemble the KKT system: three equality rows (end x, end y, total
+      // turn) solved WITH the Gauss-Newton step, not applied after it. Doing
+      // them in sequence would have each correction undo the other.
+      const rows: number[][] = [conJac[0], conJac[1], turnWeights]
+      const targets = [-current.cx, -current.cy, totalTurn - turnOf(knots)]
+      const size = n + rows.length
       const kkt: number[][] = Array.from({ length: size }, () => new Array(size).fill(0))
       const rhs = new Array(size).fill(0)
       for (let a = 0; a < n; a++) {
@@ -421,14 +457,13 @@ function polishKnots(
         kkt[a][a] += mu * (1 + jtj[a][a])
         rhs[a] = -jtr[a]
       }
-      for (let c = 0; c < 2; c++) {
+      for (let c = 0; c < rows.length; c++) {
         for (let a = 0; a < n; a++) {
-          kkt[a][n + c] = conJac[c][a]
-          kkt[n + c][a] = conJac[c][a]
+          kkt[a][n + c] = rows[c][a]
+          kkt[n + c][a] = rows[c][a]
         }
+        rhs[n + c] = targets[c]
       }
-      rhs[n] = -current.cx
-      rhs[n + 1] = -current.cy
       const solution = solveLinear(kkt, rhs)
       if (!solution) continue
       for (const damp of [1, 0.5, 0.25, 0.1]) {
@@ -467,21 +502,26 @@ function polishKnots(
       conJac[0][j] = (e.cx - current.cx) / eps
       conJac[1][j] = (e.cy - current.cy) / eps
     }
-    // Minimum-norm solution of C·Δk = −c is Δk = Cᵀ (C Cᵀ)⁻¹ (−c).
-    const ccT: number[][] = [
-      [0, 0],
-      [0, 0],
-    ]
-    for (let a = 0; a < 2; a++) {
-      for (let b = 0; b < 2; b++) {
+    // Minimum-norm solution of C·Δk = −c is Δk = Cᵀ (C Cᵀ)⁻¹ (−c). The third
+    // row holds the total turn at its pinned value, so the correction only
+    // ever moves the end position and never the end heading.
+    const rows: number[][] = [conJac[0], conJac[1], turnWeights]
+    const m3 = rows.length
+    const ccT: number[][] = Array.from({ length: m3 }, () => new Array(m3).fill(0))
+    for (let a = 0; a < m3; a++) {
+      for (let b = 0; b < m3; b++) {
         let sum = 0
-        for (let j = 0; j < n; j++) sum += conJac[a][j] * conJac[b][j]
+        for (let j = 0; j < n; j++) sum += rows[a][j] * rows[b][j]
         ccT[a][b] = sum
       }
     }
-    const lam = solveLinear(ccT, [-current.cx, -current.cy])
+    const lam = solveLinear(ccT, [-current.cx, -current.cy, totalTurn - turnOf(knots)])
     if (!lam) break
-    const trial = knots.map((v, j) => v + conJac[0][j] * lam[0] + conJac[1][j] * lam[1])
+    const trial = knots.map((v, j) => {
+      let d = 0
+      for (let a = 0; a < m3; a++) d += rows[a][j] * lam[a]
+      return v + d
+    })
     const e = endOffset(trial)
     if (Math.hypot(e.cx, e.cy) >= Math.hypot(current.cx, current.cy)) break
     knots = trial
@@ -549,28 +589,37 @@ export function fitClothoidRun(
   options: ClothoidFitOptions
 ): ClothoidFitResult | null {
   if (points.length < 4) return null
-  const profile = headingProfile(points)
+  const startHdg = options.startHdg
+  const profile = headingProfile(points, startHdg)
   if (!(profile.total > MIN_RUN_LENGTH)) return null
 
   const x0 = points[0].x
   const y0 = points[0].y
-  const h0 = options.startHdg ?? profile.startHdg
   const last = points[points.length - 1]
   const counts = options.knotCounts ?? DEFAULT_KNOT_COUNTS
+  // Total turn the run must accumulate, taken on the branch nearest the
+  // profile's own unwrapped end so a run that sweeps past +-pi is not pinned
+  // to a turn one revolution out.
+  const profileEnd = profile.theta[profile.theta.length - 1]
+  const totalTurn =
+    profileEnd - startHdg + wrapAngle(options.endHdg - profileEnd)
 
   for (const knotCount of counts) {
     // More knots than the data can support only fits noise.
     if (knotCount + 1 > profile.s.length) break
-    const initial = fitKnotsToHeading(profile, knotCount, h0)
+    const initial = fitKnotsToHeading(profile, knotCount, startHdg, totalTurn)
     if (!initial) continue
-    // The start heading came from the first chord, which is the tangent half a
-    // chord in. Back it out with the curvature the fit just estimated there
-    // (unless the caller pinned the heading, in which case it is exact).
-    const startHdg =
-      options.startHdg ?? profile.startHdg - initial[0] * profile.startChordHalf
-    const refined =
-      startHdg === h0 ? initial : fitKnotsToHeading(profile, knotCount, startHdg) ?? initial
-    const knots = polishKnots(refined, profile.total, points, x0, y0, startHdg, 12, options.posTol)
+    const knots = polishKnots(
+      initial,
+      profile.total,
+      points,
+      x0,
+      y0,
+      startHdg,
+      totalTurn,
+      12,
+      options.posTol
+    )
     const geometries = buildGeometries(knots, profile.total, x0, y0, startHdg)
     if (geometries.length === 0) continue
     const tail = geometries[geometries.length - 1]
@@ -599,11 +648,9 @@ export function fitClothoidRun(
     }
     if (worstMidpoint > options.posTol) continue
     // The run's end heading is the contact cross-section it shares with
-    // whatever follows, so it is held to the same tolerance as the positions.
-    // The target is the last chord direction with its own midpoint bias backed
-    // out, using the fit's end curvature (the same correction as at the start).
-    const endTarget = profile.endHdg + knots[knots.length - 1] * profile.endChordHalf
-    const endHdgError = Math.abs(wrapAngle(end.hdg - endTarget))
+    // whatever follows. It is pinned, not fitted, so this only verifies that
+    // the constraint survived the polish.
+    const endHdgError = Math.abs(wrapAngle(end.hdg - (startHdg + totalTurn)))
 
     if (maxDeviation > options.posTol) continue
     // The run's end is a contact point, not a shape sample: it must be met,

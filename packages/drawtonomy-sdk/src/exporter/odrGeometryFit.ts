@@ -123,6 +123,22 @@ const MIN_CLOTHOID_RUN_POINTS = 4
  * few metres, and far above the rounding of an arc emitted with full precision.
  */
 const CURVATURE_JOIN_TOL = 1e-9
+/**
+ * Fraction of the position tolerance by which the curvature-continuous fit may
+ * be worse than the greedy one and still be preferred. 10% of 5 cm is 5 mm:
+ * far below anything a consumer of the road can act on, and far above the
+ * micron-scale differences two converged fits of the same shape show.
+ */
+const ACCURACY_TIE_FRACTION = 0.1
+/**
+ * How many times the greedy fit's piece count the spiral chain may use before
+ * a tie on accuracy is decided against it. The S-curve pays 16 pieces against
+ * 9 (1.8x) and is worth it — there the greedy fit's joints really do step in
+ * curvature. A line/arc/line road pays 16 against 4 (4x) for the same
+ * accuracy, because the shape's curvature steps and no smooth chain can
+ * reproduce that without spending pieces on it.
+ */
+const PIECE_COUNT_TIE_FACTOR = 2.5
 
 function wrapAngle(a: number): number {
   while (a > Math.PI) a -= 2 * Math.PI
@@ -152,6 +168,66 @@ function distToPolyline(p: FitPoint, pts: readonly FitPoint[], i0: number, i1: n
     if (d < best) best = d
   }
   return best
+}
+
+/**
+ * Endpoint tangent of a run, by the same rule the G1 fitter uses.
+ *
+ * A chord's direction is the tangent at its arc-length midpoint, so the first
+ * chord is NOT the tangent at s = 0 — on a curve it is biased by half a chord
+ * of turning. The linear model through the two adjacent chords removes that,
+ * except at a tip that is genuinely straight (a line running into an arc, the
+ * commonest road shape there is): there the chord IS the tangent, and blending
+ * in the next chord would rotate the contact cross-section off the
+ * neighbouring road's. The tip counts as straight when its lead turn is at
+ * most half the following turn, since a uniform arc shows equal turns while a
+ * line-into-arc tip shows a doubled second turn.
+ *
+ * Exported so the G2 driver pins its runs to exactly this value. A road's end
+ * heading is the contact cross-section it shares with its neighbour, and a
+ * lane border sits t metres off the reference line: a heading difference of
+ * dh there displaces the border by t·dh, which at t = 3.5 m turns 0.4 deg into
+ * a 2.5 cm gap. The two fitters must not each invent their own estimate.
+ */
+export function runTipTangent(
+  pts: readonly FitPoint[],
+  end: 'start' | 'end',
+  hdgTol: number
+): number {
+  const m = pts.length
+  const chordAngle = (i: number): number =>
+    Math.atan2(pts[i + 1].y - pts[i].y, pts[i + 1].x - pts[i].x)
+  const chordLen = (i: number): number =>
+    Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y)
+  if (m < 2) return 0
+  if (m === 2) return chordAngle(0)
+  const tip = (
+    aTip: number,
+    aNext: number,
+    lTip: number,
+    lNext: number,
+    turnBeyond: number | null
+  ): number => {
+    const turnTip = wrapAngle(aNext - aTip)
+    if (turnBeyond !== null && Math.abs(turnTip) <= Math.abs(turnBeyond) / 2 + hdgTol) {
+      return aTip
+    }
+    return aTip - (turnTip * lTip) / (lTip + lNext)
+  }
+  if (end === 'start') {
+    const a01 = chordAngle(0)
+    const a12 = chordAngle(1)
+    return tip(a01, a12, chordLen(0), chordLen(1), m >= 4 ? wrapAngle(chordAngle(2) - a12) : null)
+  }
+  const aLast = chordAngle(m - 2)
+  const aPrev = chordAngle(m - 3)
+  return tip(
+    aLast,
+    aPrev,
+    chordLen(m - 2),
+    chordLen(m - 3),
+    m >= 4 ? wrapAngle(chordAngle(m - 4) - aPrev) : null
+  )
 }
 
 /**
@@ -275,37 +351,10 @@ function fitPlanViewG1(
     // counts as straight when its lead turn is at most half the following
     // turn (plus tolerance): a uniform arc shows equal turns and extrapolates,
     // a line-into-arc tip shows a doubled second turn and keeps its chord.
-    const tipTangent = (
-      aTip: number,
-      aNext: number,
-      lTip: number,
-      lNext: number,
-      turnBeyond: number | null
-    ): number => {
-      const turnTip = wrapAngle(aNext - aTip)
-      if (turnBeyond !== null && Math.abs(turnTip) <= Math.abs(turnBeyond) / 2 + hdgTol) {
-        return aTip
-      }
-      return aTip - (turnTip * lTip) / (lTip + lNext)
-    }
-    const a01 = chordAngle(0)
-    const a12 = chordAngle(1)
-    rawHdg[0] = tipTangent(
-      a01,
-      a12,
-      chordLen(0),
-      chordLen(1),
-      m >= 4 ? wrapAngle(chordAngle(2) - a12) : null
-    )
-    const aLast = chordAngle(m - 2)
-    const aPrev = chordAngle(m - 3)
-    rawHdg[m - 1] = tipTangent(
-      aLast,
-      aPrev,
-      chordLen(m - 2),
-      chordLen(m - 3),
-      m >= 4 ? wrapAngle(chordAngle(m - 4) - aPrev) : null
-    )
+    // The rule itself lives in runTipTangent so the G2 driver can pin its
+    // runs to exactly this value rather than inventing a second estimate.
+    rawHdg[0] = runTipTangent(pts, 'start', hdgTol)
+    rawHdg[m - 1] = runTipTangent(pts, 'end', hdgTol)
   }
   // Unwrap so the sequence is continuous (no 2π jumps) before filtering.
   for (let i = 1; i < m; i++) {
@@ -860,12 +909,21 @@ export function fitPlanView(
     const i0 = bounds[b]
     const i1 = bounds[b + 1]
     const run = pts.slice(i0, i1 + 1)
+    // Both tip headings are pinned to the tangent the rest of the exporter
+    // uses (runTipTangent), NOT estimated by the spiral fit. A road's end
+    // heading is the contact cross-section its neighbour is built on, and a
+    // lane border sits t metres off the reference line, so letting the two
+    // fitters disagree by even a fraction of a degree opens a centimetre-scale
+    // gap between connected lanes at ordinary lane widths.
+    //
+    // The one exception is a continuation joint: when this run follows another
+    // inside the same plan view, its start heading is the predecessor's exact
+    // analytic end, which is what keeps the chain G1 there.
     const startPose = geometries.length > 0 && !fold[i0] ? geometries[geometries.length - 1] : null
-    // Inside a run the chain heading is already exact; across a fold the next
-    // run starts with whatever heading its own data says, which is the break.
     const startHdg = startPose
       ? evalGeometry(startPose, startPose.length).hdg
-      : undefined
+      : runTipTangent(run, 'start', hdgTol)
+    const endHdg = runTipTangent(run, 'end', hdgTol)
 
     // The greedy fit of this run first: when it already comes out curvature-
     // continuous (a lone line, a lone arc, or a line/arc chain whose joints
@@ -875,7 +933,7 @@ export function fitPlanView(
     const greedy = fitPlanViewG1(run, options)
     let fitted =
       run.length >= MIN_CLOTHOID_RUN_POINTS && !isCurvatureContinuous(greedy.geometries)
-        ? fitClothoidRun(run, { posTol, hdgTol, startHdg })
+        ? fitClothoidRun(run, { posTol, hdgTol, startHdg, endHdg })
         : null
 
     // Curvature continuity is not worth buying at the cost of accuracy. Where
@@ -885,8 +943,26 @@ export function fitPlanView(
     // off the data than the greedy fit's Hermite transition, and in many more
     // pieces. Keep the greedy fit in that case: the joint it leaves is one
     // curvature step at a place the data itself steps.
-    if (fitted && maxSampleDeviation(fitted.geometries, run) > maxSampleDeviation(greedy.geometries, run)) {
-      fitted = null
+    //
+    // "Materially worse", not "worse at all". Both fits are converged to the
+    // same tolerance, so on a shape they both handle they routinely land
+    // within microns of each other, and a strict comparison makes the choice a
+    // coin flip that throws away curvature continuity over 0.02 mm. The margin
+    // is a fraction of the position tolerance: below it the two fits describe
+    // the same road.
+    //
+    // On such a tie the piece count decides instead. A curvature step costs
+    // the spiral chain many pieces to smooth — four times the greedy fit's on
+    // a line/arc/line road — and paying that for a road whose curvature steps
+    // anyway buys nothing: the step is in the data, not in the fit. A tie that
+    // also costs pieces is therefore not a tie.
+    if (fitted) {
+      const spiralDev = maxSampleDeviation(fitted.geometries, run)
+      const greedyDev = maxSampleDeviation(greedy.geometries, run)
+      const materiallyWorse = spiralDev > greedyDev + posTol * ACCURACY_TIE_FRACTION
+      const tie = spiralDev > greedyDev
+      const costlier = fitted.geometries.length > greedy.geometries.length * PIECE_COUNT_TIE_FACTOR
+      if (materiallyWorse || (tie && costlier)) fitted = null
     }
 
     if (fitted) {
