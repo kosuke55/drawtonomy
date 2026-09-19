@@ -630,6 +630,34 @@ function buildBoundaryAlignmentOverrides(
   return overrides
 }
 
+/**
+ * The primitive element for one fitted `<geometry>`.
+ *
+ * Exhaustive on purpose: an unhandled kind used to fall through to `<line/>`,
+ * which silently straightens the road instead of failing, so every primitive
+ * gets its own branch and the default throws.
+ */
+function emitGeometryPrimitive(g: OdrGeometry): string {
+  switch (g.kind) {
+    case 'line':
+      return `        <line/>`
+    case 'arc':
+      return `        <arc curvature="${fmtPrecise(g.curvature)}"/>`
+    case 'spiral':
+      return `        <spiral curvStart="${fmtPrecise(g.curvStart)}" curvEnd="${fmtPrecise(g.curvEnd)}"/>`
+    case 'paramPoly3':
+      return (
+        `        <paramPoly3 aU="${fmtPrecise(g.aU)}" bU="${fmtPrecise(g.bU)}" cU="${fmtPrecise(g.cU)}" dU="${fmtPrecise(g.dU)}" ` +
+        `aV="${fmtPrecise(g.aV)}" bV="${fmtPrecise(g.bV)}" cV="${fmtPrecise(g.cV)}" dV="${fmtPrecise(g.dV)}" pRange="arcLength"/>`
+      )
+    case 'poly3':
+      // Deprecated in OpenDRIVE 1.6 and never produced by the fitter; it can
+      // only arrive from a carried-through import, where the record is
+      // re-emitted verbatim rather than through this path.
+      return `        <poly3 a="${fmtPrecise(g.a)}" b="${fmtPrecise(g.b)}" c="${fmtPrecise(g.c)}" d="${fmtPrecise(g.d)}"/>`
+  }
+}
+
 function emitPlanView(geom: BundleGeometry): string {
   const lines: string[] = []
   lines.push(`    <planView>`)
@@ -638,16 +666,7 @@ function emitPlanView(geom: BundleGeometry): string {
     lines.push(
       `      <geometry s="${fmt(g.s)}" x="${fmt(g.x)}" y="${fmt(g.y)}" hdg="${fmt(g.hdg)}" length="${fmt(g.length)}">`
     )
-    if (g.kind === 'arc') {
-      lines.push(`        <arc curvature="${fmtPrecise(g.curvature)}"/>`)
-    } else if (g.kind === 'paramPoly3') {
-      lines.push(
-        `        <paramPoly3 aU="${fmtPrecise(g.aU)}" bU="${fmtPrecise(g.bU)}" cU="${fmtPrecise(g.cU)}" dU="${fmtPrecise(g.dU)}" ` +
-          `aV="${fmtPrecise(g.aV)}" bV="${fmtPrecise(g.bV)}" cV="${fmtPrecise(g.cV)}" dV="${fmtPrecise(g.dV)}" pRange="arcLength"/>`
-      )
-    } else {
-      lines.push(`        <line/>`)
-    }
+    lines.push(emitGeometryPrimitive(g))
     lines.push(`      </geometry>`)
   }
   lines.push(`    </planView>`)
