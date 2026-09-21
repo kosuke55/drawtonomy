@@ -28,19 +28,29 @@ drawtonomy-cr open out/
 ```
 
 On the cut-in scenario shipped with the package
-(`tests/fixtures/cutin_commonroad.xml`, a leader that cuts in and stops), the
-two modes give the two verdicts:
-
-| mode | `obstacle_collision` | the other three |
-|---|---|---|
-| `idm` | PASS | PASS |
-| `naive` | FAIL (t=124..130, obstacle 15) | PASS |
+(`tests/fixtures/cutin_commonroad.xml`, a leader that cuts in and stops), `idm`
+brakes behind the leader and `naive` drives into it (`obstacle_collision` FAIL,
+t=124..130, obstacle 15).
 
 The same two runs on the straight road `tests/fixtures/straight_commonroad.xml`
 (one lane, a slower vehicle ahead of the ego) are committed as
-`tests/fixtures/straight_idm_solution.*` and `straight_naive_solution.*`, and can be
-opened in drawtonomy straight from GitHub: [`idm`, FAIL 1/7](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_idm_solution.planning-trace.json&verdict=straight_idm_solution.verdict.json) and
-[`naive`, FAIL 2/7 at 3.7 s](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_naive_solution.planning-trace.json&verdict=straight_naive_solution.verdict.json). `tests/test_example_idm.py` regenerates
+`tests/fixtures/straight_idm_solution.*` and `straight_naive_solution.*`. These
+are the official checker's seven checks on them:
+
+| check | `idm` | `naive` |
+|---|---|---|
+| `solved_all_problems` | PASS | PASS |
+| `goal_reached` | PASS | PASS |
+| `starts_at_correct_state` | PASS | PASS |
+| `obstacle_collision` | PASS | **FAIL** (t=37..44, obstacle 2) |
+| `boundary_collision` | PASS | PASS |
+| `ego_collision` | PASS | PASS |
+| `solution_feasible` | PASS | PASS |
+
+`naive`'s one FAIL is the point of the mode: it holds the initial speed and
+ignores the car ahead. Both can be opened in drawtonomy straight from GitHub:
+[`idm`, PASS 7/7](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_idm_solution.planning-trace.json&verdict=straight_idm_solution.verdict.json) and
+[`naive`, FAIL 1/7 at 3.7 s](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_naive_solution.planning-trace.json&verdict=straight_naive_solution.verdict.json). `tests/test_example_idm.py` regenerates
 them from this file, so they stay what the example writes.
 
 ## What to read

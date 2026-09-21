@@ -27,17 +27,27 @@ drawtonomy-cr open out/
 ```
 
 パッケージ同梱のカットインシナリオ (`tests/fixtures/cutin_commonroad.xml`、
-割り込んで停止する先行車) では、2 つのモードで判定が分かれます:
-
-| mode | `obstacle_collision` | 他の 3 検査 |
-|---|---|---|
-| `idm` | PASS | PASS |
-| `naive` | FAIL (t=124..130, obstacle 15) | PASS |
+割り込んで停止する先行車) では、`idm` は先行車の手前で減速し、`naive` は追突します
+(`obstacle_collision` が FAIL、t=124..130, obstacle 15)。
 
 直線道路 `tests/fixtures/straight_commonroad.xml` (1 車線、ego の前に遅い車が 1 台)
 での同じ 2 通りの結果は `tests/fixtures/straight_idm_solution.*` と
-`straight_naive_solution.*` としてコミットしてあり、GitHub から直接 drawtonomy で
-開けます: [`idm`、FAIL 1/7](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_idm_solution.planning-trace.json&verdict=straight_idm_solution.verdict.json) と [`naive`、3.7 秒で FAIL 2/7](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_naive_solution.planning-trace.json&verdict=straight_naive_solution.verdict.json)。
+`straight_naive_solution.*` としてコミットしてあります。公式チェッカの 7 検査の結果は
+次のとおりです:
+
+| 検査 | `idm` | `naive` |
+|---|---|---|
+| `solved_all_problems` | PASS | PASS |
+| `goal_reached` | PASS | PASS |
+| `starts_at_correct_state` | PASS | PASS |
+| `obstacle_collision` | PASS | **FAIL** (t=37..44, obstacle 2) |
+| `boundary_collision` | PASS | PASS |
+| `ego_collision` | PASS | PASS |
+| `solution_feasible` | PASS | PASS |
+
+`naive` の 1 件の FAIL はこのモードの主旨そのものです。初速を保ったまま前方車を
+無視します。どちらも GitHub から直接 drawtonomy で開けます:
+[`idm`、PASS 7/7](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_idm_solution.planning-trace.json&verdict=straight_idm_solution.verdict.json) と [`naive`、3.7 秒で FAIL 1/7](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_naive_solution.planning-trace.json&verdict=straight_naive_solution.verdict.json)。
 `tests/test_example_idm.py` がこのファイルから再生成して一致を検査するので、
 サンプルが書き出すものと食い違いません。
 

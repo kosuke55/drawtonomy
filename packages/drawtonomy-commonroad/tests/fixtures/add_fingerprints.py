@@ -3,11 +3,10 @@
 
 The reactive-planner fixtures cannot be regenerated here: that planner ships
 manylinux_x86_64 wheels only, and `examples/reactive_planner/Dockerfile` needs a
-working Docker. The IDM fixtures could be re-run, but they are deliberately kept
-as the example's older 1-based output (see
-`test_committed_straight_fixtures_are_what_the_example_writes`), and their
-PASS/FAIL verdicts come from the official checker, which is not installable
-here either.
+working Docker. The IDM fixtures could be re-run, but their PASS/FAIL verdicts
+come from the official checker, which is not installable here either. (The
+`straight_*` files have since been regenerated on a Linux runner, so their
+fingerprints are a real writer's output; this script only confirms them.)
 
 So the states of these files stay exactly as they were, and only the two new
 fields are added - computed with the same `drawtonomy_cr.fingerprint` the
