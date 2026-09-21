@@ -172,8 +172,8 @@ commonroad-io と numpy だけです。接続できる最小の構成であり�
 | サンプル | シナリオ | 結果 | 開く |
 |---|---|---|---|
 | reactive planner | カットイン (`cutin_commonroad.xml`) | PASS 7/7 | [開く](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/cutin_commonroad.xml&trace=planner-candidates/planner_solution.planning-trace.json&verdict=planner_solution.verdict.json) |
-| IDM planner `idm` モード | 直線道路 (`straight_commonroad.xml`) | FAIL 1/7、初期状態の 1 ステップ後から始まる | [開く](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_idm_solution.planning-trace.json&verdict=straight_idm_solution.verdict.json) |
-| IDM planner `naive` モード | 直線道路 | FAIL 2/7、3.7 秒で障害物衝突 | [開く](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_naive_solution.planning-trace.json&verdict=straight_naive_solution.verdict.json) |
+| IDM planner `idm` モード | 直線道路 (`straight_commonroad.xml`) | PASS 7/7 | [開く](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_idm_solution.planning-trace.json&verdict=straight_idm_solution.verdict.json) |
+| IDM planner `naive` モード | 直線道路 | FAIL 1/7、3.7 秒で障害物衝突 (意図的: 前方車を無視するモード) | [開く](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_naive_solution.planning-trace.json&verdict=straight_naive_solution.verdict.json) |
 | reactive planner | カットインの **OpenSCENARIO 版** (esmini `cut-in.xosc`) | traceのみ | [開く](https://drawtonomy.com/?open=https%3A%2F%2Fgithub.com%2Fesmini%2Fesmini%2Fblob%2Fmaster%2Fresources%2Fxosc%2Fcut-in.xosc&trace=https%3A%2F%2Fgithub.com%2Fkosuke55%2Fdrawtonomy%2Fblob%2Fmain%2Fpackages%2Fdrawtonomy-commonroad%2Ftests%2Ffixtures%2Fcutin_openscenario.planning-trace.json) |
 
 リンクの形は `?open=<GitHub file URL>&trace=<file>&verdict=<file>` です。0.3.0 以降が
