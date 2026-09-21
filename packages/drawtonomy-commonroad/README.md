@@ -168,26 +168,27 @@ Both are examples: replace the planner half with yours and keep the hand-off hal
 
 The output of both examples is committed under `tests/fixtures/`, and drawtonomy
 can open a CommonRoad file straight from GitHub through the `?open=` URL
-parameter. Use the result link for solution/verdict identity checks, or the trace
-link to inspect the planner's plans. Nothing to install:
+parameter. One link per example: it replays the planner's plans and shows the
+official checker's verdict beside them. Nothing to install:
 
-| example | scenario | result | result replay | planning trace |
-|---|---|---|---|---|
-| reactive planner | cut-in (`cutin_commonroad.xml`) | PASS 7/7 | [result](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/cutin_commonroad.xml&solution=planner_solution.xml&verdict=planner_solution.verdict.json) | [trace](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/cutin_commonroad.xml&trace=planner_solution.planning-trace.json) · [trace with candidates](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/cutin_commonroad.xml&trace=planner-candidates/planner_solution.planning-trace.json) |
-| IDM planner, `idm` mode | straight road (`straight_commonroad.xml`) | FAIL, starts one step after the initial state (6/7) | [result](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&solution=straight_idm_solution.xml&verdict=straight_idm_solution.verdict.json) | [trace](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_idm_solution.planning-trace.json) |
-| IDM planner, `naive` mode | straight road | FAIL, obstacle collision at 3.7 s (5/7) | [result](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&solution=straight_naive_solution.xml&verdict=straight_naive_solution.verdict.json) | [trace](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_naive_solution.planning-trace.json) |
-| reactive planner | cut-in as **OpenSCENARIO** (esmini `cut-in.xosc`) | trace only | — | [trace](https://drawtonomy.com/?open=https%3A%2F%2Fgithub.com%2Fesmini%2Fesmini%2Fblob%2Fmaster%2Fresources%2Fxosc%2Fcut-in.xosc&trace=https%3A%2F%2Fgithub.com%2Fkosuke55%2Fdrawtonomy%2Fblob%2Fmain%2Fpackages%2Fdrawtonomy-commonroad%2Ftests%2Ffixtures%2Fcutin_openscenario.planning-trace.json) |
+| example | scenario | result | open |
+|---|---|---|---|
+| reactive planner | cut-in (`cutin_commonroad.xml`) | PASS 7/7 | [open](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/cutin_commonroad.xml&trace=planner-candidates/planner_solution.planning-trace.json&verdict=planner_solution.verdict.json) |
+| IDM planner, `idm` mode | straight road (`straight_commonroad.xml`) | FAIL, starts one step after the initial state (6/7) | [open](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_idm_solution.planning-trace.json&verdict=straight_idm_solution.verdict.json) |
+| IDM planner, `naive` mode | straight road | FAIL, obstacle collision at 3.7 s (5/7) | [open](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_naive_solution.planning-trace.json&verdict=straight_naive_solution.verdict.json) |
+| reactive planner | cut-in as **OpenSCENARIO** (esmini `cut-in.xosc`) | trace only | [open](https://drawtonomy.com/?open=https%3A%2F%2Fgithub.com%2Fesmini%2Fesmini%2Fblob%2Fmaster%2Fresources%2Fxosc%2Fcut-in.xosc&trace=https%3A%2F%2Fgithub.com%2Fkosuke55%2Fdrawtonomy%2Fblob%2Fmain%2Fpackages%2Fdrawtonomy-commonroad%2Ftests%2Ffixtures%2Fcutin_openscenario.planning-trace.json) |
 
-Result links use `?open=<GitHub file URL>&solution=<file>&verdict=<file>`.
-Trace links use `&trace=<file>` without a verdict: a trace alone cannot establish
-that a verdict belongs to the replayed solution. Combining a trace and verdict
-still shows the verdict as unverified. Companion paths are relative to the
-opened file. See [`tests/fixtures/ATTRIBUTION.md`](tests/fixtures/ATTRIBUTION.md)
+A link is `?open=<GitHub file URL>&trace=<file>&verdict=<file>`. A trace written
+by 0.3.0 or later carries the fingerprint of the solution it replays, so a
+verdict for that same solution is shown as verified next to it; an older trace
+without the fingerprint still loads and its verdict stays unverified. `&solution=`
+is still accepted, for a solution that has no trace. Companion paths are relative
+to the opened file. See [`tests/fixtures/ATTRIBUTION.md`](tests/fixtures/ATTRIBUTION.md)
 for fixture provenance and regeneration details.
 
-The "trace with candidates" link replays the same cut-in with every candidate
-the reactive planner considered: 63 replanning cycles, 30 candidates each (20
-feasible, 10 rejected), shown as a rank-coloured fan through the Candidates
+The reactive-planner link uses the unpruned trace, so the same click also shows
+every candidate that planner considered: 63 replanning cycles, 30 candidates each
+(20 feasible, 10 rejected), drawn as a rank-coloured fan through the Candidates
 toggle; a trace without `candidates` simply shows no fan.
 
 The last row opens the **same planner result on the OpenSCENARIO original** the
