@@ -1,0 +1,95 @@
+name: CommonRoad Regenerate IDM Fixtures
+
+# Manual only. The IDM demo fixtures under
+# `packages/drawtonomy-commonroad/tests/fixtures/straight_*` are the example
+# planner's own output plus the official checker's verdict on it. The checker
+# (commonroad-drivability-checker) publishes manylinux_x86_64 wheels only, so
+# a real verdict cannot be produced on macOS or ARM. This job runs the example
+# and the checker on an ubuntu runner and uploads the six files, which are then
+# committed as the fixtures.
+on:
+  workflow_dispatch:
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # [checker] is the official drivability checker; [boundary] adds triangle,
+      # without which `boundary_collision` is reported as SKIP instead of being
+      # judged. [test] is here so the package's own suite can be run below.
+      - name: Install the package with the official checker
+        run: pip install -e "packages/drawtonomy-commonroad[checker,boundary,test]"
+
+      - name: Record the tool versions
+        run: pip list | grep -Ei 'commonroad|triangle|numpy'
+
+      # `--name` decides the stem, so the generated files already carry the
+      # committed fixture names: `straight_<mode>_solution.xml` and
+      # `straight_<mode>_solution.planning-trace.json`. The example passes the
+      # solution and scenario paths to TraceWriter, so each trace records both
+      # fingerprints.
+      - name: Run the example planner in both modes
+        working-directory: packages/drawtonomy-commonroad
+        run: |
+          set -euo pipefail
+          for mode in idm naive; do
+            python3 examples/idm_planner/idm_planner.py \
+              tests/fixtures/straight_commonroad.xml \
+              "out/$mode" \
+              --mode "$mode" \
+              --name "straight_${mode}_solution"
+          done
+
+      # `drawtonomy-cr verdict` writes `<solution stem>.verdict.json` next to the
+      # solution and prints one line per official check. A FAIL is not a command
+      # failure, so the step succeeds either way and the log is the record.
+      - name: Judge both solutions with the official checker
+        working-directory: packages/drawtonomy-commonroad
+        run: |
+          set -euo pipefail
+          for mode in idm naive; do
+            echo "::group::verdict: $mode"
+            drawtonomy-cr verdict \
+              tests/fixtures/straight_commonroad.xml \
+              "out/$mode/straight_${mode}_solution.xml"
+            echo "::endgroup::"
+          done
+
+      # The same seven statuses again, as a summary table, so the run page says
+      # what the fixtures claim without downloading the artifact.
+      - name: Summarise the seven checks
+        if: always()
+        working-directory: packages/drawtonomy-commonroad
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, pathlib
+          for mode in ("idm", "naive"):
+              path = pathlib.Path(f"out/{mode}/straight_{mode}_solution.verdict.json")
+              if not path.is_file():
+                  print(f"### {mode}: no verdict written\n")
+                  continue
+              v = json.loads(path.read_text())
+              checks = v["checks"]
+              passed = sum(c["status"] == "PASS" for c in checks)
+              print(f"### {mode}: {passed}/{len(checks)} PASS "
+                    f"(checker {v['tool']['version']})\n")
+              print("| check | status | message |")
+              print("| --- | --- | --- |")
+              for c in checks:
+                  print(f"| {c['name']} | {c['status']} | {c.get('message', '')} |")
+              print()
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: idm-fixtures
+          path: packages/drawtonomy-commonroad/out/
+          if-no-files-found: error
