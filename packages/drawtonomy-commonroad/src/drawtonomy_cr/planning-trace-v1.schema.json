@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://drawtonomy.com/schemas/planning-trace-v1.schema.json",
+  "title": "drawtonomy planning trace v1",
+  "description": "What one actor drove in a run and what its planner intended at every replanning cycle. The prose specification is docs/planning-trace-format.md; this file is the shape both the writer's self-check and drawtonomy's fixture tests validate against. v1 is additive: unknown fields are allowed everywhere, so a new optional field never breaks a reader.",
+  "type": "object",
+  "required": ["schema", "frame", "tracks"],
+  "properties": {
+    "schema": {
+      "const": "drawtonomy-planning-trace-v1",
+      "description": "Exactly this string. Any other value is refused, naming the supported schema."
+    },
+    "frame": {
+      "enum": ["center", "ref"],
+      "description": "What the positions mean: the body centre, or the reference point (rear axle centre)."
+    },
+    "scenario": {
+      "type": "string",
+      "description": "Scenario identifier this trace was computed for."
+    },
+    "scenarioFingerprint": {
+      "$ref": "#/$defs/fingerprint",
+      "description": "The scenario XML the planner ran on. Same value, same normalization, as a checker verdict's field of the same name."
+    },
+    "solutionFingerprint": {
+      "$ref": "#/$defs/fingerprint",
+      "description": "The solution XML this trace's driven states reproduce. Written only when the writer's self-check proved they do, so a verdict of the same solution verifies against this trace."
+    },
+    "producer": {
+      "type": "object",
+      "description": "Free-form; { name, version } by convention. Informational only.",
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" }
+      }
+    },
+    "tracks": {
+      "type": "array",
+      "minItems": 1,
+      "description": "One entry per actor, at least one.",
+      "items": { "$ref": "#/$defs/track" }
+    }
+  },
+  "$defs": {
+    "fingerprint": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "SHA-256 of the file's UTF-8 text, without one leading BOM and with LF line endings, as 'sha256:' + 64 lowercase hex."
+    },
+    "state": {
+      "type": "object",
+      "required": ["t", "x", "y"],
+      "description": "One state. Metres and radians; t is seconds from the start of the scenario.",
+      "properties": {
+        "t": { "type": "number", "description": "Time [s]." },
+        "x": { "type": "number", "description": "Position x [m], in `frame`." },
+        "y": { "type": "number", "description": "Position y [m], in `frame`." },
+        "h": { "type": "number", "description": "Heading [rad], counter-clockwise from +x." },
+        "v": { "type": "number", "description": "Speed along the heading [m/s]." }
+      }
+    },
+    "states": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/state" }
+    },
+    "candidate": {
+      "type": "object",
+      "required": ["states"],
+      "description": "One trajectory the planner evaluated in this cycle. Only `states` is required: a planner that scores everything writes `cost`, one that rejects trajectories writes `feasible` and `reason`.",
+      "properties": {
+        "states": { "$ref": "#/$defs/states" },
+        "cost": {
+          "type": "number",
+          "description": "The planner's own score for this candidate. One number; its scale is the planner's business and is not compared across producers."
+        },
+        "feasible": {
+          "type": "boolean",
+          "description": "False when the planner rejected this candidate. Absent means feasible."
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Why it was rejected, free text. Recommended words: infeasible_kinematic, infeasible_collision, infeasible_rule."
+        }
+      }
+    },
+    "plan": {
+      "type": "object",
+      "required": ["t", "states"],
+      "description": "What the planner intended at one replanning cycle.",
+      "properties": {
+        "t": { "type": "number", "description": "When the plan was issued [s]. Equals states[0].t." },
+        "states": { "$ref": "#/$defs/states" },
+        "candidates": {
+          "type": "array",
+          "description": "The trajectories evaluated in this cycle and not executed. Drawn as a fan; colour follows array order.",
+          "items": { "$ref": "#/$defs/candidate" }
+        }
+      }
+    },
+    "vehicle": {
+      "type": "object",
+      "required": ["length", "width"],
+      "description": "The body the planner planned with. A CommonRoad planning problem carries no ego shape, so without this the app falls back to the size the actor was drawn with.",
+      "properties": {
+        "length": { "type": "number", "exclusiveMinimum": 0, "description": "Body length [m]." },
+        "width": { "type": "number", "exclusiveMinimum": 0, "description": "Body width [m]." },
+        "refToCenter": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Reference point (rear axle centre) to body centre along the heading [m]."
+        },
+        "type": { "type": "string", "description": "Free label, e.g. \"BMW_320i\". Not interpreted." }
+      }
+    },
+    "track": {
+      "type": "object",
+      "required": ["driven", "plans"],
+      "description": "One actor. Exactly one of `role` / `name` says which actor it is.",
+      "oneOf": [
+        { "required": ["role"], "not": { "required": ["name"] } },
+        { "required": ["name"], "not": { "required": ["role"] } }
+      ],
+      "properties": {
+        "role": { "const": "ego", "description": "Matches the actor marked as ego in the scene." },
+        "name": { "type": "string", "description": "Matches an actor by entity name." },
+        "driven": { "$ref": "#/$defs/states", "description": "The states this actor actually drove." },
+        "plans": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/plan" }
+        },
+        "vehicle": { "$ref": "#/$defs/vehicle" }
+      }
+    }
+  }
+}

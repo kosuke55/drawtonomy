@@ -177,34 +177,50 @@ def base_trace(candidates):
     }
 
 
+#: Candidate shapes v1 forbids, with the JSON path the schema has to complain
+#: about. The wording is left to whichever validator is installed.
+MALFORMED = [
+    ("no states", [{"cost": 1.0}], "['candidates'][0]"),
+    ("empty states", [{"states": []}], "['candidates'][0]['states']"),
+    ("not an object", ["nope"], "['candidates'][0]"),
+    ("not a list", "nope", "['candidates']"),
+    ("feasible as a number",
+     [{"states": [{"t": 0.0, "x": 0.0, "y": 0.0}], "feasible": 1}],
+     "['candidates'][0]['feasible']"),
+    ("an empty reason",
+     [{"states": [{"t": 0.0, "x": 0.0, "y": 0.0}], "reason": ""}],
+     "['candidates'][0]['reason']"),
+    ("a state without a time",
+     [{"states": [{"x": 0.0, "y": 0.0}]}], "['candidates'][0]['states'][0]"),
+]
+
+
 @pytest.mark.parametrize(
-    "candidates,message",
-    [
-        ([{"states": []}], "has no states"),
-        ([{}], "has no states"),
-        (["nope"], "is not an object"),
-        ("nope", "expected a list"),
-        (
-            [{"states": [{"t": 0.2, "x": 0.0, "y": 0.0}, {"t": 0.1, "x": 1.0, "y": 0.0}]}],
-            "do not advance in time",
-        ),
-        (
-            [{"states": [{"t": 0.0, "x": 0.0, "y": 0.0}], "cost": float("inf")}],
-            "non-finite `cost`",
-        ),
-        (
-            [{"states": [{"t": 0.0, "x": 0.0, "y": 0.0}], "feasible": 1}],
-            "expected true or false",
-        ),
-        (
-            [{"states": [{"t": 0.0, "x": 0.0, "y": 0.0}], "reason": ""}],
-            "not a non-empty string",
-        ),
-        ([{"states": [{"x": 0.0, "y": 0.0}]}], "without a numeric `t`"),
-    ],
+    "candidates,where", [(c, w) for _, c, w in MALFORMED], ids=[n for n, _, _ in MALFORMED]
 )
-def test_self_check_refuses_a_malformed_candidate(candidates, message):
-    with pytest.raises(TraceSelfCheckError, match=message):
+def test_the_schema_refuses_a_malformed_candidate(candidates, where):
+    """Everything a schema can say about a candidate's shape, it says: these
+    come back from `planning-trace-v1.schema.json` before any number is read."""
+    with pytest.raises(TraceSelfCheckError, match=r"self-check \(schema\)") as caught:
+        self_check(base_trace(candidates), dt=0.1, verbose=False)
+    assert where in str(caught.value)
+
+
+def test_self_check_refuses_candidate_states_that_do_not_advance_in_time():
+    """The one candidate rule a JSON Schema cannot state."""
+    candidates = [
+        {"states": [{"t": 0.2, "x": 0.0, "y": 0.0}, {"t": 0.1, "x": 1.0, "y": 0.0}]}
+    ]
+    with pytest.raises(TraceSelfCheckError, match="do not advance in time"):
+        self_check(base_trace(candidates), dt=0.1, verbose=False)
+
+
+def test_self_check_refuses_a_non_finite_cost():
+    """Whichever stage catches it: `jsonschema` takes Python's float("inf") for
+    a number, so the candidate rules refuse it there. JSON has no infinity, and
+    a file carrying one cannot be read back by anything."""
+    candidates = [{"states": [{"t": 0.0, "x": 0.0, "y": 0.0}], "cost": float("inf")}]
+    with pytest.raises(TraceSelfCheckError, match="finite"):
         self_check(base_trace(candidates), dt=0.1, verbose=False)
 
 
@@ -230,7 +246,7 @@ def test_a_malformed_candidate_leaves_no_file(tmp_path):
     w.driven(states())
     w._plans[0]["candidates"] = [{"states": []}]
     out = tmp_path / "solution.planning-trace.json"
-    with pytest.raises(TraceSelfCheckError, match="has no states"):
+    with pytest.raises(TraceSelfCheckError, match=r"self-check \(schema\)"):
         w.write(out, verbose=False)
     assert not out.exists()
 
