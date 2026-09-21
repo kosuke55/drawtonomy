@@ -115,13 +115,77 @@ def planner_vehicle_block(config):
     return block
 
 
+def cycle_candidates(planner, traj_set_per_step, cycle_index, optimal_traj_list, to_center):
+    """The trajectories this planner sampled and did not drive, as the trace's
+    `plans[].candidates`.
+
+    The bundle is `ReactivePlanner.stored_trajectories`, which the planner fills
+    **only** when `config.debug.draw_traj_set` is on - it exists to be drawn -
+    so a run without it simply writes no candidates.
+
+    Each `TrajectorySample` carries a plain scalar `cost` and a
+    `feasibility_label` from `FeasibilityStatus` (`feasible`,
+    `infeasible_kinematic`, `infeasible_collision`, `infeasible_rule`). The
+    rejected ones have no meaningful cost, so they carry `feasible` / `reason`
+    instead, which is exactly the split the format describes. There is no
+    per-term cost breakdown on the object to record.
+
+    The samples are in the planner's rear-axle frame like the optimal
+    trajectory, so they go through the same `to_center` conversion; otherwise
+    the fan would sit half a wheelbase off the trajectory it belongs to.
+    """
+    from commonroad_rp.trajectories import FeasibilityStatus
+
+    # Keyed by the time step the cycle started at, which is the first state of
+    # that cycle's optimal trajectory.
+    step = int(optimal_traj_list[cycle_index].state_list[0].time_step)
+    bundle = traj_set_per_step.get(step)
+    if not bundle:
+        return None
+
+    candidates = []
+    for sample in bundle:
+        try:
+            # The same call the planner makes on the trajectory it chose
+            # (`_compute_cart_traj`), so a candidate and the plan it lost to are
+            # built the same way, then shifted to the body centre together.
+            states = to_center(
+                sample.cartesian.convert_to_rp_state_list(
+                    init_time_step=step,
+                    init_yaw_rate=0.0,
+                    dt=planner.dt,
+                    wheelbase=planner.vehicle_params.wheelbase,
+                    scaling_factor=planner.config.planning.factor,
+                )
+            )
+        except Exception:  # a sample the planner could not convert is not drawn
+            continue
+        if not states:
+            continue
+        label = getattr(sample, "feasibility_label", None)
+        if label is None or label == FeasibilityStatus.FEASIBLE:
+            cost = getattr(sample, "cost", None)
+            candidate = {"states": states}
+            if cost is not None and np.isfinite(cost):
+                candidate["cost"] = float(cost)
+        else:
+            candidate = {"states": states, "feasible": False, "reason": label.value}
+        candidates.append(candidate)
+    return candidates or None
+
+
 def main():
     if len(sys.argv) < 3:
-        print("usage: run_planner.py <scenario.xml> <out_dir>", file=sys.stderr)
+        print("usage: run_planner.py <scenario.xml> <out_dir> [candidate_stride]",
+              file=sys.stderr)
         sys.exit(2)
 
     scenario_path = Path(sys.argv[1])
     out_dir = Path(sys.argv[2])
+    # Keep every n-th state of every candidate. 1 keeps all of them; the fan of
+    # a sampling planner is what makes a trace large, and nothing else in the
+    # file is affected. See "How big a trace gets" in the format spec.
+    candidate_stride = int(sys.argv[3]) if len(sys.argv) > 3 else 1
     out_dir.mkdir(parents=True, exist_ok=True)
 
     from commonroad.common.file_reader import CommonRoadFileReader
@@ -180,10 +244,18 @@ def main():
     config.debug.save_plots = False
     config.debug.show_plots = False
     config.debug.multiproc = False
+    # `stored_trajectories` - the sampled set this script hands to the trace as
+    # candidates - is filled only when the planner believes it is about to draw
+    # it: `_draw_traj_set = draw_traj_set and (show_plots or save_plots)`, read
+    # once in ReactivePlanner.__init__. Asking for it through `save_plots` would
+    # be asking for the wrong thing (the GIF below is rendered separately), so
+    # the flag is set on the planner after it is built, where it means what it
+    # says. Drop these two lines and the run still works, without candidates.
     config.debug.draw_traj_set = True
     config.general.path_output = str(out_dir)
 
     planner = ReactivePlanner(config)
+    planner._draw_traj_set = True  # keep the sampled set; see the note above
     planner.set_reference_path(reference_path=reference_path)
 
     # Desired velocity: leave it to the planner's own rule
@@ -291,40 +363,51 @@ def main():
     # each plan through the **same** conversion to keep the two bit-identical
     # where they overlap. TraceWriter.write() verifies exactly that and refuses to
     # write when it does not hold.
+    #
+    # A failure here is not a warning. The self-check refusing means the trace
+    # would have described a different run from the solution next to it, and a
+    # run that quietly produces solution-only output looks like a success in CI.
+    import importlib.metadata
+
+    from drawtonomy_cr.trace import TraceWriter
+
+    def _to_center(state_list):
+        return planner.convert_state_list_to_commonroad_object(
+            list(state_list)
+        ).prediction.trajectory.state_list
+
     try:
-        import importlib.metadata
-
-        from drawtonomy_cr.trace import TraceWriter
-
-        def _to_center(state_list):
-            return planner.convert_state_list_to_commonroad_object(
-                list(state_list)
-            ).prediction.trajectory.state_list
-
-        try:
-            producer_version = importlib.metadata.version("commonroad-reactive-planner")
-        except Exception:
-            producer_version = "unknown"
-
-        writer = TraceWriter(
-            dt=scenario.dt,
-            vehicle=planner_vehicle_block(config),
-            scenario=str(scenario.scenario_id),
-            producer={"name": "commonroad-reactive-planner", "version": producer_version},
-        )
-        for traj in optimal_traj_list:
-            centered = _to_center(traj.state_list)
-            if centered:
-                writer.plan(states=centered)
-        writer.driven(solution_trajectory.state_list)
-        writer.write(
-            out_dir / "solution.planning-trace.json",
-            solution=solution_trajectory.state_list,
-            replanning_frequency=freq,
-        )
+        producer_version = importlib.metadata.version("commonroad-reactive-planner")
     except Exception:
-        print("[WARN] planning trace not written:")
-        traceback.print_exc()
+        producer_version = "unknown"
+
+    writer = TraceWriter(
+        dt=scenario.dt,
+        vehicle=planner_vehicle_block(config),
+        scenario=str(scenario.scenario_id),
+        producer={"name": "commonroad-reactive-planner", "version": producer_version},
+        candidate_stride=candidate_stride,
+    )
+    for cycle_index, traj in enumerate(optimal_traj_list):
+        centered = _to_center(traj.state_list)
+        if not centered:
+            continue
+        writer.plan(
+            states=centered,
+            candidates=cycle_candidates(
+                planner, traj_set_per_step, cycle_index, optimal_traj_list, _to_center
+            ),
+        )
+    writer.driven(solution_trajectory.state_list)
+    # Passing the *paths* records solutionFingerprint / scenarioFingerprint, so a
+    # checker verdict of the same two files verifies against this trace instead
+    # of landing on it as an unmatched result.
+    writer.write(
+        out_dir / "solution.planning-trace.json",
+        solution=out_dir / "solution.xml",
+        scenario=scenario_path,
+        replanning_frequency=freq,
+    )
 
     # 5. Feasibility / collision checks via commonroad_dc.
     verdicts = {}

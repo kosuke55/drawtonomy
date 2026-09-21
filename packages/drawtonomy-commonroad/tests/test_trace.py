@@ -274,7 +274,12 @@ def test_write_without_a_plan_is_refused(tmp_path):
 def test_reproduces_the_committed_trace_fixture(fixtures, tmp_path):
     """Feeding a committed real trace (planner_solution.planning-trace.json) back
     through TraceWriter must reproduce it byte for byte, which pins the rounding
-    and the key order against accidental change."""
+    and the key order against accidental change.
+
+    The solution and scenario go in as paths, so this also pins where the two
+    fingerprints sit in the file and that they are the values the writer
+    computes - the fixture's were added by a script rather than by a planner
+    run, and this is what holds the two to the same output."""
     want = json.loads(
         (fixtures / "planner_solution.planning-trace.json").read_text("utf-8")
     )
@@ -289,7 +294,13 @@ def test_reproduces_the_committed_trace_fixture(fixtures, tmp_path):
         w.plan(t=plan["t"], states=plan["states"])
     w.driven(track["driven"])
     out = tmp_path / "roundtrip.json"
-    w.write(out, solution=track["driven"], replanning_frequency=3, verbose=False)
+    w.write(
+        out,
+        solution=fixtures / "planner_solution.xml",
+        scenario=fixtures / "cutin_commonroad.xml",
+        replanning_frequency=3,
+        verbose=False,
+    )
 
     got = json.loads(out.read_text(encoding="utf-8"))
     assert got == want
