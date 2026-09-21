@@ -22,6 +22,13 @@ same planner result can be opened on the OpenSCENARIO original (esmini
 `resources/xosc/cut-in.xosc`), whose entity is named `Ego`. The states are
 unchanged, and `"frame": "center"` still describes them.
 
+`planner-candidates/cutin_solution.planning-trace.json` is a `TraceWriter` run on
+the same cut-in scenario with commonroad-reactive-planner 2025.1, kept unpruned:
+each of its 63 replanning cycles carries all 30 sampled candidates (cost and
+states), 20 feasible and 10 rejected, instead of only the one driven per cycle.
+It exists to demonstrate the Candidates fan in drawtonomy and is not the
+`planner_solution` result used for the verdict above.
+
 ## `straight_*`
 
 `straight_commonroad.xml` was drawn in drawtonomy: one straight road, an ego and
