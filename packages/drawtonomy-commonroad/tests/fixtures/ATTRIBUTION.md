@@ -22,12 +22,14 @@ same planner result can be opened on the OpenSCENARIO original (esmini
 `resources/xosc/cut-in.xosc`), whose entity is named `Ego`. The states are
 unchanged, and `"frame": "center"` still describes them.
 
-`planner-candidates/cutin_solution.planning-trace.json` is a `TraceWriter` run on
-the same cut-in scenario with commonroad-reactive-planner 2025.1, kept unpruned:
-each of its 63 replanning cycles carries all 30 sampled candidates (cost and
-states), 20 feasible and 10 rejected, instead of only the one driven per cycle.
-It exists to demonstrate the Candidates fan in drawtonomy and is not the
-`planner_solution` result used for the verdict above.
+`planner-candidates/planner_solution.planning-trace.json` is a `TraceWriter` run
+on the same cut-in scenario with commonroad-reactive-planner 2025.1, kept
+unpruned: each of its 63 replanning cycles carries all 30 sampled candidates
+(cost and states), 20 feasible and 10 rejected, instead of only the one driven
+per cycle. Its driven states are the same 190 as `planner_solution.xml`, so the
+`planner_solution.verdict.json` above applies to it; it exists to demonstrate
+the Candidates fan in drawtonomy. Until 2026-09-21 it was named after
+`cutin_solution.xml`, a different solution that it does not replay.
 
 ## `straight_*`
 
@@ -79,12 +81,12 @@ were checked against:
 | `planner_solution.planning-trace.json` | `planner_solution.xml` | `cutin_commonroad.xml` |
 | `straight_idm_solution.planning-trace.json` | `straight_idm_solution.xml` | `straight_commonroad.xml` |
 | `straight_naive_solution.planning-trace.json` | `straight_naive_solution.xml` | `straight_commonroad.xml` |
-| `planner-candidates/cutin_solution.planning-trace.json` | `planner_solution.xml` | `cutin_commonroad.xml` |
+| `planner-candidates/planner_solution.planning-trace.json` | `planner_solution.xml` | `cutin_commonroad.xml` |
 
-The last row is not a typo. That file is named after `cutin_solution.xml` but
-its `driven` states are the 190 in `planner_solution.xml` (`cutin_solution.xml`
-has 218), and they match to 5e-7 m. The fingerprint names the solution the trace
-actually replays, which is the only value that makes the field true.
+The last two rows name the same solution: the candidates trace is an unpruned
+run of `planner_solution`, and its 190 `driven` states match that solution to
+5e-7 m. The fingerprint names the solution the trace actually replays, which is
+the only value that makes the field true.
 
 `cutin_openscenario.planning-trace.json` gets neither field: it has no
 CommonRoad solution behind it, and it is the "older trace" case the app has to

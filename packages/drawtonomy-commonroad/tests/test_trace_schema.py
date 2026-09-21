@@ -62,9 +62,9 @@ def test_every_committed_fixture_validates(fixtures):
 def test_the_candidates_fixture_really_carries_candidates(fixtures):
     """Guards the test above from validating a file that lost its candidates."""
     trace = json.loads(
-        (fixtures / "planner-candidates" / "cutin_solution.planning-trace.json").read_text(
-            encoding="utf-8"
-        )
+        (
+            fixtures / "planner-candidates" / "planner_solution.planning-trace.json"
+        ).read_text(encoding="utf-8")
     )
     candidates = [c for p in trace["tracks"][0]["plans"] for c in p.get("candidates", [])]
     assert len(candidates) > 100

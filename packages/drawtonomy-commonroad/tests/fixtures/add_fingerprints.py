@@ -45,10 +45,9 @@ PAIRS = {
         "straight_naive_solution.xml",
         "straight_commonroad.xml",
     ),
-    # Named after cutin_solution.xml, but its driven states are the ones in
-    # planner_solution.xml (218 states vs 190, and the 190 match to 5e-7 m).
-    # The fingerprint names the solution this trace actually replays.
-    "planner-candidates/cutin_solution.planning-trace.json": (
+    # The same planner_solution run, kept unpruned so every sampled candidate
+    # survives. Its driven states are the 190 in planner_solution.xml.
+    "planner-candidates/planner_solution.planning-trace.json": (
         "planner_solution.xml",
         "cutin_commonroad.xml",
     ),
