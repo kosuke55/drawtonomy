@@ -1,6 +1,6 @@
 [project]
 name = "drawtonomy-commonroad"
-version = "0.2.0"
+version = "0.3.0"
 description = "CommonRoad connector for drawtonomy: official checker verdict sidecars and planning traces"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -71,6 +71,10 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/drawtonomy_cr"]
+# The planning trace schema ships as data next to the modules, so a consumer can
+# validate against the same file the writer checks itself with:
+#   from drawtonomy_cr.trace import SCHEMA_PATH
+artifacts = ["src/drawtonomy_cr/*.schema.json"]
 
 [tool.hatch.build.targets.sdist]
 include = [

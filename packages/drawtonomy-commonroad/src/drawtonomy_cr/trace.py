@@ -41,8 +41,20 @@ import warnings
 from pathlib import Path
 
 from .fingerprint import fingerprint as _fingerprint
+from .schema import SCHEMA_PATH, schema_failures
 
 SCHEMA = "drawtonomy-planning-trace-v1"
+
+#: The JSON Schema this package ships, re-exported here because `trace` is the
+#: module a producer imports. Point a validator of your own at it:
+#: `json.loads(SCHEMA_PATH.read_text())`.
+__all__ = [
+    "SCHEMA",
+    "SCHEMA_PATH",
+    "TraceSelfCheckError",
+    "TraceWriter",
+    "self_check",
+]
 
 #: Position comparison tolerance, matching the 6-decimal precision traces are
 #: written with.
@@ -506,14 +518,24 @@ def self_check(
 
     Both compare positions to 1e-6 m, the precision traces are written with.
 
-    The shape of the file is checked first, against
-    `planning-trace-v1.schema.json`, plus the rules a schema cannot state (a
-    candidate's states have to advance in time). Candidates are not compared
-    against `driven`: they are the trajectories the planner rejected.
+    The shape of the file is validated **first**, against
+    `planning-trace-v1.schema.json`, and a file of the wrong shape is reported
+    as that and nothing else. The checks above then add what a schema cannot
+    state: that the numbers agree, and that a candidate's states advance in
+    time. Candidates are not compared against `driven` - they are the
+    trajectories the planner rejected.
     """
+    failures: list[str] = [
+        f"planning trace self-check (schema): {failure}"
+        for failure in schema_failures(trace)
+    ]
+    if failures:
+        # Nothing below can be trusted to read a file of the wrong shape, so the
+        # schema failures are the whole report.
+        raise TraceSelfCheckError("; ".join(failures))
+
     track = trace["tracks"][0]
     driven = track["driven"]
-    failures: list[str] = []
 
     failures.extend(_candidate_failures(track))
 
