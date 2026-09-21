@@ -200,7 +200,7 @@ def write_solution(scenario, planning_problem, states, path):
         output_path=str(path.parent), filename=path.name, overwrite=True)
 
 
-def write_trace(scenario, states, path):
+def write_trace(scenario, states, path, solution_path=None, scenario_path=None):
     from drawtonomy_cr.trace import TraceWriter
 
     w = TraceWriter(
@@ -218,7 +218,15 @@ def write_trace(scenario, states, path):
     for k in range(0, len(states), every):
         w.plan(states=states[k:])
     w.driven(states)
-    w.write(path, solution=states, replanning_frequency=every)
+    # The solution and scenario are passed as *paths*, so the trace records
+    # their fingerprints: that is what lets a checker verdict of the same two
+    # files verify against this trace instead of landing on it unmatched.
+    w.write(
+        path,
+        solution=solution_path if solution_path is not None else states,
+        scenario=scenario_path,
+        replanning_frequency=every,
+    )
 
 
 def main(argv=None):
@@ -248,7 +256,8 @@ def main(argv=None):
     print(f"wrote {solution_path}")
     if not args.no_trace:
         trace_path = out_dir / f"{args.name}.planning-trace.json"
-        write_trace(scenario, states, trace_path)
+        write_trace(scenario, states, trace_path,
+                    solution_path=solution_path, scenario_path=args.scenario)
         print(f"wrote {trace_path}")
     return 0
 

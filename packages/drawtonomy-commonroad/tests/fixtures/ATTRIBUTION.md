@@ -47,3 +47,44 @@ drawtonomy-cr verdict tests/fixtures/cutin_commonroad.xml tests/fixtures/planner
 
 The XML and planning traces have not been modified. A CommonRoad verdict checks
 the solution XML, not the separate planning-trace JSON or OpenSCENARIO source.
+
+## Fingerprints added to the planning traces (2026-09-21)
+
+`solutionFingerprint` / `scenarioFingerprint` were added to the four traces that
+have a CommonRoad solution behind them, by
+`tests/fixtures/add_fingerprints.py`. **The states were not touched**: only the
+two fields were added.
+
+They were computed rather than produced by a planner run, because neither
+producer runs here. `commonroad-reactive-planner` publishes manylinux_x86_64
+wheels only and `examples/reactive_planner/Dockerfile` needs a working Docker;
+the IDM fixtures could be re-run, but they are deliberately kept as the
+example's older 1-based output (see
+`test_committed_straight_fixtures_are_what_the_example_writes`), and their
+PASS / FAIL statuses come from the official checker, which is not installable
+here either.
+
+Each value is the fingerprint of the committed XML the trace's `driven` states
+were checked against:
+
+| Trace | Solution | Scenario |
+| --- | --- | --- |
+| `planner_solution.planning-trace.json` | `planner_solution.xml` | `cutin_commonroad.xml` |
+| `straight_idm_solution.planning-trace.json` | `straight_idm_solution.xml` | `straight_commonroad.xml` |
+| `straight_naive_solution.planning-trace.json` | `straight_naive_solution.xml` | `straight_commonroad.xml` |
+| `planner-candidates/cutin_solution.planning-trace.json` | `planner_solution.xml` | `cutin_commonroad.xml` |
+
+The last row is not a typo. That file is named after `cutin_solution.xml` but
+its `driven` states are the 190 in `planner_solution.xml` (`cutin_solution.xml`
+has 218), and they match to 5e-7 m. The fingerprint names the solution the trace
+actually replays, which is the only value that makes the field true.
+
+`cutin_openscenario.planning-trace.json` gets neither field: it has no
+CommonRoad solution behind it, and it is the "older trace" case the app has to
+keep loading and showing as unchecked.
+
+`tests/test_trace_fixture_fingerprints.py` re-derives every value and re-runs
+the 1e-6 m comparison `TraceWriter.write` makes before it agrees to write one,
+and `test_reproduces_the_committed_trace_fixture` feeds one of these files back
+through the writer and compares the bytes - so these hand-added fields are held
+to exactly what a real run would have written.

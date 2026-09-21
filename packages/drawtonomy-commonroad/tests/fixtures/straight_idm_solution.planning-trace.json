@@ -13340,5 +13340,7 @@
         "type": "BMW_320i"
       }
     }
-  ]
+  ],
+  "solutionFingerprint": "sha256:87b26652c03f670b6783a932a42697a74d82e7620b9938cb8e85cb8a15b27d8a",
+  "scenarioFingerprint": "sha256:c01285b3fd1748a26c60320aaefd132d897d8aedef55bf1297fdccbfee84a74b"
 }
