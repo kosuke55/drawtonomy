@@ -17,7 +17,8 @@ reasoning, so a single file replays the whole run.
     for cycle in my_planner_loop():
         w.plan(t=cycle.t, states=cycle.trajectory)   # one entry per cycle
     w.driven(executed_states)                       # what the ego actually drove
-    w.write("solution.planning-trace.json", solution="solution.xml")
+    w.write("solution.planning-trace.json", solution="solution.xml",
+            scenario="scenario.xml")
 
 `states` accepts commonroad-io `State` objects (`position` / `orientation` /
 `velocity` / `time_step`) and plain
@@ -27,11 +28,19 @@ either `time_step` (integer steps) or `t` (seconds).
 
 The self-check runs inside `write()` and raises **without writing** on failure,
 so a broken trace is never left behind silently.
+
+Passing the solution and scenario as **paths** also records their fingerprints
+(`solutionFingerprint` / `scenarioFingerprint`), the same values a checker
+verdict of the same files carries. That is what lets drawtonomy show a verdict
+loaded next to this trace as verified rather than unchecked.
 """
 
 import json
 import math
+import warnings
 from pathlib import Path
+
+from .fingerprint import fingerprint as _fingerprint
 
 SCHEMA = "drawtonomy-planning-trace-v1"
 
@@ -222,6 +231,7 @@ class TraceWriter:
         self,
         path,
         solution=None,
+        scenario=None,
         replanning_frequency: int = 1,
         verbose: bool = True,
     ) -> dict:
@@ -231,9 +241,15 @@ class TraceWriter:
         Args:
             path: output path. The convention is
                 `<solution name>.planning-trace.json`.
-            solution: optional path to the solution XML, a `Solution` object, or
-                a state list. When given, `driven` is checked against it to
-                within 1e-6 m.
+            solution: optional path to the solution XML (or its bytes), a
+                `Solution` object, or a state list. When given, `driven` is
+                checked against it to within 1e-6 m. When it is a path or bytes
+                **and** that check passes, the solution's fingerprint is written
+                as `solutionFingerprint`; see `_solution_fingerprint`.
+            scenario: optional path to the scenario XML, or its bytes, whose
+                fingerprint is written as `scenarioFingerprint`. Nothing is
+                checked against it: the scenario is the run's input, and the
+                fingerprint only says which file it was.
             replanning_frequency: how many states at the head of each plan were
                 actually executed. That many are compared against `driven`.
             verbose: print one PASS / FAIL line to stdout.
@@ -247,6 +263,14 @@ class TraceWriter:
             replanning_frequency=replanning_frequency,
             verbose=verbose,
         )
+        # Written only now, after the self-check passed: the fingerprint is the
+        # trace saying "my driven states are this solution", and that claim is
+        # exactly what the check just proved.
+        solution_fingerprint = _solution_fingerprint(solution)
+        if solution_fingerprint is not None:
+            trace["solutionFingerprint"] = solution_fingerprint
+        if scenario is not None:
+            trace["scenarioFingerprint"] = _fingerprint(_raw_bytes(scenario, "scenario"))
         out = Path(path)
         if out.parent != Path(""):
             out.parent.mkdir(parents=True, exist_ok=True)
@@ -262,9 +286,18 @@ class TraceWriter:
 
 
 def _solution_states(solution):
-    """Reduce a solution to a state list. Accepts a path, a `Solution` object,
-    or a state list."""
-    if isinstance(solution, (str, Path)):
+    """Reduce a solution to a state list. Accepts a path, the XML bytes, a
+    `Solution` object, or a state list."""
+    if isinstance(solution, bytes):
+        from tempfile import TemporaryDirectory
+
+        from commonroad.common.solution import CommonRoadSolutionReader
+
+        with TemporaryDirectory(prefix="drawtonomy-trace-") as directory:
+            xml = Path(directory) / "solution.xml"
+            xml.write_bytes(solution)
+            solution = CommonRoadSolutionReader.open(str(xml))
+    elif isinstance(solution, (str, Path)):
         from commonroad.common.solution import CommonRoadSolutionReader
 
         solution = CommonRoadSolutionReader.open(str(solution))
@@ -277,6 +310,42 @@ def _solution_states(solution):
     if trajectory is not None:
         return list(trajectory)
     return list(solution)
+
+
+def _raw_bytes(source, what: str) -> bytes:
+    """The bytes of a file given as a path, or the bytes themselves."""
+    if isinstance(source, bytes):
+        return source
+    if isinstance(source, (str, Path)):
+        return Path(source).read_bytes()
+    raise TypeError(
+        f"{what} must be a path or bytes to be fingerprinted, got "
+        f"{type(source).__name__}"
+    )
+
+
+def _solution_fingerprint(solution):
+    """The fingerprint to record for `solution`, or None with a warning.
+
+    A fingerprint names bytes, so only a solution given as a file (or as its
+    bytes) has one. A `Solution` object or a state list was built in memory and
+    the writer cannot know which file, if any, it will be written to - guessing
+    would produce a trace claiming a solution it never saw. The caller is told,
+    because a silently missing fingerprint is the difference between a verdict
+    that verifies against this trace and one that cannot.
+    """
+    if solution is None:
+        return None
+    if isinstance(solution, (str, Path, bytes)):
+        return _fingerprint(_raw_bytes(solution, "solution"))
+    warnings.warn(
+        "planning trace written without solutionFingerprint: solution was given "
+        f"as {type(solution).__name__}, which has no file bytes to fingerprint. "
+        "Pass the path of the solution XML instead to let a checker verdict of "
+        "the same solution verify against this trace.",
+        stacklevel=3,
+    )
+    return None
 
 
 def self_check(
