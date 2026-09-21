@@ -79,15 +79,11 @@ def test_committed_straight_fixtures_are_what_the_example_writes(idm_planner, fi
     committed = CommonRoadSolutionReader.open(str(fixtures / f"straight_{mode}_solution.xml"))
     fresh_states = fresh.planning_problem_solutions[0].trajectory.state_list
     committed_states = committed.planning_problem_solutions[0].trajectory.state_list
-    # The committed fixtures were written before the example started at step 0,
-    # so they are exactly the fresh solution's tail from step 1 on. They are
-    # deliberately left as they are: their PASS / FAIL statuses come from the
-    # official checker and cannot be recomputed without it. Everything they do
-    # cover - the whole driven profile - is still compared here.
-    assert len(committed_states) == 180
-    assert len(fresh_states) == 181
-    assert fresh_states[0].time_step == 0
-    for a, b in zip(fresh_states[1:], committed_states):
+    # The fixtures are a plain rerun of the example, so a fresh run reproduces
+    # them state for state, starting at the planning problem's initial state.
+    assert len(fresh_states) == len(committed_states) == 181
+    assert fresh_states[0].time_step == committed_states[0].time_step == 0
+    for a, b in zip(fresh_states, committed_states):
         assert a.time_step == b.time_step
         assert abs(a.position[0] - b.position[0]) < 1e-6
         assert abs(a.position[1] - b.position[1]) < 1e-6
@@ -95,12 +91,8 @@ def test_committed_straight_fixtures_are_what_the_example_writes(idm_planner, fi
 
     fresh_trace = json.loads((tmp_path / f"{mode}.planning-trace.json").read_text())
     committed_trace = json.loads((fixtures / f"straight_{mode}_solution.planning-trace.json").read_text())
-    # Same story for the trace: the fresh one carries the step-0 state (and one
-    # more plan, issued at t=0) that the committed one predates.
-    fresh_driven = fresh_trace["tracks"][0]["driven"]
-    committed_driven = committed_trace["tracks"][0]["driven"]
-    assert len(fresh_driven) == len(committed_driven) + 1
-    assert fresh_driven[1:] == committed_driven
+    # Same for the trace: identical driven states, the same body.
+    assert fresh_trace["tracks"][0]["driven"] == committed_trace["tracks"][0]["driven"]
     assert fresh_trace["tracks"][0]["vehicle"] == committed_trace["tracks"][0]["vehicle"]
 
     verdict = json.loads((fixtures / f"straight_{mode}_solution.verdict.json").read_text())
@@ -117,19 +109,23 @@ def test_committed_straight_fixtures_are_what_the_example_writes(idm_planner, fi
         "solution_feasible",
     ]
     statuses = {c["name"]: c["status"] for c in verdict["checks"]}
-    # Both example solutions start one step after the planning problem's initial
-    # state, which the official starts_at_correct_state rejects. That is the
-    # official verdict, kept as the example shows it rather than hidden.
-    assert statuses["starts_at_correct_state"] == "FAIL"
+    # Both solutions now start at the planning problem's initial state, so the
+    # official starts_at_correct_state passes for both.
+    assert statuses["starts_at_correct_state"] == "PASS"
     assert statuses["solved_all_problems"] == "PASS"
     assert statuses["ego_collision"] == "PASS"  # a single ego cannot hit itself
+    assert statuses["boundary_collision"] == "PASS"
+    assert statuses["goal_reached"] == "PASS"
+    assert statuses["solution_feasible"] == "PASS"
     if mode == "idm":
+        # `idm` brakes behind the leader: all seven official checks pass.
         assert statuses["obstacle_collision"] == "PASS"
-        assert statuses["boundary_collision"] == "PASS"
-        assert statuses["goal_reached"] == "PASS"
-        assert statuses["solution_feasible"] == "PASS"
+        assert all(s == "PASS" for s in statuses.values())
     else:
+        # `naive` holds the initial speed and drives into the leader. That one
+        # collision is the whole point of the mode, and it is the only FAIL.
         assert statuses["obstacle_collision"] == "FAIL"
+        assert sum(s == "FAIL" for s in statuses.values()) == 1
 
 
 # --- the official starts_at_correct_state rule ----------------------------
@@ -247,15 +243,33 @@ def test_the_official_rule_would_catch_a_solution_that_starts_one_step_late(
 ):
     """The rule above is a real check, not one that passes on anything.
 
-    The committed fixtures are the example's old 1-based output, so they are the
-    exact shape the rule has to reject. This pins that it does - otherwise a
-    future regression back to `state_list[1:]` would slip through.
+    The example used to write `state_list[1:]`, and every solution it produced
+    failed the official check because of it. The committed fixtures are no
+    longer that shape - they are regenerated 0-based output - so the rejected
+    shape is rebuilt here instead, by dropping the first state of a fresh
+    solution. This pins that the rule still rejects it, otherwise a regression
+    back to `state_list[1:]` would slip through unnoticed.
     """
     from commonroad.common.file_reader import CommonRoadFileReader
     from commonroad.common.solution import CommonRoadSolutionReader
+    from commonroad.scenario.trajectory import Trajectory
 
-    _, pps = CommonRoadFileReader(str(fixtures / "straight_commonroad.xml")).open()
-    old = CommonRoadSolutionReader.open(str(fixtures / "straight_idm_solution.xml"))
-    assert old.planning_problem_solutions[0].trajectory.initial_time_step == 1
+    scenario_path = fixtures / "straight_commonroad.xml"
+    assert idm_planner.main([str(scenario_path), str(tmp_path), "--no-trace"]) == 0
+
+    _, pps = CommonRoadFileReader(str(scenario_path)).open()
+    solution = CommonRoadSolutionReader.open(str(tmp_path / "planner_solution.xml"))
+    pp_solution = solution.planning_problem_solutions[0]
+
+    # As written, the fresh solution passes.
+    assert pp_solution.trajectory.initial_time_step == 0
+    assert _official_starts_at_correct_state(solution, pps) is True
+
+    # Drop the initial state - the old 1-based shape - and it must be rejected.
+    late = pp_solution.trajectory.state_list[1:]
+    pp_solution.trajectory = Trajectory(
+        initial_time_step=late[0].time_step, state_list=late
+    )
+    assert pp_solution.trajectory.initial_time_step == 1
     with pytest.raises(AssertionError, match="does not start at the initial state"):
-        _official_starts_at_correct_state(old, pps)
+        _official_starts_at_correct_state(solution, pps)
