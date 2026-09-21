@@ -39,8 +39,8 @@ two modes give the two verdicts:
 The same two runs on the straight road `tests/fixtures/straight_commonroad.xml`
 (one lane, a slower vehicle ahead of the ego) are committed as
 `tests/fixtures/straight_idm_solution.*` and `straight_naive_solution.*`, and can be
-opened in drawtonomy straight from GitHub: [`idm`, PASS 4/4](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_idm_solution.planning-trace.json&verdict=straight_idm_solution.verdict.json) and
-[`naive`, FAIL at 3.7 s](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_naive_solution.planning-trace.json&verdict=straight_naive_solution.verdict.json). `tests/test_example_idm.py` regenerates
+opened in drawtonomy straight from GitHub: [`idm`, FAIL 1/7](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_idm_solution.planning-trace.json&verdict=straight_idm_solution.verdict.json) and
+[`naive`, FAIL 2/7 at 3.7 s](https://drawtonomy.com/?open=https://github.com/kosuke55/drawtonomy/blob/main/packages/drawtonomy-commonroad/tests/fixtures/straight_commonroad.xml&trace=straight_naive_solution.planning-trace.json&verdict=straight_naive_solution.verdict.json). `tests/test_example_idm.py` regenerates
 them from this file, so they stay what the example writes.
 
 ## What to read
