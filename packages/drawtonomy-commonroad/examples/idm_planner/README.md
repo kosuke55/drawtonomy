@@ -53,7 +53,10 @@ forward simulation. `DRAWTONOMY HAND-OFF` at the bottom is the whole contract:
 - `write_trace()` writes the planning trace with `TraceWriter`, declaring the
   same body so drawtonomy draws what the checker saw. This planner does not
   replan, so each "plan" is the rest of the driven profile from that second on,
-  sliced from the driven states so that `write()`'s self-check passes.
+  sliced from the driven states so that `write()`'s self-check passes. It passes
+  the solution and the scenario as paths, so the trace records their
+  fingerprints and a verdict of the same two files counts as the official
+  result for this run rather than showing as unchecked.
 
 Two details that matter for scenarios exported from drawtonomy:
 

@@ -17,6 +17,14 @@ CommonRoad の solution が保持する軌跡は 1 本だけ、つまり ego が
 再現できます。公式チェッカーの形式は引き続き CommonRoad の solution であり、trace はそれを
 拡張します。
 
+### なぜ "trace" と呼ぶか
+
+この分野で *trace* といえば、実行された状態の流れを指すのが普通です。ASAM OSI の trace
+ファイル、esmini の `.dat` 記録、オドメトリの ROS bag などです。**planning** trace はそこに
+理由づけを加えたもの、すなわち実走した状態に加えて、各再計画サイクルでプランナーが発行した
+軌跡と、任意で評価して棄却した候補までを含みます。"planning" の 1 語が両者を分けます。
+実行の trace か、実行を生んだ計画の trace か、という違いです。
+
 ### drawtonomy がどう描くか
 
 | ビジュアル | 意味するもの | 出どころ |
@@ -56,12 +64,33 @@ planning trace が無い場合、計画軌跡は読み込んだ再生の未来�
 0.1 秒ごとの各セグメントは両端で 2 つの状態の色を取り、両端が異なる場合はその間を線形
 グラデーションでつなぎます。`v` を持たない状態は等速の緑で描かれます。
 
+## 同一性: その trace がどの solution のものか
+
+trace は、計算のもとになったファイルを指紋 (fingerprint) で任意に名乗れます。この値は
+[verdict](verdict-sidecar.ja.md) が同じ名前で持つ値と同一なので、trace の隣に置かれた
+verdict が*この*実行を判定したものかどうかを drawtonomy が判断できます。
+
+- `solutionFingerprint` が verdict のものと一致する trace は、その verdict が判定した実行
+  そのものであり、公式の検査結果がそのまま採用されます。
+- このフィールドを**持たない** trace も従来どおり読み込まれ再生されますが、隣の verdict は
+  未照合のままです。両者が同じ solution を指す根拠が無いためです。SDK 0.3.0 より前に書かれた
+  trace はすべてこの状態です。
+
+`TraceWriter.write()` が `solutionFingerprint` を書くのは、solution を**ファイルとして**
+受け取り、かつ `driven` がその solution を 1e-6 m 以内で再現することを自己検査で確認できた
+ときだけです。つまりこの主張は、生成側の自己申告ではなく比較に裏打ちされています。
+
+これらは署名ではなく取り違えの検出です。「自分はこのファイルから計算された」ということだけを
+示し、誰が計算したかについては何も示しません。
+
 ## 例
 
 ```json
 {
   "schema": "drawtonomy-planning-trace-v1",
   "scenario": "ZAM_Untitled202609011139-1_1_T-1",
+  "scenarioFingerprint": "sha256:914a4300443dcf4bc585c7e43769983b4932c22bf69be37ac02bd086c1d5ab33",
+  "solutionFingerprint": "sha256:b671bc93924fdd60379006c98d180c1dc1bf86e613e0bdd21d29a2a6b8f097fc",
   "producer": { "name": "commonroad-reactive-planner", "version": "2025.1" },
   "frame": "center",
   "tracks": [
@@ -80,6 +109,23 @@ planning trace が無い場合、計画軌跡は読み込んだ再生の未来�
           "states": [
             { "t": 0.0, "x": 12.34, "y": -1.2, "h": 0.01, "v": 13.9 },
             { "t": 0.1, "x": 13.7, "y": -1.2, "h": 0.01, "v": 13.9 }
+          ],
+          "candidates": [
+            {
+              "states": [
+                { "t": 0.0, "x": 12.34, "y": -1.2 },
+                { "t": 0.1, "x": 13.7, "y": -0.8 }
+              ],
+              "cost": 306.84
+            },
+            {
+              "states": [
+                { "t": 0.0, "x": 12.34, "y": -1.2 },
+                { "t": 0.1, "x": 13.7, "y": -3.1 }
+              ],
+              "feasible": false,
+              "reason": "infeasible_kinematic"
+            }
           ]
         },
         { "t": 0.3, "states": [{ "t": 0.3, "x": 16.5, "y": -1.2 }] }
@@ -99,7 +145,14 @@ planning trace が無い場合、計画軌跡は読み込んだ再生の未来�
 | `frame` | `"center"` \| `"ref"` | **はい** | 位置が何を意味するか。[単位と基準点](#単位と基準点)を参照。 |
 | `tracks` | array | **はい** | アクターごとに 1 エントリ、最低 1 つ。 |
 | `scenario` | string | いいえ | この trace を計算した対象のシナリオ識別子。[trace とシーンの対応付け](#trace-とシーンの対応付け)を参照。 |
+| `scenarioFingerprint` | string | いいえ | `"sha256:"` + 小文字 hex 64 桁。プランナーが走った scenario XML。[同一性](#同一性-その-trace-がどの-solution-のものか)を参照。 |
+| `solutionFingerprint` | string | いいえ | `"sha256:"` + 小文字 hex 64 桁。この trace の `driven` が再現する solution XML。 |
 | `producer` | object | いいえ | 自由形式。慣例として `{ "name": ..., "version": ... }`。情報提供のみ。 |
+
+どちらの指紋も、ファイル全文を UTF-8 として読み、先頭の BOM を 1 個除去し、CRLF / CR を LF に
+正規化したうえでの SHA-256 です。[verdict サイドカー](verdict-sidecar.ja.md) が書く値と同じ
+正規化、同じ値です。形式が不正なフィールドは拒否されます。フィールドが無い場合は、その trace が
+そのファイルを名乗っていないというだけの意味です。
 
 ### `tracks[]`
 
@@ -157,6 +210,7 @@ CommonRoad の planning problem は ego の形状を持ちません。ego のサ
 | --- | --- | --- | --- |
 | `t` | number | **はい** | この計画が*発行された*時刻 (秒)。 |
 | `states` | array | **はい** | 計画された状態、最低 1 つ、`t` の昇順。 |
+| `candidates` | array | いいえ | このサイクルで評価し、走らなかった軌跡。[`plans[].candidates`](#planscandidates) を参照。 |
 
 `states[0].t` は計画の `t` と (1e-6 以内で) 一致しなければなりません。計画は発行された瞬間から
 始まる必要があるためです。計画は読み込み時に `t` でソートされるので、書き手の順序は問いません。
@@ -172,6 +226,44 @@ CommonRoad の planning problem は ego の形状を持ちません。ego のサ
 | `y` | number | **はい** | メートル |
 | `h` | number | いいえ | ラジアン、反時計回り、0 = +x。省略時、drawtonomy は次の状態への方向から導出します (最後の状態は 1 つ前の方位を繰り返します)。`frame: "center"` を書き出すプロデューサーは含めるべきです。中心から参照点への変換に方位が必要であり、導出した方位はカーブでは近似にすぎないためです |
 | `v` | number | いいえ | メートル毎秒 (スカラーの速さ) |
+
+### `plans[].candidates[]`
+<a id="planscandidates"></a>
+
+サンプリング型のプランナーは 1 サイクルにつき多数の軌跡を評価し、そのうち 1 本を走ります。
+`candidates` は走らなかったほうを記録したもので、drawtonomy は選ばれた plan の背後に扇状に
+描画します。
+
+| フィールド | 型 | 必須 | 意味 |
+| --- | --- | --- | --- |
+| `states` | array | **はい** | 候補の状態、最低 1 つ、`t` の昇順。[`plans[].states[]`](#plansstates) と同じスキーマで、plan 本体より粗くて構いません。 |
+| `cost` | number | いいえ | プランナー自身の評価値、有限な数 1 個。尺度はプランナーの裁量であり、drawtonomy はプロデューサーをまたいで cost を比較しません。 |
+| `feasible` | boolean | いいえ | プランナーがこの候補を棄却した場合に `false`。省略は feasible の意味です。 |
+| `reason` | string | いいえ | 棄却の理由。自由文字列ですが、commonroad-reactive-planner 自身のラベルにならって `infeasible_kinematic` / `infeasible_collision` / `infeasible_rule` を推奨します。 |
+
+候補は `driven` と**照合しません**。走らなかったものである以上、一致しなくて当然だからです。
+色は cost ではなく配列順に従うので、順位を見せたいプランナーは順位どおりの順序で書き出して
+ください。
+
+不正な候補は読み飛ばさず、ファイルごと拒否されます。軌跡の半分を黙って失った扇は、読み込めない
+ファイルより悪いためです。
+
+#### trace はどのくらい大きくなるか
+
+trace のサイズを支配するのは候補です。実際の 1 回の実行 (63 サイクル × 30 候補 × 31 状態) は
+2.3 MB で、候補を含まない同じ実行は 0.69 MB でした。150 サイクル × 200 候補ならおよそ 15 MB に
+達します。
+
+大きいという理由でファイルが拒否されることはありません。持ち運びに大きすぎる場合は、writer の
+`candidate_stride` で候補を間引いてください。候補の state を n 個おきに残し、`driven` と
+`plans` には手を触れません。
+
+```python
+w = TraceWriter(dt=0.1, candidate_stride=3)   # 既定の 1 はすべての state を残す
+```
+
+候補は線として描かれるので、途中の state を落とす代償は小さく済みます。`driven` から state を
+落とすと、実行そのものが変わってしまいます。
 
 ## 単位と基準点
 
@@ -228,7 +320,9 @@ trace の寿命は他の再生とまったく同じです。シーンが置き�
 ファイルがなぜ解除されたかを伝えます。
 
 `solution.verdict.json` サイドカー ([形式](verdict-sidecar.ja.md)) は、solution の再生と
-同じように trace の再生にも紐づきます。両者はシナリオ id でペアになります。verdict 自体は
+同じように trace の再生にも紐づきます。両者は `solutionFingerprint` でペアになります
+([同一性](#同一性-その-trace-がどの-solution-のものか) を参照)。このフィールドを持たない
+trace も読み込まれますが、隣の verdict は採用されず未照合として表示されます。verdict 自体は
 常に公式チェッカーが CommonRoad の solution から計算するもので、trace はそれを保持も代替も
 しません。
 
@@ -261,12 +355,15 @@ trace をその再生として設定するところまでが 1 ステップで�
 - 認識できないスキーマのファイルは、部分的に読むのではなく、サポートするスキーマ名を示す
   メッセージとともに拒否されます。
 
-### 予約: `plans[].candidates`
+### スキーマファイル
 
-`candidates` は、そのサイクルでプランナーが評価したサンプリング軌跡の集合のために、計画上で
-**予約**されています。これは v1 の一部ではありません。書き出しても害はありません (他の未知の
-フィールドと同様に無視されます) が、drawtonomy はそれを描画せず、その構造もまだ確定して
-いません。当てにしないでください。
+`planning-trace-v1.schema.json` は `drawtonomy-commonroad` パッケージに同梱されており、
+writer の自己検査が検証に使う形そのものです。上記の表はこのファイルと突き合わせるテストが
+あるので、両者が食い違うことはありません。
+
+```python
+from drawtonomy_cr.trace import SCHEMA_PATH   # スキーマへの pathlib.Path
+```
 
 ## 生成する
 
@@ -284,13 +381,29 @@ w = TraceWriter(dt=0.1, vehicle=dict(length=4.508, width=1.61, refToCenter=1.422
 for cycle in my_planner_loop():
     w.plan(t=cycle.t, states=cycle.trajectory)   # one entry per replanning cycle
 w.driven(executed_states)                        # what the ego actually drove
-w.write("solution.planning-trace.json", solution="solution.xml")
+w.write("solution.planning-trace.json",
+        solution="solution.xml", scenario="scenario.xml")
 ```
+
+サンプリング型のプランナーなら、棄却した軌跡も渡せます。
+
+```python
+w.plan(t=cycle.t, states=cycle.trajectory, candidates=[
+    {"states": c.trajectory, "cost": c.cost} for c in cycle.feasible
+] + [
+    {"states": c.trajectory, "feasible": False, "reason": "infeasible_kinematic"}
+    for c in cycle.rejected
+])
+```
+
+`solution=` と `scenario=` に **パス** を渡すことが、2 つの指紋を記録する条件です。
+`Solution` オブジェクトや state のリストで渡した場合も検査自体は行われますが、名乗るべき
+ファイルのバイト列が無いため `solutionFingerprint` は書かれず、writer がその旨を伝えます。
 
 状態には commonroad-io の `State` オブジェクトか、素の
 `{"x":, "y":, "orientation":, "v":, "time_step":}` の dict を使えます。`write()` は 2 つの
-PASS/FAIL チェックを実行し、どちらかが失敗した場合は書き出さずに例外を送出します。それぞれ
-最悪の偏差を出力します。
+PASS/FAIL チェックとスキーマ検証を実行し、どれかが失敗した場合は書き出さずに例外を送出します。
+それぞれ最悪の偏差を出力します。
 
 1. **`driven` が solution の軌跡と一致すること** (同じ長さ、同じタイムステップ、位置が
    1e-6 m 以内)。
@@ -317,6 +430,18 @@ solution と同じ呼び出し (`planner.convert_state_list_to_commonroad_object
 3 つとも最後の桁まで一致します。トラックの `vehicle` はプランナー自身の `config.vehicle` から
 取られます (length、width、`refToCenter` としての `wb_rear_axle`、`type` としての CommonRoad
 車両タイプ名)。
+
+`candidates` も書き出します。プランナーはサンプリングした束を `stored_trajectories` に保持し、
+各 `TrajectorySample` はスカラーの `cost` と `feasibility_label` を持つので、feasible なものは
+cost 付きで、棄却されたものは `feasible: false` とラベルを `reason` として書き出します。
+第 3 引数で間引けます。
+
+```bash
+python3 examples/reactive_planner/run_planner.py scenario.xml out/ 3   # candidate_stride
+```
+
+solution と scenario はパスとして `write()` に渡されるので、trace には両方の指紋が入ります。
+自己検査に失敗した場合は、solution だけを残して黙って続行するのではなく、非ゼロ終了します。
 
 このスクリプトは独自の目標速度を設定しません。プランナーの既定の規則は planning problem の
 ゴールの `<velocity>` 区間を読み (区間の下限が 0 より大きいときは中点、そうでなければ上限の

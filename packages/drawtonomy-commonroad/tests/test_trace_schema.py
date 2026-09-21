@@ -197,3 +197,86 @@ def test_the_fallback_runs_when_jsonschema_is_missing(monkeypatch):
     broken = copy.deepcopy(valid_trace())
     broken["frame"] = "world"
     assert schema_failures(broken)
+
+
+# --- the spec's field tables and the schema say the same thing ------------
+
+DOCS = SCHEMA_PATH.parents[2] / "docs"
+
+#: Each of the spec's field tables, and the schema node it describes. The point
+#: of the schema file was that these two stop drifting apart, which only holds
+#: while something compares them.
+TABLES = {
+    "### Top level": [],
+    "### `tracks[]`": ["tracks"],
+    "### `tracks[].vehicle`": ["tracks", "vehicle"],
+    "### `plans[]`": ["tracks", "plans"],
+    "### `plans[].states[]`": ["tracks", "plans", "states"],
+    "### `plans[].candidates[]`": ["tracks", "plans", "candidates"],
+}
+
+
+def schema_node(path):
+    """Walk `path` through the schema, following $ref and array items."""
+    schema = load_schema()
+
+    def deref(node):
+        while "$ref" in node:
+            target = schema
+            for part in node["$ref"][2:].split("/"):
+                target = target[part]
+            node = target
+        return node
+
+    node = deref(schema)
+    for name in path:
+        node = deref(node["properties"][name])
+        if node.get("type") == "array":
+            node = deref(node["items"])
+    return node
+
+
+def table_fields(text, heading):
+    """The `Field` column of the markdown table under `heading`."""
+    body = text.split(heading, 1)[1]
+    fields = []
+    for line in body.splitlines():
+        line = line.strip()
+        if not line.startswith("|"):
+            if fields:
+                break
+            continue
+        cell = line.split("|")[1].strip()
+        if cell in ("Field", "") or set(cell) <= set("- :"):
+            continue
+        fields.append(cell.strip("`"))
+    return fields
+
+
+@pytest.mark.parametrize("heading", sorted(TABLES))
+def test_the_spec_table_lists_exactly_the_schema_properties(heading):
+    spec = (DOCS / "planning-trace-format.md").read_text(encoding="utf-8")
+    documented = set(table_fields(spec, heading))
+    described = set(schema_node(TABLES[heading]).get("properties", {}))
+    assert documented == described, (
+        f"{heading}: documented but not in the schema {sorted(documented - described)}; "
+        f"in the schema but undocumented {sorted(described - documented)}"
+    )
+
+
+def test_the_spec_no_longer_calls_candidates_reserved():
+    spec = (DOCS / "planning-trace-format.md").read_text(encoding="utf-8")
+    assert "reserved" not in spec.lower()
+
+
+@pytest.mark.parametrize(
+    "spec", ["planning-trace-format.md", "planning-trace-format.ja.md"]
+)
+def test_the_specs_example_validates_against_the_schema(spec):
+    """The example a reader copies has to be a file the writer would accept."""
+    import re
+
+    text = (DOCS / spec).read_text(encoding="utf-8")
+    block = re.search(r"```json\n(.*?)\n```", text, re.S)
+    assert block, f"{spec}: no JSON example found"
+    assert schema_failures(json.loads(block.group(1))) == []
