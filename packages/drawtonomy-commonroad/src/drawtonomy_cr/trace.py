@@ -135,6 +135,12 @@ class TraceWriter:
         name: optional, to match the actor by entity name instead.
         frame: `"center"` (default, the meaning of CommonRoad's position) or
             `"ref"` (rear axle centre).
+        candidate_stride: keep every n-th state of every candidate (1, the
+            default, keeps all of them). A sampling planner's discarded
+            candidates outnumber its driven states by orders of magnitude, and
+            they are drawn as a fan rather than followed, so thinning them is
+            the one knob that keeps a file readable. It never touches `driven`
+            or `plans`.
     """
 
     def __init__(
@@ -146,6 +152,7 @@ class TraceWriter:
         role: str | None = "ego",
         name: str | None = None,
         frame: str = "center",
+        candidate_stride: int = 1,
     ):
         if dt is None or not math.isfinite(float(dt)) or float(dt) <= 0:
             raise ValueError(f"dt must be a finite positive number, got {dt!r}")
@@ -156,6 +163,10 @@ class TraceWriter:
                 "give exactly one of role / name: a track needs a single rule for "
                 "which actor it belongs to"
             )
+        if int(candidate_stride) < 1:
+            raise ValueError(
+                f"candidate_stride must be 1 or more, got {candidate_stride!r}"
+            )
         self.dt = float(dt)
         self.vehicle = dict(vehicle) if vehicle else None
         self.scenario = scenario
@@ -163,16 +174,27 @@ class TraceWriter:
         self.role = role
         self.name = name
         self.frame = frame
+        self.candidate_stride = int(candidate_stride)
         self._plans: list[dict] = []
         self._driven: list[dict] | None = None
 
-    def plan(self, t: float | None = None, states=None) -> dict:
+    def plan(self, t: float | None = None, states=None, candidates=None) -> dict:
         """Add the plan of one replanning cycle.
 
         `t` is when the plan was issued [s]; it defaults to the first state's
         time. The format requires `states[0].t == t`, so a mismatch is rejected
         here rather than silently corrected. Empty `states` are ignored, since
         they are not a plan.
+
+        `candidates` is the set of trajectories the planner evaluated in this
+        cycle and did not execute, as
+        `{"states": [...], "cost": float, "feasible": bool, "reason": str}`
+        dicts. Only `states` is required; a planner that scores everything
+        writes `cost`, one that rejects trajectories writes `feasible` /
+        `reason`. `states` takes the same shapes as the plan's own. Candidates
+        are thinned by `candidate_stride` and are never compared against
+        `driven`: they are what the planner rejected, so they are not supposed
+        to agree with what it drove.
         """
         if states is None:
             raise ValueError("plan() needs states")
@@ -188,7 +210,53 @@ class TraceWriter:
                 "a plan has to start at the moment it was issued"
             )
         entry = {"t": round(float(t), 9), "states": encoded}
+        if candidates is not None:
+            encoded_candidates = [
+                self._encode_candidate(c, index, len(self._plans))
+                for index, c in enumerate(candidates)
+            ]
+            if encoded_candidates:
+                entry["candidates"] = encoded_candidates
         self._plans.append(entry)
+        return entry
+
+    def _encode_candidate(self, candidate, index: int, plan_index: int) -> dict:
+        """One candidate -> its trace entry. Raises on anything the format does
+        not allow, naming where it was, because a plan is built in a loop and
+        "candidate 7 of plan 3" is the only way to find it again."""
+        where = f"candidates[{index}] of plan {plan_index}"
+        if not isinstance(candidate, dict):
+            raise ValueError(
+                f"{where}: a candidate is a dict with `states` and optionally "
+                f"`cost` / `feasible` / `reason`, got {type(candidate).__name__}"
+            )
+        states = candidate.get("states")
+        if states is None:
+            raise ValueError(f"{where}: a candidate needs `states`")
+        encoded = _encode_states(states, self.dt)[:: self.candidate_stride]
+        if not encoded:
+            raise ValueError(f"{where}: `states` is empty")
+        entry: dict = {"states": encoded}
+        if candidate.get("cost") is not None:
+            cost = float(candidate["cost"])
+            if not math.isfinite(cost):
+                raise ValueError(f"{where}: `cost` must be finite, got {cost!r}")
+            entry["cost"] = round(cost, 6)
+        if candidate.get("feasible") is not None:
+            feasible = candidate["feasible"]
+            if not isinstance(feasible, bool):
+                raise ValueError(
+                    f"{where}: `feasible` must be true or false, got "
+                    f"{type(feasible).__name__}"
+                )
+            entry["feasible"] = feasible
+        if candidate.get("reason") is not None:
+            reason = candidate["reason"]
+            if not isinstance(reason, str) or not reason:
+                raise ValueError(
+                    f"{where}: `reason` must be a non-empty string, got {reason!r}"
+                )
+            entry["reason"] = reason
         return entry
 
     def driven(self, states) -> list:
@@ -348,6 +416,73 @@ def _solution_fingerprint(solution):
     return None
 
 
+def _candidate_failures(track: dict) -> list:
+    """Every way a plan's `candidates` can be malformed, all of them at once.
+
+    A candidate is a trajectory the planner considered. The reader refuses a
+    file whose candidates are malformed rather than skipping them, so a writer
+    that produces one has made the whole trace unloadable - which is worth
+    saying here, in full, rather than one error at a time.
+    """
+    failures = []
+    for plan_index, plan in enumerate(track.get("plans", [])):
+        candidates = plan.get("candidates")
+        if candidates is None:
+            continue
+        if not isinstance(candidates, list):
+            failures.append(
+                f"planning trace self-check (candidates): plan {plan_index} has "
+                f"`candidates` of type {type(candidates).__name__}, expected a list"
+            )
+            continue
+        for index, candidate in enumerate(candidates):
+            where = (
+                f"planning trace self-check (candidates): candidates[{index}] of "
+                f"plan {plan_index}"
+            )
+            if not isinstance(candidate, dict):
+                failures.append(f"{where} is not an object")
+                continue
+            states = candidate.get("states")
+            if not isinstance(states, list) or not states:
+                failures.append(f"{where} has no states")
+                continue
+            times = []
+            malformed_state = False
+            for state in states:
+                if not isinstance(state, dict) or not isinstance(
+                    state.get("t"), (int, float)
+                ):
+                    failures.append(f"{where} has a state without a numeric `t`")
+                    malformed_state = True
+                    break
+                times.append(float(state["t"]))
+            if malformed_state:
+                continue
+            if any(b <= a for a, b in zip(times, times[1:])):
+                failures.append(
+                    f"{where} has states that do not advance in time "
+                    f"(t={times[:5]}...)"
+                )
+            cost = candidate.get("cost")
+            if cost is not None and (
+                isinstance(cost, bool)
+                or not isinstance(cost, (int, float))
+                or not math.isfinite(float(cost))
+            ):
+                failures.append(f"{where} has a non-finite `cost` ({cost!r})")
+            feasible = candidate.get("feasible")
+            if feasible is not None and not isinstance(feasible, bool):
+                failures.append(
+                    f"{where} has `feasible` of type {type(feasible).__name__}, "
+                    "expected true or false"
+                )
+            reason = candidate.get("reason")
+            if reason is not None and (not isinstance(reason, str) or not reason):
+                failures.append(f"{where} has a `reason` that is not a non-empty string")
+    return failures
+
+
 def self_check(
     trace: dict,
     dt: float,
@@ -370,10 +505,17 @@ def self_check(
         the run it claims to describe.
 
     Both compare positions to 1e-6 m, the precision traces are written with.
+
+    The shape of the file is checked first, against
+    `planning-trace-v1.schema.json`, plus the rules a schema cannot state (a
+    candidate's states have to advance in time). Candidates are not compared
+    against `driven`: they are the trajectories the planner rejected.
     """
     track = trace["tracks"][0]
     driven = track["driven"]
     failures: list[str] = []
+
+    failures.extend(_candidate_failures(track))
 
     # --- (a) driven == solution -------------------------------------------
     if solution_states is not None:
