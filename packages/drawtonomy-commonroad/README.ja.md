@@ -70,9 +70,11 @@ from drawtonomy_cr.trace import TraceWriter
 w = TraceWriter(dt=0.1, vehicle=dict(length=4.508, width=1.61, refToCenter=1.4227,
                                      type="BMW_320i"))
 for cycle in my_planner_loop():
-    w.plan(t=cycle.t, states=cycle.trajectory)   # one entry per replanning cycle
+    w.plan(t=cycle.t, states=cycle.trajectory,   # one entry per replanning cycle
+           candidates=cycle.evaluated)           # 任意: 走らなかった候補
 w.driven(executed_states)                        # what the ego actually drove
-w.write("solution.planning-trace.json", solution="solution.xml")
+w.write("solution.planning-trace.json",
+        solution="solution.xml", scenario="scenario.xml")
 ```
 
 `vehicle` はプランナが計画に使った車体です。使われるのは `length` / `width` /
@@ -83,10 +85,24 @@ w.write("solution.planning-trace.json", solution="solution.xml")
 `states` は commonroad-io の `State` オブジェクトでも、素の
 `{"x":, "y":, "orientation":, "v":, "time_step":}` の dict でも受け付けます。
 
+`candidates` は、サンプリング型のプランナが評価したが走行しなかった軌跡です。
+`{"states":, "cost":, "feasible":, "reason":}` の dict で、必須なのは `states`
+だけです。drawtonomy は選ばれた plan の背後に扇状に描画します。trace のサイズを
+支配するのはこの候補群なので、`TraceWriter(..., candidate_stride=n)` で候補の
+state を n 個おきに間引けます (`driven` と `plans` には影響しません)。
+
+`solution=` と `scenario=` に **パス** を渡すと、その指紋 (fingerprint) が trace に
+記録されます。同じファイルから作った verdict が持つ値と同一なので、trace の隣に
+置いた verdict を「未照合」ではなくその run の公式結果として扱えるようになります。
+
 `write()` は何かを書き出す前に 2 つの同一性を検証します。`driven` が solution の
 軌跡と 1e-6 m 以内で一致すること、そして各 plan の実行済み先頭部分が同じ
-タイムステップの `driven` と一致することです。検証に失敗した場合は、記述対象と
-主張している solution と異なる再生になる trace を書き出さずに例外を送出します。
+タイムステップの `driven` と一致することです。あわせてファイル全体を
+[`planning-trace-v1.schema.json`](src/drawtonomy_cr/planning-trace-v1.schema.json)
+で検証します (パッケージに同梱され、`drawtonomy_cr.trace.SCHEMA_PATH` で参照可能)。
+検証に失敗した場合は、記述対象と主張している solution と異なる再生になる trace を
+書き出さずに例外を送出します。`solutionFingerprint` は、この検証を通ったときだけ
+書き込まれます。
 
 フォーマット: [`docs/planning-trace-format.ja.md`](docs/planning-trace-format.ja.md)。
 

@@ -51,7 +51,9 @@ drawtonomy-cr open out/
 - `write_trace()` は `TraceWriter` で planning trace を書きます。同じ車体を宣言する
   ので、drawtonomy は checker が見たものをそのまま描きます。この planner は再計画
   しないので、各 "plan" はその秒以降の走行プロファイルの残りです。`write()` の
-  自己検査を通すため、driven の状態列からスライスしています。
+  自己検査を通すため、driven の状態列からスライスしています。solution と scenario
+  はパスとして渡すので、trace にその指紋が記録され、同じ 2 ファイルから作った
+  verdict が未照合ではなくこの run の公式結果として扱われます。
 
 drawtonomy から export したシナリオで効いてくる 2 点:
 

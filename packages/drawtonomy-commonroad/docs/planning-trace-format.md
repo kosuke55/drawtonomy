@@ -17,6 +17,15 @@ intended at each cycle). That makes a trace self-contained, so dropping one file
 drawtonomy reproduces the run. The CommonRoad solution remains the official checker format;
 the trace extends it.
 
+### Why "trace"
+
+Elsewhere in this field a *trace* is the stream of states something executed: an ASAM OSI
+trace file, an esmini `.dat` recording, a ROS bag of odometry. A **planning** trace is that
+stream plus the reasoning behind it - the executed states, the trajectory the planner issued
+at every replanning cycle, and optionally the candidates it evaluated and rejected. The word
+"planning" is what separates the two: a trace of a run, and a trace of the planning that
+produced the run.
+
 ### How drawtonomy draws it
 
 | Visual | Means | Source |
@@ -58,12 +67,33 @@ mean the same m/s².
 Each 0.1 s segment takes the colours of its two states at its two ends, with a linear gradient
 between them when they differ. States without `v` are drawn in the constant-speed green.
 
+## Identity: which solution a trace belongs to
+
+A trace optionally names the files it was computed from, by fingerprint. Those fingerprints
+are the same values a [checker verdict](verdict-sidecar.md) carries under the same names, so
+drawtonomy can tell whether a verdict dropped next to a trace judged *this* run:
+
+- a trace whose `solutionFingerprint` equals the verdict's is the run that verdict judged, and
+  the official checks count;
+- a trace **without** the field still loads and replays exactly as before, but the verdict
+  beside it stays unchecked, because nothing says the two describe the same solution. Traces
+  written before SDK 0.3.0 are all in this state.
+
+`TraceWriter.write()` only records `solutionFingerprint` when it was given the solution as a
+file **and** its self-check proved that `driven` reproduces that solution to within 1e-6 m. So
+the claim is backed by a comparison rather than asserted by the producer.
+
+These are mix-up detectors, not signatures: they say "this is the file I was computed from",
+and nothing about who computed it.
+
 ## Example
 
 ```json
 {
   "schema": "drawtonomy-planning-trace-v1",
   "scenario": "ZAM_Untitled202609011139-1_1_T-1",
+  "scenarioFingerprint": "sha256:914a4300443dcf4bc585c7e43769983b4932c22bf69be37ac02bd086c1d5ab33",
+  "solutionFingerprint": "sha256:b671bc93924fdd60379006c98d180c1dc1bf86e613e0bdd21d29a2a6b8f097fc",
   "producer": { "name": "commonroad-reactive-planner", "version": "2025.1" },
   "frame": "center",
   "tracks": [
@@ -82,6 +112,23 @@ between them when they differ. States without `v` are drawn in the constant-spee
           "states": [
             { "t": 0.0, "x": 12.34, "y": -1.2, "h": 0.01, "v": 13.9 },
             { "t": 0.1, "x": 13.7, "y": -1.2, "h": 0.01, "v": 13.9 }
+          ],
+          "candidates": [
+            {
+              "states": [
+                { "t": 0.0, "x": 12.34, "y": -1.2 },
+                { "t": 0.1, "x": 13.7, "y": -0.8 }
+              ],
+              "cost": 306.84
+            },
+            {
+              "states": [
+                { "t": 0.0, "x": 12.34, "y": -1.2 },
+                { "t": 0.1, "x": 13.7, "y": -3.1 }
+              ],
+              "feasible": false,
+              "reason": "infeasible_kinematic"
+            }
           ]
         },
         { "t": 0.3, "states": [{ "t": 0.3, "x": 16.5, "y": -1.2 }] }
@@ -101,7 +148,14 @@ between them when they differ. States without `v` are drawn in the constant-spee
 | `frame` | `"center"` \| `"ref"` | **yes** | What the positions mean. See [Units and frames](#units-and-frames). |
 | `tracks` | array | **yes** | One entry per actor, at least one. |
 | `scenario` | string | no | Scenario identifier this trace was computed for. See [Matching](#matching-a-trace-to-a-scene). |
+| `scenarioFingerprint` | string | no | `"sha256:"` + 64 lowercase hex: the scenario XML the planner ran on. See [Identity](#identity-which-solution-a-trace-belongs-to). |
+| `solutionFingerprint` | string | no | `"sha256:"` + 64 lowercase hex: the solution XML this trace's `driven` states reproduce. |
 | `producer` | object | no | Free-form; `{ "name": ..., "version": ... }` by convention. Informational only. |
+
+Both fingerprints are the SHA-256 of the file's UTF-8 text with one leading byte order mark
+removed and CRLF / CR normalized to LF - the same normalization, and the same values, a
+[verdict sidecar](verdict-sidecar.md) writes. A field of the wrong shape is refused; an absent
+one just means the trace does not name that file.
 
 ### `tracks[]`
 
@@ -159,6 +213,7 @@ from the same states the solution is written from.
 | --- | --- | --- | --- |
 | `t` | number | **yes** | The time, in seconds, at which this plan was *issued*. |
 | `states` | array | **yes** | The planned states, at least one, ascending in `t`. |
+| `candidates` | array | no | The trajectories this cycle evaluated and did not drive. See [`plans[].candidates`](#planscandidates). |
 
 `states[0].t` must equal the plan's `t` (within 1e-6): a plan has to start at the moment it
 was issued. Plans are sorted by `t` on read, so the writer's order does not matter, but two
@@ -174,6 +229,43 @@ plans issued at the same `t` are an error.
 | `y` | number | **yes** | metres |
 | `h` | number | no | radians, counter-clockwise, 0 = +x. When omitted, drawtonomy derives it from the direction to the next state (the last state repeats the previous heading). Producers writing `frame: "center"` should include it: the centre-to-reference-point conversion needs the heading, and a derived heading is only an approximation on curves |
 | `v` | number | no | metres per second (scalar speed) |
+
+### `plans[].candidates[]`
+<a id="planscandidates"></a>
+
+A sampling planner evaluates many trajectories per cycle and drives one. `candidates` records
+the ones it did not drive, which drawtonomy draws as a fan behind the chosen plan.
+
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `states` | array | **yes** | The candidate's states, at least one, ascending in `t`. Same schema as [`plans[].states[]`](#plansstates), and it may be coarser than the plan's. |
+| `cost` | number | no | The planner's own score, one finite number. Its scale is the planner's business; drawtonomy does not compare costs across producers. |
+| `feasible` | boolean | no | `false` when the planner rejected this candidate. Absent means feasible. |
+| `reason` | string | no | Why it was rejected. Free text; `infeasible_kinematic`, `infeasible_collision` and `infeasible_rule` are the recommended words, after commonroad-reactive-planner's own labels. |
+
+Candidates are **not** compared against `driven`: they are what the planner did not drive, so
+they are free to disagree with it. Colour follows array order, not cost, so a planner that
+wants its ranking shown writes its candidates in rank order.
+
+A malformed candidate is refused with the whole file, rather than skipped - a fan that
+silently loses half its trajectories is worse than one that does not load.
+
+#### How big a trace gets
+
+Candidates dominate the size of a trace. One real run - 63 cycles, 30 candidates each, 31
+states each - is 2.3 MB against 0.69 MB for the same run without them. At 150 cycles x 200
+candidates the file reaches roughly 15 MB.
+
+Nothing refuses a large file. When one is too big to move around, thin the candidates with the
+writer's `candidate_stride`, which keeps every n-th state of every candidate and leaves
+`driven` and `plans` untouched:
+
+```python
+w = TraceWriter(dt=0.1, candidate_stride=3)   # 1, the default, keeps every state
+```
+
+A candidate is drawn as a line, so dropping intermediate states costs little; dropping states
+from `driven` would change the run.
 
 ## Units and frames
 
@@ -231,10 +323,12 @@ A trace lives exactly as long as any other replay: it is dropped when the scene 
 (import, New canvas, an undo across a document boundary) and when the scenario is edited, each
 time saying which file was unloaded and why.
 
-The `solution.verdict.json` sidecar
-([format](verdict-sidecar.md)) attaches to a trace replay just as it does to
-a solution replay: they are paired by scenario id. The verdict itself is always computed from
-the CommonRoad solution by the official checker; the trace does not carry or replace it.
+The `solution.verdict.json` sidecar ([format](verdict-sidecar.md)) attaches to a trace replay
+just as it does to a solution replay, and the two are paired by `solutionFingerprint` - see
+[Identity](#identity-which-solution-a-trace-belongs-to). A trace without that field still
+loads; the verdict beside it is shown as unchecked rather than counted. The verdict itself is
+always computed from the CommonRoad solution by the official checker; the trace does not carry
+or replace it.
 
 ## File naming
 
@@ -264,11 +358,15 @@ The schema string carries the major version, and **v1 is additive only**:
 - A file whose schema is not recognised is refused with a message naming the supported schema,
   rather than being partially read.
 
-### Reserved: `plans[].candidates`
+### The schema file
 
-`candidates` is **reserved** on a plan for the set of sampled trajectories a planner evaluated
-in that cycle. It is not part of v1: writing it is harmless (it is ignored, like any unknown
-field), but drawtonomy does not render it, and its shape is not yet fixed. Do not rely on it.
+`planning-trace-v1.schema.json` ships with the `drawtonomy-commonroad` package and is the
+shape the writer's self-check validates against. The tables above are checked against it, so
+they cannot drift apart:
+
+```python
+from drawtonomy_cr.trace import SCHEMA_PATH   # a pathlib.Path to the schema
+```
 
 ## Producing one
 
@@ -286,8 +384,24 @@ w = TraceWriter(dt=0.1, vehicle=dict(length=4.508, width=1.61, refToCenter=1.422
 for cycle in my_planner_loop():
     w.plan(t=cycle.t, states=cycle.trajectory)   # one entry per replanning cycle
 w.driven(executed_states)                        # what the ego actually drove
-w.write("solution.planning-trace.json", solution="solution.xml")
+w.write("solution.planning-trace.json",
+        solution="solution.xml", scenario="scenario.xml")
 ```
+
+A sampling planner adds the trajectories it rejected:
+
+```python
+w.plan(t=cycle.t, states=cycle.trajectory, candidates=[
+    {"states": c.trajectory, "cost": c.cost} for c in cycle.feasible
+] + [
+    {"states": c.trajectory, "feasible": False, "reason": "infeasible_kinematic"}
+    for c in cycle.rejected
+])
+```
+
+Passing `solution=` and `scenario=` as **paths** is what records the two fingerprints. A
+solution handed over as a `Solution` object or a state list still gets checked, but there are
+no file bytes to name, so no `solutionFingerprint` is written and the writer says so.
 
 States can be commonroad-io `State` objects or plain
 `{"x":, "y":, "orientation":, "v":, "time_step":}` dicts. `write()` runs two PASS/FAIL checks
@@ -318,6 +432,18 @@ Replace the planner half with yours. The script feeds the planner's per-cycle op
 (`planner.convert_state_list_to_commonroad_object`) so all three agree to the last digit. The
 track's `vehicle` is taken from the planner's own `config.vehicle` (length, width,
 `wb_rear_axle` as `refToCenter`, the CommonRoad vehicle type name as `type`).
+
+It also writes `candidates`. The planner keeps its sampled bundle in
+`stored_trajectories`, and each `TrajectorySample` carries a scalar `cost` and a
+`feasibility_label`, so the feasible ones go in with their cost and the rejected ones with
+`feasible: false` and the label as `reason`. A third argument thins them:
+
+```bash
+python3 examples/reactive_planner/run_planner.py scenario.xml out/ 3   # candidate_stride
+```
+
+The solution and scenario go to `write()` as paths, so the trace carries both fingerprints.
+A failed self-check exits non-zero rather than leaving solution-only output behind.
 
 The script does not set a desired velocity of its own: the planner's default rule reads the
 planning problem's goal `<velocity>` interval (the midpoint when the interval starts above 0,

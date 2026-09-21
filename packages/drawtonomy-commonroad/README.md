@@ -73,9 +73,11 @@ from drawtonomy_cr.trace import TraceWriter
 w = TraceWriter(dt=0.1, vehicle=dict(length=4.508, width=1.61, refToCenter=1.4227,
                                      type="BMW_320i"))
 for cycle in my_planner_loop():
-    w.plan(t=cycle.t, states=cycle.trajectory)   # one entry per replanning cycle
+    w.plan(t=cycle.t, states=cycle.trajectory,   # one entry per replanning cycle
+           candidates=cycle.evaluated)           # optional: what it did not drive
 w.driven(executed_states)                        # what the ego actually drove
-w.write("solution.planning-trace.json", solution="solution.xml")
+w.write("solution.planning-trace.json",
+        solution="solution.xml", scenario="scenario.xml")
 ```
 
 `vehicle` is the body the planner planned with. Only `length`, `width` and
@@ -86,10 +88,24 @@ was drawn with.
 `states` accepts commonroad-io `State` objects and plain
 `{"x":, "y":, "orientation":, "v":, "time_step":}` dicts alike.
 
+`candidates` are the trajectories a sampling planner evaluated and did not drive,
+as `{"states":, "cost":, "feasible":, "reason":}` dicts of which only `states` is
+required. drawtonomy draws them as a fan behind the chosen plan. They dominate the
+size of a trace, so `TraceWriter(..., candidate_stride=n)` keeps every n-th
+candidate state and leaves `driven` and `plans` alone.
+
+Passing `solution=` and `scenario=` as **paths** records their fingerprints in the
+trace, the same values a verdict of the same files carries. That is what lets a
+verdict dropped next to a trace count as the official result for that run instead
+of being shown as unchecked.
+
 `write()` verifies two identities before writing anything: `driven` matches the
 solution's trajectory within 1e-6 m, and each plan's executed head matches `driven`
-at the same time steps. A failure raises instead of writing a trace that would
-replay differently from the solution it claims to describe.
+at the same time steps, and the whole file against
+[`planning-trace-v1.schema.json`](src/drawtonomy_cr/planning-trace-v1.schema.json),
+which ships with the package as `drawtonomy_cr.trace.SCHEMA_PATH`. A failure raises
+instead of writing a trace that would replay differently from the solution it
+claims to describe. `solutionFingerprint` is written only after that check passes.
 
 Format: [`docs/planning-trace-format.md`](docs/planning-trace-format.md).
 
