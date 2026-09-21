@@ -27,10 +27,14 @@ The output schema is `drawtonomy-verdict/1`, specified in
 """
 
 import datetime
-import hashlib
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
+
+# The one fingerprint implementation, shared with the planning trace writer so
+# a trace and a verdict of the same solution can never disagree about its name.
+# Kept under the old module-local name, which tests and callers already use.
+from .fingerprint import fingerprint as _input_fingerprint
 
 #: Exit code used when commonroad-drivability-checker is not installed.
 CHECKER_MISSING_EXIT_CODE = 3
@@ -470,12 +474,6 @@ def _feasibility_detail(scenario, pps, solution) -> dict:
         out["accelerationLimit"] = float(ub[1])
         return out
     return {}
-
-
-def _input_fingerprint(raw: bytes) -> str:
-    """SHA-256 of UTF-8 text, without one leading BOM, with LF line endings."""
-    text = raw.decode("utf-8-sig").replace("\r\n", "\n").replace("\r", "\n")
-    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def build_verdict(scenario_path: Path, solution_path: Path) -> dict:
