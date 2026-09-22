@@ -3,7 +3,7 @@ import { parseOpenDriveXml } from '../../src/exporter/opendriveParser'
 import { odrToShapes } from '../../src/exporter/odrToShapes'
 import { exportToOpenDrive } from '../../src/exporter/opendrive'
 import { evalElevation, sampleReferenceLine } from '../../src/exporter/odrGeometry'
-import { fitElevationProfile, evalElevationRecords } from '../../src/exporter/odrElevationFit'
+import { fitElevationProfile, evalElevationRecords, resolveElevationGaps } from '../../src/exporter/odrElevationFit'
 import type { DrawtonomySnapshot } from '../../src/types'
 
 /** A straight road climbing from 12 m to ~15 m over 100 m, in two segments. */
@@ -285,6 +285,50 @@ describe('fitElevationProfile', () => {
   it('starts the profile at s = 0 even when samples start later', () => {
     const records = fitElevationProfile([{ s: 4, z: 7 }, { s: 20, z: 8 }])
     expect(records[0].s).toBe(0)
+  })
+
+  it('keeps a held span exactly flat, not just flat at its ends', () => {
+    // `resolveElevationGaps` marks the samples it filled in by holding a
+    // known height. Fitting straight through them let the neighbouring
+    // grade's estimated slope leak into the held span: the cubic from
+    // (0, 5) to (10, 5) left with slope 0 and arrived with the grade's
+    // 0.25 m/m, sagging to 4.6875 m at s = 5 m — 31 cm below a value that
+    // is supposed to be constant, and outside the fitter's 5 cm tolerance.
+    const samples = resolveElevationGaps(
+      [
+        { s: 0, z: undefined },
+        { s: 10, z: 5 },
+        { s: 20, z: 10 },
+        { s: 30, z: 15 },
+        { s: 40, z: 20 },
+      ],
+      40
+    )
+    expect(samples).not.toBeNull()
+    const records = fitElevationProfile(samples!)
+    for (let s = 0; s <= 10 + 1e-9; s += 0.5) {
+      expect(evalElevationRecords(records, s)).toBeCloseTo(5, 9)
+    }
+    // The measured part is untouched.
+    for (const [s, z] of [[20, 10], [30, 15], [40, 20]] as const) {
+      expect(Math.abs(evalElevationRecords(records, s) - z)).toBeLessThanOrEqual(0.05)
+    }
+  })
+
+  it('keeps a held tail span flat too', () => {
+    const samples = resolveElevationGaps(
+      [
+        { s: 0, z: 10 },
+        { s: 15, z: 20 },
+        { s: 30, z: undefined },
+      ],
+      30
+    )
+    expect(samples).not.toBeNull()
+    const records = fitElevationProfile(samples!)
+    for (let s = 15; s <= 30 + 1e-9; s += 0.5) {
+      expect(evalElevationRecords(records, s)).toBeCloseTo(20, 9)
+    }
   })
 })
 
