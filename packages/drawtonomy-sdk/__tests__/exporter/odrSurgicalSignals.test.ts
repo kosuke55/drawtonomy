@@ -338,6 +338,7 @@ describe('surgical <signal> rewriting', () => {
     const changed = src.roads.filter(r => dstById.get(r.id) !== r.text).map(r => r.id)
     expect(changed).toEqual(['1'])
   })
+
   // (h) the source's whitespace is not part of the contract: a document with
   // no line breaks between tags must still come out well-formed. The indent
   // taken for an appended <signal> has to be whitespace, not whatever text
@@ -375,6 +376,88 @@ describe('surgical <signal> rewriting', () => {
       attributes: { ...src.attributes, odr_signal_id: '' },
     })
     expectWellFormed(exportWith(imported))
+  })
+
+  // (i) deleting a signal must not leave <control> / <signalReference> naming
+  // an id that no road defines any more.
+  it('drops <control> and <signalReference> records for a deleted signal', () => {
+    const { imported } = importFixture()
+    // Traffic light 100 is named by controller 900 AND referenced from road 2.
+    imported.trafficLights = imported.trafficLights.filter(
+      t => t.attributes.odr_signal_id !== '100'
+    )
+
+    const out = exportWith(imported)
+    const doc = extractOdrDocument(out)!
+    const defined = new Set(doc.roads.flatMap(r => r.signalIds))
+    expect(defined.has('100')).toBe(false)
+
+    // No <control> names a signal nothing defines.
+    for (const c of doc.controllers) {
+      for (const sid of c.signalIds) expect(defined).toContain(sid)
+    }
+    // No <signalReference> points at a signal nothing defines.
+    for (const ref of out.match(/<signalReference\b[^>]*/g) ?? []) {
+      expect(defined).toContain(ref.match(/\bid="([^"]*)"/)![1])
+    }
+  })
+
+  // (j) a road promoted to dirty AFTER the surgical plan ran must not leave
+  // its provisional signal ids behind in a <controller>.
+  it('does not name provisionally allocated ids of a road that went dirty', () => {
+    const { imported } = importFixture()
+    // Duplicate light 100 onto road 1 as a brand new signal in the same
+    // controller group, so the surgical pass allocates it a fresh id...
+    const tl = imported.trafficLights.find(t => t.attributes.odr_signal_id === '100')!
+    imported.trafficLights.push({
+      ...tl,
+      id: 'tl_added',
+      x: tl.x - 10 * PIXELS_PER_METER,
+      attributes: { ...tl.attributes, odr_signal_id: '' },
+    })
+    // ...and then edit road 2's lanes, which drags road 1 back into
+    // regeneration through the atomic regulatory rule (signal 100 touches
+    // both roads).
+    const rec2 = imported.sidecar.roadRecords!['2']
+    const lane2 = imported.lanes.find(l => l.id === rec2.laneShapeIds[0])!
+    lane2.attributes = { ...lane2.attributes, speed_limit: '37' }
+
+    const out = exportWith(imported)
+    const doc = extractOdrDocument(out)!
+    const defined = new Set(doc.roads.flatMap(r => r.signalIds))
+    for (const c of doc.controllers) {
+      for (const sid of c.signalIds) expect(defined).toContain(sid)
+    }
+  })
+
+  // (k) an ordinary new signal (no odr_road_id, only affected lanes) must be
+  // emitted, not silently swallowed by the consumed-shape bookkeeping.
+  it('emits a newly created signal that carries no source road id', () => {
+    const { xml, imported } = importFixture()
+    const src = imported.trafficSigns![0]
+    const before = imported.trafficSigns!.length + imported.trafficLights.length
+    imported.trafficSigns!.push({
+      ...src,
+      id: 'ts_new',
+      x: src.x + 10 * PIXELS_PER_METER,
+      // A shape the user drew: it knows the lanes it applies to and nothing
+      // about the source document.
+      attributes: {},
+    })
+
+    const out = exportWith(imported)
+    const defined = extractOdrDocument(out)!.roads.flatMap(r => r.signalIds)
+    expect(defined.length).toBe(before + 1)
+    expectWellFormed(out)
+
+    // It went in surgically: road 1 keeps its source plan view and the two
+    // source signals byte-identically, and road 2 is untouched.
+    const beforeRoad = roadText(xml, '1')
+    const afterRoad = roadText(out, '1')
+    expect(signalTags(afterRoad).get('100')).toBe(signalTags(beforeRoad).get('100'))
+    expect(signalTags(afterRoad).get('101')).toBe(signalTags(beforeRoad).get('101'))
+    expect(afterRoad).toContain('<geometry s="0" x="0" y="0" hdg="0" length="100">')
+    expect(out).toContain(roadText(xml, '2'))
   })
 
   // (l) a <signal> the importer does not turn into a shape (unknown dynamic

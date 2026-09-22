@@ -416,6 +416,26 @@ export function dropControlRecords(text: string, keepSignalIds: ReadonlySet<stri
 }
 
 /**
+ * Drop `<signalReference>` records from a `<road>` element whose id is not in
+ * `keepSignalIds`, keeping every other byte untouched.
+ *
+ * A `<signalReference>` re-applies a signal DEFINED on another road. When that
+ * definition is gone — the user deleted the signal, and the defining road was
+ * rewritten surgically rather than regenerated — the reference is left naming
+ * an id nothing defines, which no consumer can resolve.
+ */
+export function dropSignalReferences(text: string, keepSignalIds: ReadonlySet<string>): string {
+  return text.replace(
+    /[^\S\n]*<signalReference\b[^>]*(?:\/>|>[\s\S]*?<\/signalReference>)\n?/g,
+    match => {
+      const sid = match.slice(0, match.indexOf('>') + 1).match(/\bid="([^"]*)"/)?.[1]
+      if (sid === undefined) return match
+      return keepSignalIds.has(sid) ? match : ''
+    }
+  )
+}
+
+/**
  * Append `<control signalId="..."/>` records to a `<controller>` element,
  * just before its closing tag, keeping every existing byte intact.
  *
