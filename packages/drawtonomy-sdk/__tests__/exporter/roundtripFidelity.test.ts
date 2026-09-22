@@ -2104,10 +2104,11 @@ describe('carry-through export (sidecar verbatim re-emission)', () => {
   //
   // road 30 -> successor junction "999" (undefined anywhere: dangling).
   // road 31 -> successor junction "100" (defined junction; its connecting
-  //            roads 40/41 are edited below to make it genuinely dirty).
+  //            road 40 is edited below to make it genuinely dirty).
   // road 32 -> a 0.2 m micro road (no materialized lanes) that is itself a
-  //            member of junction "100", so it has nothing to regenerate from
-  //            if it is dropped into `dirty` by propagation.
+  //            connecting road of junction "100" (connection id="1"), so it
+  //            has nothing to regenerate from if it is dropped into `dirty`
+  //            by propagation.
   // -------------------------------------------------------------------------
   const DANGLING_JUNCTION_XODR = `<?xml version="1.0"?>
 <OpenDRIVE>
@@ -2153,7 +2154,7 @@ describe('carry-through export (sidecar verbatim re-emission)', () => {
       </laneSection>
     </lanes>
   </road>
-  <road name="micro" length="0.2" id="32" junction="-1">
+  <road name="micro" length="0.2" id="32" junction="100">
     <link>
       <predecessor elementType="road" elementId="31" contactPoint="end"/>
       <successor elementType="road" elementId="33" contactPoint="start"/>
@@ -2191,6 +2192,9 @@ describe('carry-through export (sidecar verbatim re-emission)', () => {
     <connection id="0" incomingRoad="31" connectingRoad="40" contactPoint="start">
       <laneLink from="-1" to="-1"/>
     </connection>
+    <connection id="1" incomingRoad="31" connectingRoad="32" contactPoint="start">
+      <laneLink from="-1" to="-1"/>
+    </connection>
   </junction>
 </OpenDRIVE>`
 
@@ -2211,17 +2215,22 @@ describe('carry-through export (sidecar verbatim re-emission)', () => {
   })
 
   it('still regenerates a road whose junction link points at a real, dirty junction (regression guard)', () => {
-    // (b) road 31 references junction "100", which IS defined. Editing its
-    // connecting road (40) must still dirty the junction and drag road 31's
-    // link the way it always has — the fix only changes handling of
-    // references to junctions that do not exist.
+    // (b) road 31 references junction "100", which IS defined. This must
+    // still dirty the junction and drag road 31's link the way it always has
+    // — the fix only changes handling of references to junctions that do not
+    // exist. Unlike a plain boundary-geometry edit (which a future carry
+    // scheme could reproduce byte-for-byte and thus keep verbatim), clearing
+    // the connecting road's lane connectivity breaks the maneuver itself: no
+    // carry scheme can reproduce a `<laneLink from="-1" to="-1"/>` connection
+    // whose target lane no longer links back, so this edit must always force
+    // regeneration of road 40 and junction 100, independent of how carry-
+    // through for shape-only edits evolves.
     const imported = odrToShapesFull(parseOpenDriveXml(DANGLING_JUNCTION_XODR))
     const laneId = imported.sidecar.roadRecords!['40'].laneShapeIds[0]
     const lane = imported.lanes.find(l => l.id === laneId)!
-    const ls = imported.linestrings.find(l => l.id === lane.leftBoundaryId ?? lane.rightBoundaryId)!
-    const midPid = ls.pointIds[Math.floor(ls.pointIds.length / 2)]
-    // Longitudinal drag forces full regeneration (not the surgical path).
-    imported.points.find(p => p.id === midPid)!.x += 20
+    expect(lane.next.length + lane.prev.length).toBeGreaterThan(0)
+    lane.next = []
+    lane.prev = []
 
     const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
     const doc = extractOdrDocument(DANGLING_JUNCTION_XODR)!
@@ -2235,10 +2244,13 @@ describe('carry-through export (sidecar verbatim re-emission)', () => {
   })
 
   it('does not drop a micro road (no materialized lanes) when its real junction becomes dirty', () => {
-    // (c) road 32 has zero materialized lane shapes (below the importer's
-    // minimum section length). Its junction "100" is dirtied by editing
-    // road 40. road 32 itself was never edited (it cannot be, having no
-    // lane shapes) and must survive in the output either way.
+    // (c) road 32 is a genuine connecting road of junction "100" (connection
+    // id="1", junction="100" on the road itself) with zero materialized lane
+    // shapes (below the importer's minimum section length). Editing road 40
+    // dirties junction "100", which drags every junction-stamped connecting
+    // road — including road 32 — into `dirty` by propagation. road 32 itself
+    // was never edited (it cannot be, having no lane shapes) and has nothing
+    // to regenerate from, so it must survive in the output either way.
     const imported = odrToShapesFull(parseOpenDriveXml(DANGLING_JUNCTION_XODR))
     expect(imported.sidecar.roadRecords!['32'].laneShapeIds).toEqual([])
 
