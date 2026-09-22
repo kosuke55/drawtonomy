@@ -1931,7 +1931,7 @@ describe('carry-through export (sidecar verbatim re-emission)', () => {
     expect(moved).toBe(true)
   })
 
-  it('moving a traffic light regenerates only its carrying road', () => {
+  it('moving a traffic light rewrites only its <signal>, not its road', () => {
     const imported = odrToShapesFull(parseOpenDriveXml(CHAIN_XODR))
     const tl = imported.trafficLights[0]
     expect(tl).toBeDefined()
@@ -1940,11 +1940,22 @@ describe('carry-through export (sidecar verbatim re-emission)', () => {
     const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
     const doc = extractOdrDocument(CHAIN_XODR)!
     const road = (id: string) => doc.roads.find(r => r.id === id)!
-    expect(out).not.toContain(road('1').text)
+    // Road 1 carries the signal: it is no longer byte-identical, but only
+    // because the <signal>'s s moved. Everything outside that element — and
+    // every other road — is untouched.
+    const outRoad1 = extractOdrDocument(out)!.roads.find(r => r.id === '1')!.text
+    expect(outRoad1).not.toBe(road('1').text)
+    const maskSignal = (t: string): string => t.replace(/<signal\b[^>]*>/, '<signal>')
+    expect(maskSignal(outRoad1)).toBe(maskSignal(road('1').text))
     expect(out).toContain(road('2').text)
     expect(out).toContain(road('3').text)
-    // The regenerated signal id starts above the original signal id space.
-    expect(out).toMatch(/<signal [^>]*id="8"/)
+    // The signal keeps its original id (so <controller> / <signalReference>
+    // entries pointing at it stay valid) and moved ~3 m down the road.
+    expect(out).toMatch(/<signal [^>]*id="7"/)
+    expect(out).not.toMatch(/<signal [^>]*id="8"/)
+    const movedS = parseFloat(out.match(/<signal [^>]*\bs="([^"]+)"/)![1])
+    expect(movedS).toBeCloseTo(55 + 50 / PIXELS_PER_METER, 3)
+
     const re = importXodr(out)
     const rep = measureFidelity(imported, re)
     expect(rep.matchedLanes).toBe(3)

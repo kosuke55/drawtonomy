@@ -38,16 +38,26 @@ import { evalGeometry } from './odrGeometry.js'
 import { fitPlanView, type FittedSamplePose } from './odrGeometryFit.js'
 import { fitElevationProfile, type ElevationSample } from './odrElevationFit.js'
 import { parseOpenDriveXml, type OdrGeometry, type OdrRoad } from './opendriveParser.js'
-import { buildSurgicalRoad, laneShapeKey, type LaneShapeKey } from './odrSurgical.js'
+import {
+  buildSurgicalRoad,
+  laneShapeKey,
+  rewriteSignals,
+  type LaneShapeKey,
+  type SurgicalSignalShape,
+} from './odrSurgical.js'
 import { originToProjString } from './projection.js'
 import { escapeXml, fmt, fmtPrecise, pxToEnuX, pxToEnuY, pxToMeter } from './units.js'
 import {
   appendControlRecords,
   dropControlRecords,
   extractOdrDocument,
+  hashRoadLaneSemantics,
+  hashRoadNonSignalRegulatory,
   hashRoadSemantics,
   hashRoadState,
+  isSignalKind,
   rewriteRoadLinkTargets,
+  serializeSignalPayload,
   type CarryLaneState,
   type CarryRegulatoryState,
   type OdrDocRoad,
@@ -1556,6 +1566,71 @@ interface ObjectEntry {
   userData?: { code: string; value: string }[]
 }
 
+/**
+ * Build the `<signal>` record for one traffic light / sign shape at a station
+ * already projected onto its road. Shared by the full-regeneration exporter and
+ * the surgical `<signal>` rewrite, so a signal added to an otherwise verbatim
+ * road is emitted with exactly the same attribute set as a regenerated one.
+ */
+function buildSignalEntry(
+  kind: 'traffic_light' | 'traffic_sign',
+  shape: TrafficLightShape | TrafficSignShape,
+  id: number,
+  s: number,
+  t: number
+): SignalEntry {
+  const heightM = pxToMeter(shape.props.h)
+  const widthM = pxToMeter(shape.props.w)
+  const orientation: '+' | '-' = t >= 0 ? '+' : '-'
+  if (kind === 'traffic_light') {
+    const style = (shape.props as TrafficLightProps).style ?? ''
+    const isPed = style.startsWith('pedestrian') || style.includes('ped')
+    // Conventional signal type codes: 1000001 = vehicle, 1000002 = pedestrian.
+    return {
+      id,
+      s,
+      t,
+      zOffset: isPed ? 1.5 : 4.5,
+      height: heightM,
+      width: widthM,
+      name: style,
+      type: isPed ? '1000002' : '1000001',
+      subtype: '-1',
+      dynamic: 'yes',
+      orientation,
+    }
+  }
+  // Static traffic sign: reuse the exact OpenDRIVE type / subtype / country
+  // recorded at import time; fresh signs fall back to type "-1" with the sign
+  // code as the name. Full attribute round-trip rides on
+  // <userData code="signAttributes">.
+  const attrs = (shape.props.attributes ?? {}) as Record<string, string | undefined>
+  const entry: SignalEntry = {
+    id,
+    s,
+    t,
+    zOffset: 2,
+    height: heightM,
+    width: widthM,
+    name: trafficSignCode(attrs),
+    type: attrs.odr_signal_type || '-1',
+    subtype: attrs.odr_signal_subtype || '-1',
+    country: attrs.odr_country || undefined,
+    dynamic: 'no',
+    orientation,
+  }
+  const stash: Record<string, string> = {}
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'type' || k === 'refers_osm_id' || k.startsWith('odr_')) continue
+    if (v === undefined || v === null || v === '') continue
+    stash[k] = String(v)
+  }
+  if (Object.keys(stash).length > 0) {
+    entry.userData = [{ code: 'signAttributes', value: JSON.stringify(stash) }]
+  }
+  return entry
+}
+
 function attachShapesToRoads(
   shapeMap: Map<string, BaseShape>,
   trafficLights: TrafficLightShape[],
@@ -1634,58 +1709,8 @@ function attachShapesToRoads(
       if (best && best.proj.distance > maxAttachDistanceMeter) best = null
     }
     if (!best) continue
-    const heightM = pxToMeter(tl.props.h)
-    const widthM = pxToMeter(tl.props.w)
     const list = roadSignals.get(best.roadId) ?? []
-    let entry: SignalEntry
-    if (kind === 'traffic_light') {
-      const style = (tl.props as TrafficLightProps).style ?? ''
-      const isPed = style.startsWith('pedestrian') || style.includes('ped')
-      // Conventional signal type codes: 1000001 = vehicle, 1000002 = pedestrian.
-      const sigType = isPed ? '1000002' : '1000001'
-      entry = {
-        id: signalIdCounter++,
-        s: best.proj.s,
-        t: best.proj.t,
-        zOffset: isPed ? 1.5 : 4.5,
-        height: heightM,
-        width: widthM,
-        name: style,
-        type: sigType,
-        subtype: '-1',
-        dynamic: 'yes',
-        orientation: best.proj.t >= 0 ? '+' : '-',
-      }
-    } else {
-      // Static traffic sign: reuse the exact OpenDRIVE type / subtype /
-      // country recorded at import time; fresh signs fall back to type "-1"
-      // with the sign code as the name. Full attribute round-trip rides on
-      // <userData code="signAttributes">.
-      const attrs = (tl.props.attributes ?? {}) as Record<string, string | undefined>
-      entry = {
-        id: signalIdCounter++,
-        s: best.proj.s,
-        t: best.proj.t,
-        zOffset: 2,
-        height: heightM,
-        width: widthM,
-        name: trafficSignCode(attrs),
-        type: attrs.odr_signal_type || '-1',
-        subtype: attrs.odr_signal_subtype || '-1',
-        country: attrs.odr_country || undefined,
-        dynamic: 'no',
-        orientation: best.proj.t >= 0 ? '+' : '-',
-      }
-      const stash: Record<string, string> = {}
-      for (const [k, v] of Object.entries(attrs)) {
-        if (k === 'type' || k === 'refers_osm_id' || k.startsWith('odr_')) continue
-        if (v === undefined || v === null || v === '') continue
-        stash[k] = String(v)
-      }
-      if (Object.keys(stash).length > 0) {
-        entry.userData = [{ code: 'signAttributes', value: JSON.stringify(stash) }]
-      }
-    }
+    const entry = buildSignalEntry(kind, tl, signalIdCounter++, best.proj.s, best.proj.t)
     if (affectedByRoad.size > 0) {
       entry.validity = laneIdRanges(affectedByRoad.get(best.roadId)!)
     }
@@ -1911,31 +1936,33 @@ function attachShapesToRoads(
   return { roadSignals, roadObjects, roadSignalRefs, signalIdByShape }
 }
 
+/** One `<signal>` element, indented from `indent` (children one step deeper). */
+function emitSignalElement(s: SignalEntry, indent: string): string {
+  const attrs = `id="${s.id}" s="${fmt(s.s)}" t="${fmt(s.t)}" zOffset="${fmt(s.zOffset)}" name="${escapeXml(s.name)}" dynamic="${s.dynamic}" orientation="${s.orientation}" type="${s.type}" subtype="${s.subtype}" country="${escapeXml(s.country ?? 'OpenDRIVE')}" value="0" height="${fmt(s.height)}" width="${fmt(s.width)}"`
+  if (!(s.validity?.length || s.stopLinePoints || s.userData?.length)) {
+    return `${indent}<signal ${attrs}/>`
+  }
+  const inner = `${indent}  `
+  const lines: string[] = [`${indent}<signal ${attrs}>`]
+  for (const v of s.validity ?? []) {
+    lines.push(`${inner}<validity fromLane="${v.fromLane}" toLane="${v.toLane}"/>`)
+  }
+  if (s.stopLinePoints) {
+    const json = JSON.stringify(s.stopLinePoints.map(p => [roundMm(p.x), roundMm(p.y)]))
+    lines.push(`${inner}<userData code="stopLine" value="${escapeXml(json)}"/>`)
+  }
+  for (const ud of s.userData ?? []) {
+    lines.push(`${inner}<userData code="${escapeXml(ud.code)}" value="${escapeXml(ud.value)}"/>`)
+  }
+  lines.push(`${indent}</signal>`)
+  return lines.join('\n')
+}
+
 function emitSignals(signals: SignalEntry[], references: SignalReferenceEntry[]): string {
   if (!signals.length && !references.length) return `    <signals/>`
   const lines: string[] = []
   lines.push(`    <signals>`)
-  for (const s of signals) {
-    const attrs = `id="${s.id}" s="${fmt(s.s)}" t="${fmt(s.t)}" zOffset="${fmt(s.zOffset)}" name="${escapeXml(s.name)}" dynamic="${s.dynamic}" orientation="${s.orientation}" type="${s.type}" subtype="${s.subtype}" country="${escapeXml(s.country ?? 'OpenDRIVE')}" value="0" height="${fmt(s.height)}" width="${fmt(s.width)}"`
-    if (s.validity?.length || s.stopLinePoints || s.userData?.length) {
-      lines.push(`      <signal ${attrs}>`)
-      for (const v of s.validity ?? []) {
-        lines.push(`        <validity fromLane="${v.fromLane}" toLane="${v.toLane}"/>`)
-      }
-      if (s.stopLinePoints) {
-        const json = JSON.stringify(
-          s.stopLinePoints.map((p) => [roundMm(p.x), roundMm(p.y)])
-        )
-        lines.push(`        <userData code="stopLine" value="${escapeXml(json)}"/>`)
-      }
-      for (const ud of s.userData ?? []) {
-        lines.push(`        <userData code="${escapeXml(ud.code)}" value="${escapeXml(ud.value)}"/>`)
-      }
-      lines.push(`      </signal>`)
-    } else {
-      lines.push(`      <signal ${attrs}/>`)
-    }
-  }
+  for (const s of signals) lines.push(emitSignalElement(s, '      '))
   for (const ref of references) {
     lines.push(
       `      <signalReference s="${fmt(ref.s)}" t="${fmt(ref.t)}" id="${ref.id}" orientation="${ref.orientation}">`
@@ -2200,6 +2227,12 @@ interface CarryPlan {
   idBase: number
   signalIdBase: number
   controllerIdBase: number
+  /**
+   * Emitted `<signal id>` per shape id for signals kept or added by the
+   * surgical `<signal>` rewrite. Their roads are verbatim, so the regeneration
+   * path never sees these shapes — `<controller>` grouping reads them here.
+   */
+  surgicalSignalIdByShape: Map<string, number>
 }
 
 /**
@@ -2254,6 +2287,29 @@ function planCarryThrough(
     for (const lid of rec.laneShapeIds) laneRoadOf.set(lid, rid)
   }
 
+  /**
+   * ODR lane ids of the affected lanes that live on `roadId`, for the
+   * `<validity>` of a signal added to an otherwise verbatim road. Returns an
+   * empty list when none do (the signal then applies to the whole road).
+   */
+  const affectedOdrLaneIdsOnRoad = (
+    affectedLaneIds: readonly string[] | undefined,
+    roadId: string
+  ): number[] => {
+    const out: number[] = []
+    for (const lid of affectedLaneIds ?? []) {
+      if (laneRoadOf.get(lid) !== roadId) continue
+      const lane = shapeMap.get(lid)
+      if (!lane || lane.type !== 'lane') continue
+      const odrLaneId = parseInt(
+        (lane as unknown as LaneShape).props.attributes?.odr_lane_id ?? '',
+        10
+      )
+      if (Number.isFinite(odrLaneId) && !out.includes(odrLaneId)) out.push(odrLaneId)
+    }
+    return out
+  }
+
   const stopLinePts = (lsId: string | null | undefined): Point2D[] | null => {
     if (!lsId) return null
     const ls = shapeMap.get(lsId) as unknown as LinestringShape | undefined
@@ -2266,6 +2322,14 @@ function planCarryThrough(
   // (mirrors the importer's record builder).
   const regStatesByRoad = new Map<string, CarryRegulatoryState[]>()
   const regShapes: { shapeId: string; touching: Set<string> }[] = []
+  /**
+   * Live `<signal>` shapes per road that DEFINES them (odr_road_id), for the
+   * surgical `<signal>` rewrite. Roads that merely reference a signal keep a
+   * `<signalReference>` and never hold the definition, so they are not listed.
+   * A shape whose `odr_road_id` names no recorded road is new and cannot be
+   * placed surgically, so it is left out of every road's list.
+   */
+  const signalShapesByRoad = new Map<string, SurgicalSignalShape[]>()
   const addRegState = (
     state: CarryRegulatoryState,
     affected: readonly string[],
@@ -2283,8 +2347,24 @@ function planCarryThrough(
       regStatesByRoad.set(rid, list)
     }
     regShapes.push({ shapeId: state.shapeId, touching })
+    if (isSignalKind(state.kind) && own && records[own]) {
+      const list = signalShapesByRoad.get(own) ?? []
+      list.push({
+        shapeId: state.shapeId,
+        odrSignalId: state.attributes['odr_signal_id'] ?? '',
+        canvasX: state.numbers[0],
+        canvasY: state.numbers[1],
+        x: pxToEnuX(state.numbers[0]),
+        y: pxToEnuY(state.numbers[1]),
+        payload: serializeSignalPayload(state),
+      })
+      signalShapesByRoad.set(own, list)
+    }
   }
+  /** The live shape behind a signal-kind regulatory state, for re-emission. */
+  const signalShapeById = new Map<string, { kind: 'traffic_light' | 'traffic_sign'; shape: TrafficLightShape | TrafficSignShape }>()
   for (const tl of trafficLights) {
+    signalShapeById.set(tl.id, { kind: 'traffic_light', shape: tl })
     addRegState(
       {
         kind: 'traffic_light',
@@ -2300,6 +2380,7 @@ function planCarryThrough(
     )
   }
   for (const ts of trafficSigns) {
+    signalShapeById.set(ts.id, { kind: 'traffic_sign', shape: ts })
     addRegState(
       {
         kind: 'traffic_sign',
@@ -2376,10 +2457,17 @@ function planCarryThrough(
   }
 
   // Seed dirtiness: hash mismatch, missing shapes, or references that leave
-  // the recorded set. An edited road whose edit is purely lateral is rewritten
-  // surgically (only its lane widths change) and stays clean.
+  // the recorded set. An edited road whose edit is purely lateral (and / or
+  // confined to its signals) is rewritten surgically and stays clean.
   const dirty = new Set<string>()
   const surgicalRoadText = new Map<string, string>()
+  /** Shapes whose signal survived surgically, so the regen path must skip them. */
+  const surgicalSignalShapeIds = new Set<string>()
+  /** Emitted `<signal id>` per shape id for surgically rewritten signals. */
+  const surgicalSignalIdByShape = new Map<string, number>()
+  // Fresh ids for signals added to an otherwise verbatim road are taken from
+  // the same space the regeneration path uses, so the two cannot collide.
+  let nextSurgicalSignalId = Math.max(doc.maxNumericSignalId, 0) + 1
   for (const [rid, rec] of Object.entries(records)) {
     const docRoad = docRoadById.get(rid)
     if (!docRoad) {
@@ -2396,23 +2484,81 @@ function planCarryThrough(
     const laneStates = exportLaneStates(rec)
     const regStates = regStatesByRoad.get(rid) ?? []
     if (!laneStates || hashRoadState(laneStates, regStates) !== rec.stateHash) {
-      // The road changed. When only its boundary geometry moved (the road's
-      // non-geometric state — lane attributes / connectivity / right-of-way /
-      // regulatory shapes — still matches) AND the geometry moved only
-      // laterally, keep its plan view / laneOffset / elevation / signals /
-      // objects / links verbatim and rewrite only the lane <width> records.
-      // Any other change (moved traffic light, edited attributes, longitudinal
-      // drag, lane add/remove) fails the check and the road regenerates fully.
+      // The road changed. Two edits are expressible as a byte-local rewrite of
+      // the original <road> element, and they compose:
+      //
+      //  - boundary points moved only laterally  -> rewrite the lane <width>s
+      //  - a signal moved / added / deleted      -> rewrite the <signal>s
+      //
+      // Both require the lane semantics (attributes, connectivity,
+      // right-of-way) to be untouched, and the signal rewrite additionally
+      // requires the non-<signal> regulatory shapes (crosswalks, emitted as
+      // <object>s) to be untouched. Anything else — edited attributes, a
+      // longitudinal drag, a lane added or removed, a crosswalk moved — fails
+      // the check and the road regenerates fully.
+      const laneSemanticsUnchanged =
+        laneStates != null &&
+        rec.laneSemanticHash !== undefined &&
+        hashRoadLaneSemantics(laneStates) === rec.laneSemanticHash
+      // Legacy records (no laneSemanticHash) keep the original precondition.
       const semanticUnchanged =
         laneStates != null &&
         rec.semanticHash !== undefined &&
         hashRoadSemantics(laneStates, regStates) === rec.semanticHash
-      const parsed = semanticUnchanged ? parsedRoadById.get(rid) : undefined
-      const laneShapes = parsed ? laneShapesByKey(rec) : null
-      const surgical =
-        parsed && laneShapes
-          ? buildSurgicalRoad(parsed, docRoad.text, laneShapes, shapeMap)
-          : null
+      const signalsMayHaveMoved =
+        laneSemanticsUnchanged &&
+        !semanticUnchanged &&
+        rec.nonSignalRegulatoryHash !== undefined &&
+        hashRoadNonSignalRegulatory(regStates) === rec.nonSignalRegulatoryHash
+
+      // Lane geometry that did not move needs no width rewrite at all: the
+      // <lanes> subtree stays byte-verbatim (rewriting it would reformat every
+      // <width> record for nothing).
+      const laneGeometryUnchanged =
+        laneStates != null && hashRoadState(laneStates, []) === rec.laneGeometryHash
+
+      const parsed =
+        semanticUnchanged || signalsMayHaveMoved ? parsedRoadById.get(rid) : undefined
+      const laneShapes = parsed && !laneGeometryUnchanged ? laneShapesByKey(rec) : null
+      let surgical: string | null = null
+      if (parsed && laneGeometryUnchanged) surgical = docRoad.text
+      else if (parsed && laneShapes) {
+        surgical = buildSurgicalRoad(parsed, docRoad.text, laneShapes, shapeMap)
+      }
+
+      if (surgical !== null && signalsMayHaveMoved) {
+        // The widths (if any changed) are in; now move / drop / add the
+        // <signal> elements on top of the same text.
+        const shapes = signalShapesByRoad.get(rid) ?? []
+        const result = rewriteSignals(
+          surgical,
+          parsed!,
+          shapes,
+          rec.signalBaselines ?? {},
+          nextSurgicalSignalId,
+          (shapeId, id, s, t, indent) => {
+            const live = signalShapeById.get(shapeId)
+            if (!live) return null
+            const entry = buildSignalEntry(live.kind, live.shape, parseInt(id, 10), s, t)
+            const affected = affectedOdrLaneIdsOnRoad(live.shape.props.affectedLaneIds, rid)
+            if (affected.length > 0) entry.validity = laneIdRanges(affected)
+            // A stop line is emitted as a separate <object>, which this
+            // rewrite does not touch; a signal that carries one must go
+            // through full regeneration instead.
+            if (live.shape.props.stopLineId) return null
+            return emitSignalElement(entry, indent)
+          }
+        )
+        if (result === null) surgical = null
+        else {
+          surgical = result.text
+          nextSurgicalSignalId += result.allocatedIds
+          for (const [shapeId, id] of result.signalIdByShape) {
+            surgicalSignalShapeIds.add(shapeId)
+            surgicalSignalIdByShape.set(shapeId, parseInt(id, 10))
+          }
+        }
+      }
       if (surgical !== null) surgicalRoadText.set(rid, surgical)
       else dirty.add(rid)
     }
@@ -2563,7 +2709,10 @@ function planCarryThrough(
     verbatimJunctionTexts,
     verbatimControllers,
     idBase: Math.max(doc.maxNumericElementId, 0) + 1,
-    signalIdBase: Math.max(doc.maxNumericSignalId, 0) + 1,
+    // Ids already handed to signals added on a surgically rewritten road are
+    // spent; regeneration continues above them.
+    signalIdBase: nextSurgicalSignalId,
+    surgicalSignalIdByShape,
     controllerIdBase: Math.max(doc.maxNumericControllerId, 0) + 1,
   }
 }
@@ -2974,14 +3123,31 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
   // controller also survives verbatim is merged back into that element
   // instead of being emitted twice under a fresh id.
   const controllerGroups = new Map<string, number[]>()
+  const addToControllerGroup = (groupId: string, signalId: number): void => {
+    const group = controllerGroups.get(groupId) ?? []
+    group.push(signalId)
+    controllerGroups.set(groupId, group)
+  }
   for (const tl of regenTrafficLights) {
     const groupId = tl.props.controllerId
     if (!groupId) continue
     const signalId = signalIdByShape.get(tl.id)
     if (signalId === undefined) continue
-    const group = controllerGroups.get(groupId) ?? []
-    group.push(signalId)
-    controllerGroups.set(groupId, group)
+    addToControllerGroup(groupId, signalId)
+  }
+  // Lights on surgically rewritten roads never reach the regeneration path.
+  // A light that KEPT its source id is already named by the verbatim
+  // <controller>; one that was ADDED holds a fresh id that nothing lists yet,
+  // so it joins its group here.
+  if (carry) {
+    const originalSignalIds = new Set(carry.doc.roads.flatMap(r => r.signalIds))
+    for (const tl of trafficLights) {
+      const groupId = tl.props.controllerId
+      if (!groupId) continue
+      const signalId = carry.surgicalSignalIdByShape.get(tl.id)
+      if (signalId === undefined || originalSignalIds.has(String(signalId))) continue
+      addToControllerGroup(groupId, signalId)
+    }
   }
 
   // Verbatim controllers, with regenerated signals of the same group folded
