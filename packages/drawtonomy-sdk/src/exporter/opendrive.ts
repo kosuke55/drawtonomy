@@ -4020,67 +4020,130 @@ function planBundlesAndJunctions(
       forRoad.set(retarget.to, String(target))
       splitRetargetOf.set(retarget.from, forRoad)
     }
+    // Rejecting a junction dirties its connecting roads, and a road that goes
+    // dirty can break the NEXT junction's table — which used to be discovered
+    // only on the following round, one junction per round. On a chain where
+    // each connecting road is the next junction's incoming road, that is a
+    // full re-plan (whole carry derivation, every dirty bundle re-fitted) per
+    // junction: J rounds for J junctions.
+    //
+    // The consequences of a rejection are followed here instead, to a fixpoint
+    // within this round, before the caller re-plans once with the whole set
+    // seeded. A rejection can only ever ADD dirty roads, so re-checking the
+    // junctions that touch a newly dirty road is enough — the rest cannot
+    // have changed their answer. The caller's loop still runs (the plan has
+    // to be rebuilt from the enlarged set), but it now converges in a couple
+    // of rounds instead of tracking the chain length.
+    //
+    // This is not a round cap: nothing is emitted with an unsettled plan. The
+    // fixpoint is the same one the outer loop reached, found sooner.
+
+    /** Junctions whose table names this road, for re-checking on a change. */
+    const junctionsTouchingRoad = new Map<string, Set<string>>()
+    const noteTouch = (rid: string, jid: string): void => {
+      if (!rid) return
+      const set = junctionsTouchingRoad.get(rid) ?? new Set<string>()
+      set.add(jid)
+      junctionsTouchingRoad.set(rid, set)
+    }
+    /** Parsed once per junction; the check runs many times. */
+    const connectionsOf = new Map<
+      string,
+      { incoming: string; connecting: string; incomingAt: 'start' | 'end'; connectingAt: 'start' | 'end'; links: { from: number; to: number }[] }[]
+    >()
     for (const j of carry.doc.junctions) {
-      // Only junctions the plan decided to carry are checked here. One it
-      // never claimed — a <junction type="direct">, say, which has no
-      // connecting roads at all — is already outside this mechanism and stays
-      // verbatim on its own terms.
-      if (!carry.carriedJunctionIds.has(j.id) || carry.dirtyJunctionIds.has(j.id)) continue
-      const stamped = stampedByJunction.get(j.id) ?? []
-      // A member of this junction whose reference into a split road cannot
-      // follow the lanes (they scattered across bundles, or came back
-      // renumbered) has no road to point at, so the table goes.
-      let membersKeptIds = ![...brokenRetargetFrom].some(
-        from => carry.carriedJunctionOfRoad.get(from) === j.id
-      )
-      for (const conn of j.text.match(/<connection\b[^>]*?(?:\/>|>[\s\S]*?<\/connection>)/g) ?? []) {
-        const incoming = conn.match(/\bincomingRoad="([^"]*)"/)?.[1] ?? ''
-        const connecting = conn.match(/\bconnectingRoad="([^"]*)"/)?.[1] ?? ''
-        const connectingAt =
-          (conn.match(/\bcontactPoint="([^"]*)"/)?.[1] as 'start' | 'end' | undefined) ?? 'start'
+      const list: NonNullable<ReturnType<typeof connectionsOf.get>> = []
+      for (const conn of j.connections) {
         const incomingAt: 'start' | 'end' = new RegExp(
           `<predecessor\\s+elementType="junction"\\s+elementId="${j.id}"`
-        ).test(docRoadTextById.get(incoming) ?? '')
+        ).test(docRoadTextById.get(conn.incomingRoad) ?? '')
           ? 'start'
           : 'end'
-        for (const link of conn.match(/<laneLink\b[^>]*>/g) ?? []) {
-          const from = parseInt(link.match(/\bfrom="([^"]*)"/)?.[1] ?? '', 10)
-          const to = parseInt(link.match(/\bto="([^"]*)"/)?.[1] ?? '', 10)
+        list.push({
+          incoming: conn.incomingRoad,
+          connecting: conn.connectingRoad,
+          incomingAt,
+          connectingAt: conn.contactPoint ?? 'start',
+          links: conn.laneLinks,
+        })
+        noteTouch(conn.incomingRoad, j.id)
+        noteTouch(conn.connectingRoad, j.id)
+      }
+      connectionsOf.set(j.id, list)
+      for (const rid of stampedByJunction.get(j.id) ?? []) noteTouch(rid, j.id)
+    }
+
+    /** Can this junction still keep its table, given the current dirty set? */
+    const junctionKeepsTable = (j: OdrDocJunction): boolean => {
+      if ([...brokenRetargetFrom].some(from => carry.carriedJunctionOfRoad.get(from) === j.id)) {
+        return false
+      }
+      for (const conn of connectionsOf.get(j.id) ?? []) {
+        for (const { from, to } of conn.links) {
           if (
-            !laneKeptItsRoadId(incoming, from, incomingAt) ||
-            !laneKeptItsRoadId(connecting, to, connectingAt)
+            !laneKeptItsRoadId(conn.incoming, from, conn.incomingAt) ||
+            !laneKeptItsRoadId(conn.connecting, to, conn.connectingAt)
           ) {
-            membersKeptIds = false
-            break
+            return false
           }
         }
-        if (!membersKeptIds) break
       }
       // A regenerated connecting road is about to be stamped with this
       // junction, so it must have come back under the id the table names.
-      for (const rid of stamped) {
+      for (const rid of stampedByJunction.get(j.id) ?? []) {
         const rec = carry.records[rid]
-        if (!rec || !/^\d+$/.test(rid)) {
-          membersKeptIds = false
-          break
-        }
+        if (!rec || !/^\d+$/.test(rid)) return false
         const want = parseInt(rid, 10)
-        if (!rec.laneShapeIds.every(lid => bundleRoadOfLane.get(lid) === want)) {
-          membersKeptIds = false
-          break
+        if (!rec.laneShapeIds.every(lid => bundleRoadOfLane.get(lid) === want)) return false
+      }
+      return true
+    }
+
+    const junctionById = new Map(carry.doc.junctions.map(j => [j.id, j]))
+    const isLive = (jid: string): boolean =>
+      carry.carriedJunctionIds.has(jid) && !carry.dirtyJunctionIds.has(jid)
+
+    const queue: string[] = []
+    for (const j of carry.doc.junctions) if (isLive(j.id)) queue.push(j.id)
+    const queued = new Set(queue)
+    while (queue.length > 0) {
+      const jid = queue.shift()!
+      queued.delete(jid)
+      if (!isLive(jid)) continue
+      const j = junctionById.get(jid)
+      if (!j || junctionKeepsTable(j)) continue
+
+      // The table cannot be carried. Record it and let the caller re-plan
+      // with this junction seeded as rebuildable, so the plan's own fixpoint
+      // decides what that costs (which roads regenerate, which shapes are
+      // consumed) rather than the emit side patching a plan that has already
+      // been used to decide everything else.
+      if (!forcedRebuildableJunctionIds.has(jid)) newlyRejected.add(jid)
+      carry.dirtyJunctionIds.add(jid)
+
+      // Its connecting roads now regenerate, so any junction whose table
+      // names one of them has to answer the question again.
+      const touched = new Set<string>()
+      for (const conn of connectionsOf.get(jid) ?? []) touched.add(conn.connecting)
+      for (const rid of stampedByJunction.get(jid) ?? []) touched.add(rid)
+      for (const [rid, owner] of carry.carriedJunctionOfRoad) {
+        if (owner === jid) touched.add(rid)
+      }
+      for (const rid of touched) {
+        if (carry.cleanRoadIds.has(rid)) carry.cleanRoadIds.delete(rid)
+        for (const other of junctionsTouchingRoad.get(rid) ?? []) {
+          if (other === jid || queued.has(other) || !isLive(other)) continue
+          queue.push(other)
+          queued.add(other)
         }
       }
-      if (!membersKeptIds) {
-        // The table cannot be carried after all. Record it and let the caller
-        // re-plan with this junction seeded as rebuildable, so the plan's own
-        // fixpoint decides what that costs (which roads regenerate, which
-        // shapes are consumed) rather than the emit side patching a plan that
-        // has already been used to decide everything else.
-        if (!forcedRebuildableJunctionIds.has(j.id)) newlyRejected.add(j.id)
-        carry.dirtyJunctionIds.add(j.id)
-        continue
+    }
+
+    for (const j of carry.doc.junctions) {
+      if (!isLive(j.id)) continue
+      for (const rid of stampedByJunction.get(j.id) ?? []) {
+        junctionOfExportedRoad.set(parseInt(rid, 10), j.id)
       }
-      for (const rid of stamped) junctionOfExportedRoad.set(parseInt(rid, 10), j.id)
     }
 
     for (const [rid, jid] of carry.carriedJunctionOfRoad) {
@@ -4121,6 +4184,23 @@ function planBundlesAndJunctions(
  * With `options.sidecar` (captured by the OpenDRIVE importer), unedited
  * roads are re-emitted verbatim from the original XML; see planCarryThrough.
  */
+/**
+ * Counters for the plan / build fixpoint, for the performance regression
+ * tests. Not part of the public API and not read by the exporter itself.
+ */
+export const __replanCounters = {
+  /** Times the whole carry plan + bundle build was run for one export. */
+  planRounds: 0,
+  /** Bundle geometry fits performed (a reused fit does not count). */
+  geometryFits: 0,
+  rejectedPerRound: [] as number[],
+  reset(): void {
+    this.planRounds = 0
+    this.geometryFits = 0
+    this.rejectedPerRound = []
+  },
+}
+
 export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDriveExportOptions = {}): string {
   const shapes = snapshot.shapes
   const shapeMap = buildShapeMap(shapes)
@@ -4164,11 +4244,14 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
   // Each round moves at least one junction from carried to rebuildable and
   // never back, so the loop runs at most (number of junctions) + 1 times.
   const rejectedJunctionIds = new Set<string>()
+  __replanCounters.planRounds++
   let planned = planBundlesAndJunctions(
     options.sidecar, shapeMap, lanes, trafficLights, trafficSigns, crosswalks,
     pointOverrides, rejectedJunctionIds
   )
   while (planned.newlyRejected.size > 0) {
+    __replanCounters.planRounds++
+    __replanCounters.rejectedPerRound.push(planned.newlyRejected.size)
     for (const jid of planned.newlyRejected) rejectedJunctionIds.add(jid)
     planned = planBundlesAndJunctions(
       options.sidecar, shapeMap, lanes, trafficLights, trafficSigns, crosswalks,
