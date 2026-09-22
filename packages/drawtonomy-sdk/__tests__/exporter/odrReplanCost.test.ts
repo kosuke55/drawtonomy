@@ -93,6 +93,61 @@ describe('re-planning cost on a chain of junctions', () => {
     })
   }
 
+  // The splits above have every <connection> name BOTH lanes, so the road a
+  // rejection dirties either keeps its id whole or is a loss either way. When
+  // the table names only one side, the plan hands the road's id to the side it
+  // names — and calling that "the id could not be kept" rejects the junction,
+  // and with it the unedited road it stamps.
+  it('keeps an id the plan hands to the side a junction names', () => {
+    // Junction 2002 names lane -1 of roads 1001 / 1002 only.
+    let xml = chainXodr(8).replace(
+      `    <connection id="0" incomingRoad="1001" connectingRoad="1002" contactPoint="start">
+      <laneLink from="-1" to="-1"/>
+      <laneLink from="-2" to="-2"/>
+    </connection>`,
+      `    <connection id="0" incomingRoad="1001" connectingRoad="1002" contactPoint="start">
+      <laneLink from="-1" to="-1"/>
+    </connection>`
+    )
+    // ... so road 1002's lane -2 must not claim a predecessor the table no
+    // longer links, or the input itself carries a dangling lane reference.
+    const road1002 = xml.match(/ {2}<road name="conn2"[\s\S]*?<\/road>/)![0]
+    xml = xml.replace(
+      road1002,
+      road1002.replace('<link><predecessor id="-2"/><successor id="-2"/></link>', '<link><successor id="-2"/></link>')
+    )
+    // A <signal> the importer never shapes, on a road nobody edited. It
+    // survives only while road 1002's junction is still carried.
+    xml = xml.replace(
+      '<road name="conn2" length="40" id="1002" junction="2002">',
+      '<road name="conn2" length="40" id="1002" junction="2002">\n' +
+        '    <signals><signal s="10" t="-1" id="500" type="999999" dynamic="yes" orientation="+"/></signals>'
+    )
+
+    const imported = odrToShapes(parseOpenDriveXml(xml))
+    // Roads 1000 / 1001 re-bundle into one group per lane; junction 2002 needs
+    // road 1001 to come back under its own id for lane -1.
+    reidentifyConnectingBoundaries(imported, 2)
+    const rec = imported.sidecar.roadRecords!['1000']
+    const lane = imported.lanes.find(l => l.id === rec.laneShapeIds[0])!
+    lane.attributes = { ...(lane.attributes ?? {}), speed_limit: '37' }
+
+    __replanCounters.reset()
+    const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
+
+    // The bytes, against what the one-junction-per-round loop emitted.
+    expect(maskDate(out)).toBe(
+      readFileSync(join(__dirname, '..', 'fixtures', 'preR4Chain', 'chain8-partial-lanelink.xodr'), 'utf-8')
+    )
+    // Which is to say: the junction, the road's membership in it, and the
+    // signal on that road are all still there.
+    expect(out).toMatch(/<junction\b[^>]*\bid="2002"/)
+    expect(out.match(/<road\b[^>]*\bid="1002"[^>]*>/)![0]).toMatch(/\bjunction="2002"/)
+    expect(out).toMatch(/<signal\b[^>]*\bid="500"/)
+    // And still without a round per junction.
+    expect(__replanCounters.planRounds).toBeLessThanOrEqual(3)
+  })
+
   it('keeps the unedited data the old loop kept', () => {
     // A <signal> the importer never shapes (unknown type) on a connecting road
     // the user did not touch. It survives only if that road's junction is

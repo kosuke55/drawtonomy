@@ -45,3 +45,10 @@ Golden outputs, not inputs:
   byte for byte. Dates are masked. Regenerate only against a build that
   predates that change, never from the current exporter — a golden refreshed
   from the code it is meant to check proves nothing.
+
+- `preR4Chain/chain8-partial-lanelink.xodr` — same chain and the same rule, for
+  a junction whose `<connection>` names only ONE of the two lanes. That is the
+  case where a road broken into several bundles still keeps its id, because the
+  plan hands it to the side the table names; reading it as a loss dropped the
+  junction and an unedited `<signal>` with it. Produced by the same
+  pre-change build, and masked and compared the same way.
