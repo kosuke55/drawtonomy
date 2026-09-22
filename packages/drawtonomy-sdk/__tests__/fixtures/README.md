@@ -52,3 +52,10 @@ Golden outputs, not inputs:
   plan hands it to the side the table names; reading it as a loss dropped the
   junction and an unedited `<signal>` with it. Produced by the same
   pre-change build, and masked and compared the same way.
+
+- `preR4Chain/chain8-partial-lanelink-reversed.xodr` — the same document with
+  road 1001's two lanes the other way round in the snapshot, which is the only
+  difference. It decides which side of the split is considered first for the
+  road's id, and a rejected junction whose demand was still counted then won
+  that side — dropping the junction that really names it, and the unedited
+  `<signal>` on its road. Same pre-change build, masking and comparison.
