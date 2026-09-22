@@ -50,6 +50,7 @@ import { escapeXml, fmt, fmtPrecise, pxToEnuX, pxToEnuY, pxToMeter } from './uni
 import {
   appendControlRecords,
   dropControlRecords,
+  dropSignalReferences,
   extractOdrDocument,
   hashRoadLaneSemantics,
   hashRoadNonSignalRegulatory,
@@ -2527,13 +2528,21 @@ function planCarryThrough(
   const regStatesByRoad = new Map<string, CarryRegulatoryState[]>()
   const regShapes: { shapeId: string; touching: Set<string> }[] = []
   /**
-   * Live `<signal>` shapes per road that DEFINES them (odr_road_id), for the
-   * surgical `<signal>` rewrite. Roads that merely reference a signal keep a
-   * `<signalReference>` and never hold the definition, so they are not listed.
-   * A shape whose `odr_road_id` names no recorded road is new and cannot be
-   * placed surgically, so it is left out of every road's list.
+   * Live `<signal>` shapes per road that will hold their definition, for the
+   * surgical `<signal>` rewrite.
+   *
+   * An imported signal belongs to the road it came from (`odr_road_id`). A
+   * signal the user drew has no such attribute, so its road is derived from
+   * the lanes it applies to: when every affected lane lives on one recorded
+   * road, that road defines it. (Roads that merely *reference* a signal keep a
+   * `<signalReference>` and never hold the definition, so they are not
+   * listed.) A shape whose road cannot be settled this way is left out, and
+   * the shape-accounting below keeps it out of `consumedShapeIds` so the
+   * regeneration path still emits it.
    */
   const signalShapesByRoad = new Map<string, SurgicalSignalShape[]>()
+  /** Road each signal shape is to be defined on, when one could be settled. */
+  const signalDefiningRoad = new Map<string, string>()
   const addRegState = (
     state: CarryRegulatoryState,
     affected: readonly string[],
@@ -2541,9 +2550,13 @@ function planCarryThrough(
   ): void => {
     const touching = new Set<string>()
     if (own && records[own]) touching.add(own)
+    const affectedRoads = new Set<string>()
     for (const lid of affected) {
       const rid = laneRoadOf.get(lid)
-      if (rid) touching.add(rid)
+      if (rid) {
+        touching.add(rid)
+        affectedRoads.add(rid)
+      }
     }
     for (const rid of touching) {
       const list = regStatesByRoad.get(rid) ?? []
@@ -2551,19 +2564,27 @@ function planCarryThrough(
       regStatesByRoad.set(rid, list)
     }
     regShapes.push({ shapeId: state.shapeId, touching })
-    if (isSignalKind(state.kind) && own && records[own]) {
-      const list = signalShapesByRoad.get(own) ?? []
-      list.push({
-        shapeId: state.shapeId,
-        odrSignalId: state.attributes['odr_signal_id'] ?? '',
-        canvasX: state.numbers[0],
-        canvasY: state.numbers[1],
-        x: pxToEnuX(state.numbers[0]),
-        y: pxToEnuY(state.numbers[1]),
-        payload: serializeSignalPayload(state),
-      })
-      signalShapesByRoad.set(own, list)
-    }
+    if (!isSignalKind(state.kind)) return
+    const definingRoad =
+      own && records[own]
+        ? own
+        : // New shape: only an unambiguous single affected road can hold it.
+          !own && affectedRoads.size === 1
+          ? [...affectedRoads][0]
+          : undefined
+    if (definingRoad === undefined) return
+    signalDefiningRoad.set(state.shapeId, definingRoad)
+    const list = signalShapesByRoad.get(definingRoad) ?? []
+    list.push({
+      shapeId: state.shapeId,
+      odrSignalId: state.attributes['odr_signal_id'] ?? '',
+      canvasX: state.numbers[0],
+      canvasY: state.numbers[1],
+      x: pxToEnuX(state.numbers[0]),
+      y: pxToEnuY(state.numbers[1]),
+      payload: serializeSignalPayload(state),
+    })
+    signalShapesByRoad.set(definingRoad, list)
   }
   /** The live shape behind a signal-kind regulatory state, for re-emission. */
   const signalShapeById = new Map<string, { kind: 'traffic_light' | 'traffic_sign'; shape: TrafficLightShape | TrafficSignShape }>()
@@ -3201,6 +3222,20 @@ function planCarryThrough(
     for (const lid of records[rid].laneShapeIds) verbatimLaneIds.add(lid)
   }
 
+  // A road that was rewritten surgically and then dragged into regeneration by
+  // the fixpoint above emits nothing of that rewrite: its text is thrown away
+  // and its signals come back out of the regeneration path under different
+  // ids. The provisional ids are not in the output, so they must not survive
+  // into <controller> grouping or into the consumed-shape accounting.
+  for (const [shapeId, rid] of signalDefiningRoad) {
+    if (!cleanRoadIds.has(rid)) surgicalSignalIdByShape.delete(shapeId)
+  }
+
+  // A regulatory shape is "consumed" only when the verbatim / surgical output
+  // really carries it. Every road it touches being clean is necessary but not
+  // sufficient: a signal shape must additionally have been emitted by the
+  // surgical rewrite. Marking one consumed without that would drop it from the
+  // regeneration path too, and it would appear in no output at all.
   const consumedShapeIds = new Set<string>()
   for (const reg of regShapes) {
     if (reg.touching.size === 0) continue
@@ -3211,7 +3246,19 @@ function planCarryThrough(
         break
       }
     }
-    if (allClean) consumedShapeIds.add(reg.shapeId)
+    if (!allClean) continue
+    // Signal-kind shapes on a surgically rewritten road are covered only if
+    // that rewrite gave them an id; on an untouched road they are covered by
+    // the verbatim text.
+    const definingRoad = signalDefiningRoad.get(reg.shapeId)
+    if (
+      definingRoad !== undefined &&
+      surgicalRoadText.has(definingRoad) &&
+      !surgicalSignalIdByShape.has(reg.shapeId)
+    ) {
+      continue
+    }
+    consumedShapeIds.add(reg.shapeId)
   }
 
   const verbatimRoads: OdrDocRoad[] = []
@@ -3275,31 +3322,53 @@ function planCarryThrough(
     }
   }
 
+  // Signal ids the carried-through output actually still defines. A road kept
+  // verbatim defines everything it did at import; a road rewritten surgically
+  // defines what its rewritten text says, which is fewer signals when one was
+  // deleted and more when one was added. Anything referring to a signal id
+  // (<control>, <signalReference>) has to be measured against THIS set, not
+  // against "was the defining road clean" — a surgical road is clean and can
+  // still have dropped the signal.
+  const carriedSignalIds = new Set<string>()
+  for (const r of verbatimRoads) {
+    const surgical = surgicalRoadText.get(r.id)
+    if (surgical === undefined) {
+      for (const sid of r.signalIds) carriedSignalIds.add(sid)
+      continue
+    }
+    for (const tag of surgical.match(/<signal\b[^>]*>/g) ?? []) {
+      const sid = tag.match(/\bid="([^"]*)"/)?.[1]
+      if (sid !== undefined) carriedSignalIds.add(sid)
+    }
+  }
+  // Signals the regeneration path re-emits are not in `carriedSignalIds`, but
+  // they are not dangling either — they get fresh ids and fresh references.
+  // Only the references living in CARRIED text are pruned here.
+  for (const r of verbatimRoads) {
+    const base = surgicalRoadText.get(r.id) ?? r.text
+    const pruned = dropSignalReferences(base, carriedSignalIds)
+    if (pruned !== base) surgicalRoadText.set(r.id, pruned)
+  }
+
   const verbatimJunctionTexts: string[] = []
   for (const j of doc.junctions) {
     if (!dirtyJunctionIds.has(j.id)) verbatimJunctionTexts.push(j.text)
   }
 
   // Controllers are kept whenever at least one controlled signal survives in
-  // a verbatim road. <control> records naming signals that regenerated (their
-  // road was edited, so the signal is re-emitted under a fresh id) are dropped
-  // from the controller's text; the rest of the element stays byte-identical.
+  // the carried output. <control> records naming signals that regenerated
+  // (their road was edited, so the signal is re-emitted under a fresh id) or
+  // that were deleted outright are dropped from the controller's text; the
+  // rest of the element stays byte-identical.
   //
   // Dropping the whole controller when a single signal moved would lose the
   // intersection's signal grouping for every OTHER signal too — the grouping
   // is not recoverable from the regenerated side, which only knows the
   // controllerId carried on traffic-light shapes.
-  const signalRoadOf = new Map<string, string>()
-  for (const r of doc.roads) {
-    for (const sid of r.signalIds) signalRoadOf.set(sid, r.id)
-  }
   const verbatimControllers: { id: string; text: string }[] = []
   for (const c of doc.controllers) {
     if (c.signalIds.length === 0) continue
-    const keptSignalIds = c.signalIds.filter(sid => {
-      const rid = signalRoadOf.get(sid)
-      return rid !== undefined && cleanRoadIds.has(rid)
-    })
+    const keptSignalIds = c.signalIds.filter(sid => carriedSignalIds.has(sid))
     if (keptSignalIds.length === 0) continue
     verbatimControllers.push({
       id: c.id,
@@ -3951,7 +4020,9 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
   // Lights on surgically rewritten roads never reach the regeneration path.
   // A light that KEPT its source id is already named by the verbatim
   // <controller>; one that was ADDED holds a fresh id that nothing lists yet,
-  // so it joins its group here.
+  // so it joins its group here. The plan only keeps an entry here for a road
+  // whose surgical text was really emitted, so every id named below is defined
+  // in the output (see the fixpoint cleanup in planCarryThrough).
   if (carry) {
     const originalSignalIds = new Set(carry.doc.roads.flatMap(r => r.signalIds))
     for (const tl of trafficLights) {

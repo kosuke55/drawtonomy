@@ -21,6 +21,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { JSDOM } from 'jsdom'
 import { parseOpenDriveXml } from '../../src/exporter/opendriveParser'
 import { odrToShapes, type ImportedShapes } from '../../src/exporter/odrToShapes'
 import { exportToOpenDrive } from '../../src/exporter/opendrive'
@@ -122,6 +123,14 @@ const signalTags = (text: string): Map<string, string> => {
 
 const attr = (tag: string, name: string): string | undefined =>
   tag.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1]
+
+/** Fail with the parser's own message when the emitted XML is not well-formed. */
+const expectWellFormed = (xml: string): void => {
+  const doc = new JSDOM(xml, { contentType: 'text/xml' }).window.document
+  const err = doc.querySelector('parsererror')
+  expect(err?.textContent ?? '').toBe('')
+  expect(doc.documentElement.nodeName).toBe('OpenDRIVE')
+}
 
 /**
  * Byte diff of a road element against its source, with the `<signal>` elements
@@ -328,5 +337,151 @@ describe('surgical <signal> rewriting', () => {
     const dstById = new Map(dst.roads.map(r => [r.id, r.text]))
     const changed = src.roads.filter(r => dstById.get(r.id) !== r.text).map(r => r.id)
     expect(changed).toEqual(['1'])
+  })
+
+  // (h) the source's whitespace is not part of the contract: a document with
+  // no line breaks between tags must still come out well-formed. The indent
+  // taken for an appended <signal> has to be whitespace, not whatever text
+  // happens to precede </signals> on the same line.
+  it('stays well-formed when the source XML has no line breaks', () => {
+    const minified = readFileSync(SIGNALS_TWO_ROADS, 'utf-8')
+      .replace(/>\s+</g, '><')
+      .trim()
+    const imported = odrToShapes(parseOpenDriveXml(minified))
+    const src = imported.trafficSigns![0]
+    imported.trafficSigns!.push({
+      ...src,
+      id: 'ts_added',
+      x: src.x + 10 * PIXELS_PER_METER,
+      attributes: { ...src.attributes, odr_signal_id: '' },
+    })
+
+    const out = exportWith(imported)
+    expectWellFormed(out)
+    // The added signal really is in the output (the road did not silently
+    // fall back to something that drops it).
+    const defined = new Set(extractOdrDocument(out)!.roads.flatMap(r => r.signalIds))
+    expect(defined.size).toBe(3)
+    // And the road element was not duplicated by a runaway indent.
+    expect((out.match(/<road\b/g) ?? []).length).toBe(2)
+  })
+
+  it('stays well-formed when the source XML is pretty-printed', () => {
+    const { imported } = importFixture()
+    const src = imported.trafficSigns![0]
+    imported.trafficSigns!.push({
+      ...src,
+      id: 'ts_added',
+      x: src.x + 10 * PIXELS_PER_METER,
+      attributes: { ...src.attributes, odr_signal_id: '' },
+    })
+    expectWellFormed(exportWith(imported))
+  })
+
+  // (i) deleting a signal must not leave <control> / <signalReference> naming
+  // an id that no road defines any more.
+  it('drops <control> and <signalReference> records for a deleted signal', () => {
+    const { imported } = importFixture()
+    // Traffic light 100 is named by controller 900 AND referenced from road 2.
+    imported.trafficLights = imported.trafficLights.filter(
+      t => t.attributes.odr_signal_id !== '100'
+    )
+
+    const out = exportWith(imported)
+    const doc = extractOdrDocument(out)!
+    const defined = new Set(doc.roads.flatMap(r => r.signalIds))
+    expect(defined.has('100')).toBe(false)
+
+    // No <control> names a signal nothing defines.
+    for (const c of doc.controllers) {
+      for (const sid of c.signalIds) expect(defined).toContain(sid)
+    }
+    // No <signalReference> points at a signal nothing defines.
+    for (const ref of out.match(/<signalReference\b[^>]*/g) ?? []) {
+      expect(defined).toContain(ref.match(/\bid="([^"]*)"/)![1])
+    }
+  })
+
+  // (j) a road promoted to dirty AFTER the surgical plan ran must not leave
+  // its provisional signal ids behind in a <controller>.
+  it('does not name provisionally allocated ids of a road that went dirty', () => {
+    const { imported } = importFixture()
+    // Duplicate light 100 onto road 1 as a brand new signal in the same
+    // controller group, so the surgical pass allocates it a fresh id...
+    const tl = imported.trafficLights.find(t => t.attributes.odr_signal_id === '100')!
+    imported.trafficLights.push({
+      ...tl,
+      id: 'tl_added',
+      x: tl.x - 10 * PIXELS_PER_METER,
+      attributes: { ...tl.attributes, odr_signal_id: '' },
+    })
+    // ...and then edit road 2's lanes, which drags road 1 back into
+    // regeneration through the atomic regulatory rule (signal 100 touches
+    // both roads).
+    const rec2 = imported.sidecar.roadRecords!['2']
+    const lane2 = imported.lanes.find(l => l.id === rec2.laneShapeIds[0])!
+    lane2.attributes = { ...lane2.attributes, speed_limit: '37' }
+
+    const out = exportWith(imported)
+    const doc = extractOdrDocument(out)!
+    const defined = new Set(doc.roads.flatMap(r => r.signalIds))
+    for (const c of doc.controllers) {
+      for (const sid of c.signalIds) expect(defined).toContain(sid)
+    }
+  })
+
+  // (k) an ordinary new signal (no odr_road_id, only affected lanes) must be
+  // emitted, not silently swallowed by the consumed-shape bookkeeping.
+  it('emits a newly created signal that carries no source road id', () => {
+    const { xml, imported } = importFixture()
+    const src = imported.trafficSigns![0]
+    const before = imported.trafficSigns!.length + imported.trafficLights.length
+    imported.trafficSigns!.push({
+      ...src,
+      id: 'ts_new',
+      x: src.x + 10 * PIXELS_PER_METER,
+      // A shape the user drew: it knows the lanes it applies to and nothing
+      // about the source document.
+      attributes: {},
+    })
+
+    const out = exportWith(imported)
+    const defined = extractOdrDocument(out)!.roads.flatMap(r => r.signalIds)
+    expect(defined.length).toBe(before + 1)
+    expectWellFormed(out)
+
+    // It went in surgically: road 1 keeps its source plan view and the two
+    // source signals byte-identically, and road 2 is untouched.
+    const beforeRoad = roadText(xml, '1')
+    const afterRoad = roadText(out, '1')
+    expect(signalTags(afterRoad).get('100')).toBe(signalTags(beforeRoad).get('100'))
+    expect(signalTags(afterRoad).get('101')).toBe(signalTags(beforeRoad).get('101'))
+    expect(afterRoad).toContain('<geometry s="0" x="0" y="0" hdg="0" length="100">')
+    expect(out).toContain(roadText(xml, '2'))
+  })
+
+  // (l) a <signal> the importer does not turn into a shape (unknown dynamic
+  // type) lives only in the source text. Moving a DIFFERENT signal must not
+  // delete it: "no shape claims it" is not the same as "the user removed it".
+  it('keeps a sidecar-only <signal> the importer never shaped', () => {
+    const xml = readFileSync(SIGNALS_TWO_ROADS, 'utf-8').replace(
+      '    </signals>\n  </road>\n  <road name="curve"',
+      '      <signal s="20" t="1" id="102" type="999999" dynamic="yes" orientation="+"/>\n' +
+        '    </signals>\n  </road>\n  <road name="curve"'
+    )
+    expect(xml).toContain('id="102"')
+    const imported = odrToShapes(parseOpenDriveXml(xml))
+    // The importer really does not shape it (otherwise this test proves nothing).
+    const shaped = [...imported.trafficLights, ...(imported.trafficSigns ?? [])].map(
+      s => s.attributes.odr_signal_id
+    )
+    expect(shaped).not.toContain('102')
+
+    const tl = imported.trafficLights.find(t => t.attributes.odr_signal_id === '100')!
+    tl.x += 3 * PIXELS_PER_METER
+    const out = exportWith(imported)
+
+    const defined = new Set(extractOdrDocument(out)!.roads.flatMap(r => r.signalIds))
+    expect(defined.has('102')).toBe(true)
   })
 })
