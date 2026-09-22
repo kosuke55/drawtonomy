@@ -108,4 +108,3 @@ export function reidentifyConnectingBoundaries(imported: ImportedShapes, junctio
     lane.rightBoundaryId = clone.id
   }
 }
-

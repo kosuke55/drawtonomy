@@ -4141,28 +4141,26 @@ function planBundlesAndJunctions(
 }
 
 /**
- * Build an OpenDRIVE 1.8 XML document from a snapshot.
- *
- * With `options.sidecar` (captured by the OpenDRIVE importer), unedited
- * roads are re-emitted verbatim from the original XML; see planCarryThrough.
- */
-/**
  * Counters for the plan / build fixpoint, for the performance regression
  * tests. Not part of the public API and not read by the exporter itself.
  */
 export const __replanCounters = {
   /** Times the whole carry plan + bundle build was run for one export. */
   planRounds: 0,
-  /** Bundle geometry fits performed (a reused fit does not count). */
-  geometryFits: 0,
+  /** Junctions newly rejected in each round after the first. */
   rejectedPerRound: [] as number[],
   reset(): void {
     this.planRounds = 0
-    this.geometryFits = 0
     this.rejectedPerRound = []
   },
 }
 
+/**
+ * Build an OpenDRIVE 1.8 XML document from a snapshot.
+ *
+ * With `options.sidecar` (captured by the OpenDRIVE importer), unedited
+ * roads are re-emitted verbatim from the original XML; see planCarryThrough.
+ */
 export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDriveExportOptions = {}): string {
   const shapes = snapshot.shapes
   const shapeMap = buildShapeMap(shapes)
