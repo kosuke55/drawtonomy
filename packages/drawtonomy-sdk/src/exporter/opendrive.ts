@@ -3063,6 +3063,28 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
     exactReuse.set(bundle, reused)
     claimedOriginIds.add(reused)
   }
+  // A road with lanes on both sides splits into two bundles, and only one of
+  // them can inherit the road's id. When a <junction> the export means to
+  // carry names one of the two sides, that side has to be the one that gets
+  // the id — otherwise the carried <connection> would point at a road that no
+  // longer has the lanes it names, and the whole intersection falls back to
+  // being synthesized. Majority voting alone picks by bundle order, which has
+  // nothing to do with which side the intersection uses.
+  if (carry) {
+    for (const [rid, jid] of carry.carriedJunctionOfRoad) {
+      if (carry.dirtyJunctionIds.has(jid) || !/^\d+$/.test(rid)) continue
+      const origin = parseInt(rid, 10)
+      if (claimedOriginIds.has(origin)) continue
+      const wanted = carry.junctionLaneShapeIds.get(rid)
+      if (!wanted || wanted.size === 0) continue
+      const bundle = exportBundles.find(
+        b => !exactReuse.has(b) && b.lanes.some(l => wanted.has(l.id))
+      )
+      if (!bundle) continue
+      exactReuse.set(bundle, origin)
+      claimedOriginIds.add(origin)
+    }
+  }
   for (const bundle of exportBundles) {
     const reused = exactReuse.get(bundle) ?? dominantOriginId(bundle)
     if (reused !== undefined) claimedOriginIds.add(reused)

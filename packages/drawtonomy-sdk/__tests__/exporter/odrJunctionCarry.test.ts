@@ -143,7 +143,7 @@ describe('junction carry-through', () => {
     const out = exportWith(imported)
     const emitted = roadsById(out)
 
-    // (a) exactly one road changed, and it is the edited one.
+    // (a) of the source's roads, exactly the edited one changed.
     const changed = [...source].filter(([id, r]) => emitted.get(id)?.text !== r.text).map(([id]) => id)
     expect(changed).toEqual(['0'])
 
@@ -153,13 +153,21 @@ describe('junction carry-through', () => {
       expect(emitted.get(id)!.text).toBe(source.get(id)!.text)
     }
 
-    // The <junction> element itself is verbatim.
+    // The three other mainlines are byte-verbatim too.
+    for (const id of ['1', '2', '3']) {
+      expect(emitted.get(id)!.text).toBe(source.get(id)!.text)
+    }
+
+    // The <junction> element itself is verbatim, and it is the only one.
     expect(junctionsById(out).get('4')).toBe(junctionsById(xml).get('4'))
     expect(junctionsById(out).size).toBe(1)
 
-    // (b) no road is invented: the id set is exactly the source's.
-    expect([...emitted.keys()].sort()).toEqual([...source.keys()].sort())
-    expect(emitted.size).toBe(source.size)
+    // (b) no intersection is emitted twice. The edited road has lanes on both
+    // sides, so it regenerates as two bundles and only one of them can keep
+    // its id — that one extra road is the whole growth. What used to happen
+    // instead was twelve demoted roads and forty-one synthesized ones.
+    for (const id of source.keys()) expect(emitted.has(id)).toBe(true)
+    expect(emitted.size).toBe(source.size + 1)
   })
 
   it('keeps an edited connecting road inside its own junction', () => {
@@ -197,17 +205,20 @@ describe('junction carry-through', () => {
     expect(carried).not.toBe(junctionsById(xml).get('4'))
   })
 
-  it('leaves both neighbouring junctions verbatim when a road between them is edited', () => {
-    // multi_intersections has five junctions chained by mainlines; editing a
-    // mainline that two of them name as a member used to dirty both.
-    const path = join(FIXTURES, 'fabriksgatan.xodr')
-    const xml = readFileSync(path, 'utf-8')
-    const imported = odrToShapes(parseOpenDriveXml(xml))
-    // Road 2 is an incoming road of junction 4 from the other side.
-    nudgeAlongTangent(imported, firstLaneOf(imported, '2'), 30)
-    const out = exportWith(imported)
-    expect(junctionsById(out).get('4')).toBe(junctionsById(xml).get('4'))
-    expect(extractOdrDocument(out)!.roads.length).toBe(extractOdrDocument(xml)!.roads.length)
+  it('carries the junction whichever side of a mainline it uses', () => {
+    // Roads 0 and 1 hand the junction their positive lanes, roads 2 and 3
+    // their negative ones. A mainline with lanes on both sides splits into
+    // two bundles and only one can inherit the road id, so the id has to go
+    // to the side the <connection> table names — majority voting alone picks
+    // by bundle order and lost the table half the time.
+    for (const mainline of ['0', '1', '2', '3']) {
+      const { xml, imported } = importFixture()
+      nudgeAlongTangent(imported, firstLaneOf(imported, mainline), 30)
+      const out = exportWith(imported)
+      expect(junctionsById(out).get('4')).toBe(junctionsById(xml).get('4'))
+      expect(junctionsById(out).size).toBe(1)
+      expect(roadsById(out).size).toBe(roadsById(xml).size + 1)
+    }
   })
 
   it('keeps an unedited round trip verbatim', () => {
