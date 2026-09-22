@@ -2255,14 +2255,20 @@ describe('carry-through export (sidecar verbatim re-emission)', () => {
     expect(out).toContain(doc.roads.find(r => r.id === '30')!.text)
   })
 
-  it('does not drop a micro road (no materialized lanes) when its real junction becomes dirty', () => {
-    // (c) road 32 is a genuine connecting road of junction "100" (connection
-    // id="1", junction="100" on the road itself) with zero materialized lane
-    // shapes (below the importer's minimum section length). Editing road 40
-    // dirties junction "100", which drags every junction-stamped connecting
-    // road — including road 32 — into `dirty` by propagation. road 32 itself
-    // was never edited (it cannot be, having no lane shapes) and has nothing
-    // to regenerate from, so it must survive in the output either way.
+  // KNOWN LIMITATION. road 32 is a genuine connecting road of junction "100"
+  // (connection id="1", junction="100" on the road itself) with zero
+  // materialized lane shapes (below the importer's minimum section length).
+  // Editing road 40 dirties junction "100", which drags every junction-stamped
+  // connecting road — road 32 among them — into `dirty` by propagation, and
+  // nothing can regenerate a road with no lane shapes. So it is dropped.
+  //
+  // Keeping it means placing it into the rebuilt junction from its source
+  // <connection>, which was tried and withdrawn because that plan and the
+  // connectivity plan the intersection is really built from disagreed. See
+  // odrLaneLessConnecting.test.ts.
+  //
+  // What must hold either way: dropping it takes every reference along.
+  it('drops a micro road (no materialized lanes) with its junction, leaving no reference', () => {
     const imported = odrToShapesFull(parseOpenDriveXml(DANGLING_JUNCTION_XODR))
     expect(imported.sidecar.roadRecords!['32'].laneShapeIds).toEqual([])
 
@@ -2274,18 +2280,12 @@ describe('carry-through export (sidecar verbatim re-emission)', () => {
 
     const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
     const outDoc = extractOdrDocument(out)!
-    expect(outDoc.roads.some(r => r.id === '32')).toBe(true)
-    // Surviving is not enough: the road says which junction it belongs to,
-    // and that junction has to exist and to name it back. The rebuild gives
-    // the intersection a new id, and road 32 contributes no lane edges for
-    // the synthesized table to pick up, so it used to be left saying
-    // junction="100" with no junction 100 in the document.
-    const micro = outDoc.roads.find(r => r.id === '32')!
-    const jid = micro.text.match(/<road\b[^>]*\bjunction="([^"]*)"/)![1]
-    expect(jid).not.toBe('-1')
-    const owner = outDoc.junctions.find(j => j.id === jid)
-    expect(owner).toBeDefined()
-    expect(owner!.text).toMatch(/connectingRoad="32"/)
+    expect(outDoc.roads.some(r => r.id === '32')).toBe(false)
+    // No surviving road links to it and no junction table names it, so the
+    // loss is a deletion and not a dangling reference.
+    for (const r of outDoc.roads) expect(r.linkRoadRefs).not.toContain('32')
+    expect(out).not.toMatch(/\bconnectingRoad="32"/)
+    expect(out).not.toMatch(/\bincomingRoad="32"/)
   })
 
   // road 32 has no lane shapes, but the importer DOES shape a <signal> on it,
@@ -2328,12 +2328,13 @@ describe('carry-through export (sidecar verbatim re-emission)', () => {
     expect(outDoc.roads.some(r => r.id === '32')).toBe(true)
   })
 
-  it('keeps a lane-less road when a regulatory edit propagates to it', () => {
-    // The signal on road 32 applies to a lane of road 31, so editing road 31
-    // makes the regulatory rule dirty every road the signal touches — road 32
-    // among them. Nothing can regenerate a road with no lane shapes, so
-    // dirtying it deleted it from the output. The junction rule had a guard
-    // for exactly this; the regulatory rule did not.
+  // KNOWN LIMITATION, same cause as above reached by the regulatory rule. The
+  // signal on road 32 applies to a lane of road 31, so editing road 31 dirties
+  // every road the signal touches, road 32 among them, and it is dropped.
+  //
+  // The signal itself is NOT lost: the shape survives and the regeneration
+  // path re-emits it, which is what this pins.
+  it('re-emits the signal of a dropped lane-less road rather than losing it', () => {
     const imported = odrToShapesFull(parseOpenDriveXml(MICRO_SIGNAL_XODR))
     const lane = imported.lanes.find(
       l => l.id === imported.sidecar.roadRecords!['31'].laneShapeIds[0]
@@ -2342,9 +2343,16 @@ describe('carry-through export (sidecar verbatim re-emission)', () => {
 
     const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
     const outDoc = extractOdrDocument(out)!
-    expect(outDoc.roads.some(r => r.id === '32')).toBe(true)
-    // And the signal the user did NOT touch is still defined somewhere.
-    expect(out).toMatch(/<signal\b[^>]*\bid="500"/)
+    expect(outDoc.roads.some(r => r.id === '32')).toBe(false)
+    // Exactly one definition of the light the user never touched, and every
+    // reference names it. The id is the emitting path's, not the source's.
+    const defined = (out.match(/<signal\b[^>]*?\bid="([^"]*)"/g) ?? []).map(
+      t => t.match(/\bid="([^"]*)"/)![1]
+    )
+    expect(defined.length).toBe(1)
+    for (const tag of out.match(/<signalReference\b[^>]*?\bid="([^"]*)"/g) ?? []) {
+      expect(tag.match(/\bid="([^"]*)"/)![1]).toBe(defined[0])
+    }
   })
 })
 

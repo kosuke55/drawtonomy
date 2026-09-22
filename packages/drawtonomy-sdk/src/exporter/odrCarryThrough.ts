@@ -531,7 +531,7 @@ export function rewriteSignalReferences(
  * the surviving controller element absorbs them instead of a duplicate
  * controller being emitted for the same group.
  */
-export function appendControlRecords(text: string, signalIds: readonly number[]): string {
+export function appendControlRecords(text: string, signalIds: readonly string[]): string {
   if (signalIds.length === 0) return text
   const added = signalIds.map(id => `    <control signalId="${id}" type="0"/>`).join('\n')
   // Self-closing <controller .../> has no children yet; expand it.
@@ -543,20 +543,6 @@ export function appendControlRecords(text: string, signalIds: readonly number[])
   return `${text.slice(0, close)}${added}\n  ${text.slice(close)}`
 }
 
-/**
- * Rewrite the elementId of road-level <predecessor>/<successor> records
- * according to `roadMapping` (elementType="road") and `junctionMapping`
- * (elementType="junction"), each original id -> new id. Every byte outside
- * the rewritten attribute values is preserved.
- */
-/**
- * Re-point a carried `<road>`'s own `junction` attribute at `junctionId`,
- * leaving every other byte alone.
- *
- * A connecting road the export keeps verbatim while its junction is rebuilt
- * has to say which junction it belongs to now; the `<link>` rewrite above
- * only reaches the predecessor / successor references.
- */
 /**
  * Re-point or drop the `<controller>` references inside a carried
  * `<junction>` element, keeping every other byte untouched.
@@ -586,14 +572,12 @@ export function rewriteJunctionControllerRefs(
   )
 }
 
-export function rewriteRoadJunctionAttribute(text: string, junctionId: string): string {
-  return text.replace(/<road\b[^>]*>/, tag =>
-    tag.replace(/(\bjunction=")([^"]*)(")/, (m, pre: string, _id: string, post: string) =>
-      pre + junctionId + post
-    )
-  )
-}
-
+/**
+ * Rewrite the elementId of road-level <predecessor>/<successor> records
+ * according to `roadMapping` (elementType="road") and `junctionMapping`
+ * (elementType="junction"), each original id -> new id. Every byte outside
+ * the rewritten attribute values is preserved.
+ */
 export function rewriteRoadLinkTargets(
   text: string,
   roadMapping: Map<string, string>,

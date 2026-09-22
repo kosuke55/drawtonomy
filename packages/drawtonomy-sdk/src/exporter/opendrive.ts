@@ -63,12 +63,10 @@ import {
   hashRoadState,
   isSignalKind,
   rewriteJunctionControllerRefs,
-  rewriteRoadJunctionAttribute,
   rewriteRoadLinkTargets,
   serializeSignalPayload,
   type CarryLaneState,
   type CarryRegulatoryState,
-  type OdrDocConnection,
   type OdrDocJunction,
   type OdrDocRoad,
   type OdrDocument,
@@ -1786,14 +1784,7 @@ function attachShapesToRoads(
   laneIdToRoadId: Map<string, number>,
   laneIdToOdrLaneId: Map<string, number>,
   maxAttachDistanceMeter: number = 50,
-  signalIdStart: number = 1,
-  /**
-   * Shapes the carried / surgical output already DEFINES, mapped to the id it
-   * defines them under. Such a shape must not be defined a second time here;
-   * the regenerated roads it also applies to get a `<signalReference>` to that
-   * id instead. See `carriedSignalDefinitionIdByShape`.
-   */
-  carriedDefinitionIdByShape: ReadonlyMap<string, string> = new Map()
+  signalIdStart: number = 1
 ): {
   roadSignals: Map<number, SignalEntry[]>
   roadObjects: Map<number, ObjectEntry[]>
@@ -1861,32 +1852,6 @@ function attachShapesToRoads(
       if (best && best.proj.distance > maxAttachDistanceMeter) best = null
     }
     if (!best) continue
-
-    // The carried / surgical output already defines this shape. Emitting a
-    // second <signal> here would put the same light in the document twice,
-    // under two ids, at two positions. Every regenerated road it applies to
-    // gets a reference to the definition that exists instead.
-    const carriedId = carriedDefinitionIdByShape.get(tl.id)
-    if (carriedId !== undefined) {
-      const numericId = parseInt(carriedId, 10)
-      if (Number.isFinite(numericId)) {
-        for (const r of roads) {
-          if (affectedByRoad.size > 0 && !affectedByRoad.has(r.roadId)) continue
-          const proj = r.roadId === best.roadId ? best.proj : projectToRoad(r.geom, xG, yG)
-          const refs = roadSignalRefs.get(r.roadId) ?? []
-          refs.push({
-            id: numericId,
-            s: proj.s,
-            t: proj.t,
-            orientation: proj.t >= 0 ? '+' : '-',
-            validity:
-              affectedByRoad.size > 0 ? laneIdRanges(affectedByRoad.get(r.roadId)!) : [],
-          })
-          roadSignalRefs.set(r.roadId, refs)
-        }
-      }
-      continue
-    }
 
     const list = roadSignals.get(best.roadId) ?? []
     const entry = buildSignalEntry(kind, tl, signalIdCounter++, best.proj.s, best.proj.t)
@@ -2493,12 +2458,6 @@ interface CarryPlan {
    * path's ids are known too.
    */
   carriedSignalIds: Set<string>
-  /**
-   * Signal shapes the carried text already DEFINES, mapped to the id it
-   * defines them under. The regeneration path applies these by reference
-   * rather than defining them again (see the map's construction).
-   */
-  carriedSignalDefinitionIdByShape: Map<string, string>
   /** Surviving controllers, keyed by original id so regenerated signals of the same group can merge in. */
   verbatimControllers: { id: string; text: string }[]
   /** First id for regenerated roads / junctions (above every original id). */
@@ -2510,7 +2469,7 @@ interface CarryPlan {
    * surgical `<signal>` rewrite. Their roads are verbatim, so the regeneration
    * path never sees these shapes — `<controller>` grouping reads them here.
    */
-  surgicalSignalIdByShape: Map<string, number>
+  surgicalSignalIdByShape: Map<string, string>
 }
 
 /**
@@ -2628,8 +2587,6 @@ function planCarryThrough(
   const signalShapesByRoad = new Map<string, SurgicalSignalShape[]>()
   /** Road each signal shape is to be defined on, when one could be settled. */
   const signalDefiningRoad = new Map<string, string>()
-  /** Source `<signal id>` a signal shape was imported from, when it has one. */
-  const signalSourceIdByShape = new Map<string, string>()
   /**
    * Signal shapes the user drew whose defining road could not be settled,
    * because the lanes they apply to live on more than one recorded road.
@@ -2675,8 +2632,6 @@ function planCarryThrough(
       return
     }
     signalDefiningRoad.set(state.shapeId, definingRoad)
-    const odrSignalId = state.attributes['odr_signal_id']
-    if (odrSignalId) signalSourceIdByShape.set(state.shapeId, odrSignalId)
     const list = signalShapesByRoad.get(definingRoad) ?? []
     list.push({
       shapeId: state.shapeId,
@@ -2787,27 +2742,20 @@ function planCarryThrough(
   // Seed dirtiness: hash mismatch, missing shapes, or references that leave
   // the recorded set. An edited road whose edit is purely lateral (and / or
   // confined to its signals) is rewritten surgically and stays clean.
-  //
-  // `dirty` means "this road is re-emitted by the regeneration path". A road
-  // with no materialized lane shapes has nothing for that path to build from,
-  // so putting it in would delete it from the output rather than rewrite it.
-  // Every rule that dirties a road goes through `markDirty`, which refuses
-  // those roads once instead of each rule remembering to — the junction rule
-  // remembered, the regulatory rule did not, and a signal edit two roads away
-  // made a micro road vanish.
   const dirty = new Set<string>()
-  /** Dirty `rid` if anything can regenerate it; report whether that changed. */
-  const markDirty = (rid: string): boolean => {
-    if (dirty.has(rid)) return false
-    if ((records[rid]?.laneShapeIds.length ?? 0) === 0) return false
-    dirty.add(rid)
-    return true
-  }
   const surgicalRoadText = new Map<string, string>()
   /** Shapes whose signal survived surgically, so the regen path must skip them. */
   const surgicalSignalShapeIds = new Set<string>()
-  /** Emitted `<signal id>` per shape id for surgically rewritten signals. */
-  const surgicalSignalIdByShape = new Map<string, number>()
+  /**
+   * Emitted `<signal id>` per shape id for surgically rewritten signals.
+   *
+   * Kept as the string the output really carries. A source id need not be a
+   * decimal number — `light500` and `0500` are both legal — and rounding it
+   * through `number` does not come back: the comparison against the source
+   * ids then misses, and the group emits a `<control signalId="NaN">` or one
+   * naming a signal that does not exist.
+   */
+  const surgicalSignalIdByShape = new Map<string, string>()
   // Fresh ids for signals added to an otherwise verbatim road are taken from
   // the same space the regeneration path uses, so the two cannot collide.
   let nextSurgicalSignalId = Math.max(doc.maxNumericSignalId, 0) + 1
@@ -2847,18 +2795,18 @@ function planCarryThrough(
     nextSurgicalSignalId += result.allocatedIds
     for (const [shapeId, id] of result.signalIdByShape) {
       surgicalSignalShapeIds.add(shapeId)
-      surgicalSignalIdByShape.set(shapeId, parseInt(id, 10))
+      surgicalSignalIdByShape.set(shapeId, id)
     }
     return result.text
   }
   for (const [rid, rec] of Object.entries(records)) {
     const docRoad = docRoadById.get(rid)
     if (!docRoad) {
-      markDirty(rid)
+      dirty.add(rid)
       continue
     }
     if (docRoad.linkRoadRefs.some(ref => !records[ref])) {
-      markDirty(rid)
+      dirty.add(rid)
       continue
     }
     // A junction link naming an id with no matching <junction> element is
@@ -2868,38 +2816,8 @@ function planCarryThrough(
     // (and by propagation its real junction, if it shares members with one)
     // to regenerate over a reference that was never resolvable only adds
     // blast radius without fixing anything.
-    //
-    // A record with zero materialized lane shapes (e.g. a micro road below
-    // the importer's minimum section length) has no LANE to regenerate from:
-    // the geometry stays verbatim whatever happens, because dropping it into
-    // `dirty` removes it from the output with no replacement. The link-rewrite
-    // pass below already repoints it if the road/junction it links to
-    // regenerates under a new id.
-    //
-    // That says nothing about its SIGNALS. The importer shapes a <signal> on
-    // such a road like any other, so the user can move or delete it, and the
-    // surgical rewrite works on the road's text without needing a lane. The
-    // two questions are answered separately below: skipping the whole road
-    // here dropped the user's edit on the floor.
-    const laneless = rec.laneShapeIds.length === 0
     const laneStates = exportLaneStates(rec)
     const regStates = regStatesByRoad.get(rid) ?? []
-    if (laneless) {
-      // With no lanes the state hash is the regulatory side alone, so an
-      // inequality here means a signal of this road moved, was added or was
-      // deleted.
-      if (hashRoadState([], regStates) === rec.stateHash) continue
-      const parsed = parsedRoadById.get(rid)
-      const surgical =
-        parsed === undefined
-          ? null
-          : rewriteRoadSignalsSurgically(rid, parsed, docRoad.text, rec.signalBaselines ?? {})
-      // No lane means no regeneration path for this road, so a rewrite that
-      // cannot be built leaves the road exactly as it was rather than losing
-      // it — the same conservatism the geometry gets above.
-      if (surgical !== null) surgicalRoadText.set(rid, surgical)
-      continue
-    }
     if (!laneStates || hashRoadState(laneStates, regStates) !== rec.stateHash) {
       // The road changed. Two edits are expressible as a byte-local rewrite of
       // the original <road> element, and they compose:
@@ -3354,7 +3272,10 @@ function planCarryThrough(
         changed = true
       }
       for (const m of junctionStamped.get(j.id) ?? []) {
-        if (records[m] && markDirty(m)) changed = true
+        if (records[m] && !dirty.has(m)) {
+          dirty.add(m)
+          changed = true
+        }
       }
     }
     for (const reg of regShapes) {
@@ -3373,7 +3294,10 @@ function planCarryThrough(
       }
       if (!bad) continue
       for (const rid of reg.touching) {
-        if (markDirty(rid)) changed = true
+        if (!dirty.has(rid)) {
+          dirty.add(rid)
+          changed = true
+        }
       }
     }
   }
@@ -3514,42 +3438,6 @@ function planCarryThrough(
     }
   }
 
-  // Definitions and applications are planned separately.
-  //
-  // A signal is DEFINED on one road and APPLIED to lanes, possibly of other
-  // roads. `consumedShapeIds` answers "does the carried output fully cover
-  // this shape", which needs every road it touches to be clean. But the
-  // DEFINITION only depends on the defining road: when that road is carried
-  // and an applied road regenerates, the shape is not consumed, goes back
-  // into regeneration, and is defined a second time beside the carried one —
-  // the same light under two ids, at two positions, with two orientations.
-  //
-  // So the regeneration path is told which shapes already have a definition
-  // in the output and under which id, and emits a <signalReference> to that
-  // id for the roads it rebuilds instead of a second <signal>. Consuming them
-  // instead would lose the application: nothing would then state that the
-  // regenerated road's lanes are governed by that signal at all.
-  const carriedSignalDefinitionIdByShape = new Map<string, string>()
-  for (const [shapeId, rid] of signalDefiningRoad) {
-    if (consumedShapeIds.has(shapeId)) continue
-    if (unplaceableSignalShapeIds.has(shapeId)) continue
-    // The defining road has to be carried for its <signal> to reach the
-    // output at all.
-    if (!cleanRoadIds.has(rid)) continue
-    // On a surgically rewritten road that rewrite decides the id; on an
-    // untouched road the verbatim text keeps the source id. A surgical road
-    // whose rewrite did NOT emit this shape defines nothing for it.
-    const surgicalId = surgicalSignalIdByShape.get(shapeId)
-    if (surgicalId !== undefined) {
-      carriedSignalDefinitionIdByShape.set(shapeId, String(surgicalId))
-      continue
-    }
-    if (surgicalRoadText.has(rid)) continue
-    const sourceId = signalSourceIdByShape.get(shapeId)
-    if (sourceId !== undefined && carriedSignalIds.has(sourceId)) {
-      carriedSignalDefinitionIdByShape.set(shapeId, sourceId)
-    }
-  }
   // A <signalReference> in carried text can only be resolved once the
   // regeneration path has run and its ids are known: a signal whose road was
   // edited is not in `carriedSignalIds`, but it is not gone either — it comes
@@ -3607,7 +3495,6 @@ function planCarryThrough(
     junctionLaneShapeIds,
     splitRetargets,
     carriedSignalIds,
-    carriedSignalDefinitionIdByShape,
     verbatimControllers,
     idBase: Math.max(doc.maxNumericElementId, 0) + 1,
     // Ids already handed to signals added on a surgically rewritten road are
@@ -4319,8 +4206,7 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
     laneIdToRoadId,
     laneIdToOdrLaneId,
     undefined,
-    carry?.signalIdBase,
-    carry?.carriedSignalDefinitionIdByShape
+    carry?.signalIdBase
   )
 
   // A <signalReference> living in carried text names a signal by id. Now that
@@ -4388,123 +4274,8 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
     // member reaching the other side is re-pointed at the road that took
     // those lanes (resolved with the bundles, in splitRetargetOf), so its
     // <successor>/<predecessor> still resolves.
-    // A connecting road with no lane shapes stays verbatim (nothing can
-    // regenerate it), but its junction was rebuilt under a new id. It
-    // contributes no lane edges, so the synthesized junction does not know
-    // about it: without this it kept `junction="<old id>"` pointing at an
-    // element the output no longer has. It has to be placed into a junction
-    // the output does emit, and the ONLY record of what it did is the source
-    // `<connection>`: which road came in, at which end of this road, pairing
-    // which lanes.
-    //
-    // So the source connection is the unit of planning, not the road. Reading
-    // the road's link list instead and taking the first neighbour that landed
-    // in a rebuilt junction discarded all four facts: it named whichever
-    // neighbour came first in the link list (the far end when the links run
-    // the other way, or the road across a different intersection entirely),
-    // always wrote contactPoint="start", and emitted an empty <connection>
-    // that states no maneuver at all.
-    const adoptedConnections = new Map<
-      number,
-      {
-        incoming: number
-        connecting: number
-        contactPoint: 'start' | 'end'
-        laneLinks: { from: number; to: number }[]
-      }[]
-    >()
-    /** Lane-less carried connecting roads that still need a junction. */
-    const unplacedConnectingRoads: {
-      road: OdrDocRoad
-      connectingId: number
-      conn: OdrDocConnection
-      incoming: number
-    }[] = []
-    for (const r of carry.verbatimRoads) {
-      if (r.junction === '-1' || !carry.dirtyJunctionIds.has(r.junction)) continue
-      if ((carry.records[r.id]?.laneShapeIds.length ?? 0) > 0) continue
-      const connectingId = /^\d+$/.test(r.id) ? parseInt(r.id, 10) : NaN
-      if (!Number.isFinite(connectingId)) continue
-      const source = carry.doc.junctions.find(j => j.id === r.junction)
-      for (const conn of source?.connections ?? []) {
-        if (conn.connectingRoad !== r.id) continue
-        // The incoming road the SOURCE named, mapped through any id rewrite.
-        const incoming = parseInt(rewriteMap.get(conn.incomingRoad) ?? conn.incomingRoad, 10)
-        if (!Number.isFinite(incoming)) continue
-        // The junction that incoming road joined. Keyed by the connection's
-        // own incoming road, so a road whose two ends reach two different
-        // rebuilt junctions lands in the one this maneuver belongs to.
-        const adoptedJunction = newJunctionOfRoad.get(incoming)
-        if (adoptedJunction === undefined) {
-          unplacedConnectingRoads.push({ road: r, connectingId, conn, incoming })
-          continue
-        }
-        junctionOfExportedRoad.set(connectingId, String(adoptedJunction))
-        const list = adoptedConnections.get(adoptedJunction) ?? []
-        // The maneuver itself is unchanged — this road and its lanes are the
-        // source's, byte for byte — so the contact point and lane pairing the
-        // old table stated still describe it and are carried over.
-        list.push({
-          incoming,
-          connecting: connectingId,
-          contactPoint: conn.contactPoint ?? 'start',
-          laneLinks: conn.laneLinks,
-        })
-        adoptedConnections.set(adoptedJunction, list)
-      }
-    }
-
-    // Nothing else of the old intersection was rebuilt, so there is no
-    // synthesized junction to adopt these roads into. The road is still a
-    // connecting road and OpenDRIVE requires the junction it names to exist,
-    // so the connections that survived get a junction of their own rather
-    // than the road being left pointing at a deleted element.
-    if (unplacedConnectingRoads.length > 0) {
-      // Above every element id the output already uses: the planned junctions
-      // and connecting roads, the regenerated bundles, and every carried road
-      // and junction the source document kept.
-      let junctionIdCounter = Math.max(
-        nextRoadId,
-        carry.doc.maxNumericElementId + 1,
-        ...plan.junctions.map(j => j.id + 1),
-        ...plan.connectingRoads.map(s => s.roadId + 1)
-      )
-      const allocateJunctionId = (): number => junctionIdCounter++
-      const byOldJunction = new Map<string, typeof unplacedConnectingRoads>()
-      for (const entry of unplacedConnectingRoads) {
-        const list = byOldJunction.get(entry.road.junction) ?? []
-        list.push(entry)
-        byOldJunction.set(entry.road.junction, list)
-      }
-      for (const [oldJunctionId, entries] of byOldJunction) {
-        // Reuse the source id when the output does not already use it, so the
-        // document keeps naming the intersection the way the input did.
-        const reusable =
-          /^\d+$/.test(oldJunctionId) &&
-          !plan.junctions.some(j => String(j.id) === oldJunctionId) &&
-          !carry.verbatimJunctionTexts.some(t =>
-            new RegExp(`<junction\\b[^>]*\\bid="${oldJunctionId}"`).test(t)
-          )
-        const jid = reusable ? parseInt(oldJunctionId, 10) : allocateJunctionId()
-        const junction = { id: jid, connections: [] as typeof plan.junctions[number]['connections'], priorities: [] }
-        plan.junctions.push(junction)
-        for (const { connectingId, conn, incoming } of entries) {
-          junctionOfExportedRoad.set(connectingId, String(jid))
-          junction.connections.push({
-            incoming,
-            connecting: connectingId,
-            contactPoint: conn.contactPoint ?? 'start',
-            laneLinks: conn.laneLinks,
-          })
-        }
-      }
-    }
-
     for (const r of carry.verbatimRoads) {
       let junctionMap: Map<string, string> | undefined
-      const adopted = /^\d+$/.test(r.id)
-        ? junctionOfExportedRoad.get(parseInt(r.id, 10))
-        : undefined
       for (const jref of r.linkJunctionRefs) {
         if (!carry.dirtyJunctionIds.has(jref)) continue
         const exportedId = /^\d+$/.test(r.id) ? parseInt(r.id, 10) : NaN
@@ -4516,10 +4287,7 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
       }
       // Surgical roads reuse the verbatim emission path (same link rewriting)
       // but start from the width-rewritten text instead of the original.
-      let baseText = retargetSignalReferences(carry.surgicalRoadText.get(r.id) ?? r.text)
-      if (adopted !== undefined && r.junction !== '-1' && r.junction !== adopted) {
-        baseText = rewriteRoadJunctionAttribute(baseText, adopted)
-      }
+      const baseText = retargetSignalReferences(carry.surgicalRoadText.get(r.id) ?? r.text)
       const roadMap = splitRetargetOf.get(r.id)
       lines.push(
         rewriteRoadLinkTargets(
@@ -4528,13 +4296,6 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
           junctionMap ?? new Map()
         )
       )
-    }
-    for (const [jid, conns] of adoptedConnections) {
-      const junction = plan.junctions.find(j => j.id === jid)
-      if (!junction) continue
-      for (const { incoming, connecting, contactPoint, laneLinks } of conns) {
-        junction.connections.push({ incoming, connecting, contactPoint, laneLinks })
-      }
     }
   }
 
@@ -4567,8 +4328,10 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
   // Imported lights carry the original controller id, so a group whose
   // controller also survives verbatim is merged back into that element
   // instead of being emitted twice under a fresh id.
-  const controllerGroups = new Map<string, number[]>()
-  const addToControllerGroup = (groupId: string, signalId: number): void => {
+  // Ids are strings: a regenerated signal's is a number, but one carried
+  // through the surgical rewrite keeps whatever spelling the source used.
+  const controllerGroups = new Map<string, string[]>()
+  const addToControllerGroup = (groupId: string, signalId: string): void => {
     const group = controllerGroups.get(groupId) ?? []
     group.push(signalId)
     controllerGroups.set(groupId, group)
@@ -4578,7 +4341,7 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
     if (!groupId) continue
     const signalId = signalIdByShape.get(tl.id)
     if (signalId === undefined) continue
-    addToControllerGroup(groupId, signalId)
+    addToControllerGroup(groupId, String(signalId))
   }
   // Lights on surgically rewritten roads never reach the regeneration path.
   // A light that KEPT its source id is already named by the verbatim
@@ -4592,7 +4355,7 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
       const groupId = tl.props.controllerId
       if (!groupId) continue
       const signalId = carry.surgicalSignalIdByShape.get(tl.id)
-      if (signalId === undefined || originalSignalIds.has(String(signalId))) continue
+      if (signalId === undefined || originalSignalIds.has(signalId)) continue
       addToControllerGroup(groupId, signalId)
     }
   }
