@@ -165,13 +165,20 @@ describe('junction carry-through', () => {
     const out = exportWith(imported)
     const emitted = roadsById(out)
 
-    // (a) of the source's roads, exactly the edited one changed.
+    // (a) of the source's roads, only the edited one is regenerated. Road 0
+    // has lanes on both sides, so it comes back as two roads and the three
+    // connecting roads reaching the half that lost the id have that one
+    // reference re-pointed — see 're-points the neighbours' below for the
+    // byte-level pin. Nothing else is touched.
     const changed = [...source].filter(([id, r]) => emitted.get(id)?.text !== r.text).map(([id]) => id)
-    expect(changed).toEqual(['0'])
+    expect(changed).toEqual(['0', '5', '11', '14'])
 
-    // The twelve connecting roads are byte-verbatim and keep their junction.
+    // Every connecting road keeps its junction, and the nine that do not run
+    // into road 0's other half are byte-verbatim.
     for (const id of ['5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16']) {
       expect(emitted.get(id)!.junction).toBe('4')
+    }
+    for (const id of ['6', '7', '8', '9', '10', '12', '13', '15', '16']) {
       expect(emitted.get(id)!.text).toBe(source.get(id)!.text)
     }
 
@@ -184,13 +191,46 @@ describe('junction carry-through', () => {
     expect(junctionsById(out).get('4')).toBe(junctionsById(xml).get('4'))
     expect(junctionsById(out).size).toBe(1)
 
-    // (b) no intersection is emitted twice. The edited road has lanes on both
-    // sides, so it regenerates as two bundles and only one of them can keep
-    // its id — that one extra road is the whole growth. What used to happen
-    // instead was twelve demoted roads and forty-one synthesized ones.
+    // (b) no intersection is emitted twice. Every source road is still
+    // there, and the single extra road is road 0's other side. What used to
+    // happen instead was twelve demoted roads and forty-one synthesized
+    // ones.
     for (const id of source.keys()) expect(emitted.has(id)).toBe(true)
     expect(emitted.size).toBe(source.size + 1)
   })
+
+  it('re-points the neighbours of a road that split in two', () => {
+    // Road 0 has lanes on both sides, so regeneration emits it as two roads
+    // and only one can keep id 0. The exporter gives the id to the side the
+    // <connection> table names (the positive lanes) — which leaves the three
+    // connecting roads that run into road 0's NEGATIVE lanes pointing at a
+    // road that no longer has them. Those references have to follow the
+    // lanes, or the export links into nothing.
+    const { xml, imported } = importFixture()
+    nudgeAlongTangent(imported, firstLaneOf(imported, '0'), 30)
+    const emitted = roadsById(exportWith(imported))
+    const source = roadsById(xml)
+
+    // Road 0 kept the side the junction uses; the other side went to one
+    // new road holding exactly the lanes road 0 gave up.
+    expect(laneIdsOf(emitted.get('0')!.text).sort()).toEqual(['1', '2', '3'])
+    const fresh = [...emitted.keys()].filter(id => !source.has(id))
+    expect(fresh).toHaveLength(1)
+    expect(laneIdsOf(emitted.get(fresh[0])!.text).sort()).toEqual(['-1', '-2', '-3'])
+
+    // The connecting roads that used road 0's negative lanes now name the
+    // road those lanes went to, with their lane links unchanged.
+    for (const id of ['5', '11', '14']) {
+      expect([id, emitted.get(id)!.text]).toEqual([
+        id,
+        source.get(id)!.text.replace(
+          /(<successor elementType="road" elementId=")0(")/,
+          `$1${fresh[0]}$2`
+        ),
+      ])
+    }
+  })
+
 
   it('keeps an edited connecting road inside its own junction', () => {
     const { xml, imported } = importFixture()
@@ -296,6 +336,74 @@ describe('junction carry-through', () => {
     const emitted = roadsById(out)
     for (const [id, r] of source) expect(emitted.get(id)!.text).toBe(r.text)
     expect(junctionsById(out).get('4')).toBe(junctionsById(xml).get('4'))
+  })
+  it('keeps a lateral split resolving too', () => {
+    // A lateral drag of road 0's inner boundary re-bundles it the same way a
+    // longitudinal one does, through a different code path (the edit is a
+    // width change rather than a reference-line change). No verbatim
+    // neighbour may keep a lane successor into a lane road 0 no longer has.
+    const { imported } = importFixture()
+    nudgeSideways(imported, firstLaneOf(imported, '0'), 'right', 30)
+    const emitted = roadsById(exportWith(imported))
+    for (const [id, r] of emitted) {
+      const succRoad = r.text.match(/<successor\s+elementType="road"\s+elementId="(\d+)"/)?.[1]
+      if (succRoad === undefined) continue
+      const have = laneIdsOf(emitted.get(succRoad)?.text ?? '')
+      for (const m of r.text.matchAll(/<lane\b[^>]*\bid="-?\d+"[\s\S]*?<\/lane>/g)) {
+        const succ = m[0].match(/<successor\s+id="(-?\d+)"/)?.[1]
+        if (succ !== undefined) expect([id, succRoad, succ, have.includes(succ)]).toEqual([id, succRoad, succ, true])
+      }
+    }
+  })
+
+  it('does not carry a laneLink the emitted road renumbered away', () => {
+    // Road 8's lane -1 is type="none", so the importer never makes a shape
+    // for it and the exporter renumbers the surviving two lanes to -1, -2.
+    // The carried table still says to="-2" and to="-3": one now means a
+    // different lane and the other means nothing at all.
+    const raw = readFileSync(FABRIKSGATAN, 'utf-8')
+    const road8 = raw.match(/<road\b[^>]*\bid="8"[\s\S]*?<\/road>/)![0]
+    let xml = raw.replace(road8, road8.replace(/(<lane\s+id="-1"\s+type=")[^"]*(")/, '$1none$2'))
+    xml = xml.replace(
+      /(<connection\b[^>]*connectingRoad="8"[^>]*>)([\s\S]*?)(<\/connection>)/g,
+      (_m, open: string, body: string, close: string) =>
+        open + body.replace(/\s*<laneLink\b[^>]*\bto="-1"[^>]*\/>/g, '') + close
+    )
+    const imported = odrToShapes(parseOpenDriveXml(xml))
+    expect(imported.sidecar.roadRecords!['8'].laneShapeIds).toHaveLength(2)
+    // Edit road 8 so it regenerates.
+    for (const lid of imported.sidecar.roadRecords!['8'].laneShapeIds) {
+      const l = imported.lanes.find(x => x.id === lid)!
+      l.attributes = { ...(l.attributes ?? {}), speed_limit: '33' }
+    }
+    const out = exportWith(imported)
+    const have = new Set(laneIdsOf(roadsById(out).get('8')?.text ?? ''))
+    const j4 = junctionsById(out).get('4') ?? ''
+    const named = [...j4.matchAll(/<connection\b[^>]*connectingRoad="8"[^>]*>([\s\S]*?)<\/connection>/g)]
+      .flatMap(m => [...m[1].matchAll(/\bto="(-?\d+)"/g)].map(x => x[1]))
+    expect(named.filter(t => !have.has(t))).toEqual([])
+  })
+
+  it('drops a connection the user disconnected instead of restoring it', () => {
+    // Cutting every next/prev of road 8's lanes leaves the lanes in place,
+    // so a carry rule that only asks "does the lane still exist" re-emits
+    // the original table — and re-importing hands the user back the
+    // connections they deleted.
+    const { imported } = importFixture()
+    const members = new Set(imported.sidecar.roadRecords!['8'].laneShapeIds)
+    for (const l of imported.lanes) {
+      if (members.has(l.id)) {
+        l.next = []
+        l.prev = []
+      } else {
+        l.next = (l.next ?? []).filter(id => !members.has(id))
+        l.prev = (l.prev ?? []).filter(id => !members.has(id))
+      }
+    }
+    const out = exportWith(imported)
+    for (const text of junctionsById(out).values()) {
+      expect(text).not.toMatch(/connectingRoad="8"/)
+    }
   })
 })
 
