@@ -36,23 +36,42 @@ import type {
 import { sampleAtParam, type Point2D } from './laneCenterline.js'
 import { evalGeometry } from './odrGeometry.js'
 import { fitPlanView, type FittedSamplePose } from './odrGeometryFit.js'
-import { fitElevationProfile, type ElevationSample } from './odrElevationFit.js'
+import {
+  fitElevationProfile,
+  resolveElevationGaps,
+  type ElevationSample,
+  type GapSample,
+} from './odrElevationFit.js'
 import { parseOpenDriveXml, type OdrGeometry, type OdrRoad } from './opendriveParser.js'
-import { buildSurgicalRoad, laneShapeKey, type LaneShapeKey } from './odrSurgical.js'
+import {
+  buildSurgicalRoad,
+  laneShapeKey,
+  rewriteSignals,
+  type LaneShapeKey,
+  type SurgicalSignalShape,
+} from './odrSurgical.js'
 import { originToProjString } from './projection.js'
 import { escapeXml, fmt, fmtPrecise, pxToEnuX, pxToEnuY, pxToMeter } from './units.js'
 import {
   appendControlRecords,
   dropControlRecords,
+  rewriteSignalReferences,
   extractOdrDocument,
+  hashRoadLaneSemantics,
+  hashRoadNonSignalRegulatory,
   hashRoadSemantics,
   hashRoadState,
+  isSignalKind,
+  rewriteJunctionControllerRefs,
   rewriteRoadLinkTargets,
+  serializeSignalPayload,
   type CarryLaneState,
   type CarryRegulatoryState,
+  type OdrDocJunction,
   type OdrDocRoad,
   type OdrDocument,
   type OdrRoadRecord,
+  type SignalBaseline,
 } from './odrCarryThrough.js'
 import type { OdrSidecar } from './odrToShapes.js'
 import { trafficSignCode } from './lanelet2.js'
@@ -82,8 +101,10 @@ interface BundleGeometry {
   length: number
   /**
    * Reference-line height samples (m) at the fitted stations of the reference
-   * boundary's own vertices. Empty when the drawn points carry no height, in
-   * which case the road emits `<elevationProfile/>` as before.
+   * boundary's own vertices, covering the whole road. Empty when the drawn
+   * points carry no height, or when what they carry does not describe the
+   * whole road (see `resolveElevationGaps`), in which case the road emits
+   * `<elevationProfile/>` as before.
    */
   elevationSamples: ElevationSample[]
 }
@@ -449,21 +470,27 @@ function buildBundleGeometry(
   // height rides along without resampling. Boundaries other than the
   // reference share the station's height (no superelevation support yet), so
   // taking the reference boundary alone is exact for imported roads.
-  const elevationSamples: ElevationSample[] = []
+  //
+  // A vertex can be missing z for reasons unrelated to elevation data (a
+  // point shared with another linestring, a boundary aligner weld, a
+  // hand-drawn extension of an imported road). `resolveElevationGaps`
+  // decides whether the remaining annotation still describes the road: a
+  // short hole is reconstructed by station-space interpolation, an
+  // unannotated end stub is held at the nearest known height, and anything
+  // longer rejects the profile rather than let the fitter run a cubic
+  // through stations it has no data for.
+  const gapSamples: GapSample[] = []
   for (let i = 0; i < ref.length && i < fit.samplePoses.length; i++) {
-    const z = boundaries[0][i]?.z
-    if (z === undefined) continue
-    elevationSamples.push({ s: fit.samplePoses[i].s, z })
+    gapSamples.push({ s: fit.samplePoses[i].s, z: boundaries[0][i]?.z })
   }
+  const elevationSamples = resolveElevationGaps(gapSamples, fit.length) ?? []
 
   return {
     planView: fit.geometries,
     samplePoses,
     laneWidths,
     length: fit.length,
-    // All-or-nothing: a partially annotated boundary would fabricate a datum
-    // of 0 for the un-annotated stretch and invent a cliff.
-    elevationSamples: elevationSamples.length === ref.length ? elevationSamples : [],
+    elevationSamples,
   }
 }
 
@@ -975,7 +1002,17 @@ interface ConnectivityPlan {
   laneSuccessor: Map<string, number>
   junctions: {
     id: number
-    connections: { incoming: number; connecting: number; laneLinks: { from: number; to: number }[] }[]
+    connections: {
+      incoming: number
+      connecting: number
+      laneLinks: { from: number; to: number }[]
+      /**
+       * End of the connecting road the incoming road meets. Synthesized
+       * connecting roads are always built from their start; only a carried
+       * connection whose source said "end" sets this.
+       */
+      contactPoint?: 'start' | 'end'
+    }[]
     /** <priority high low> records between connecting roads (right of way). */
     priorities: { high: number; low: number }[]
   }[]
@@ -1026,7 +1063,18 @@ function planConnectivity(
   connectingSourceFor: (laneShapeId: string) => ConnectingSource | null,
   connectingTargetFor: (laneShapeId: string) => ConnectingTarget | null,
   contactWidth: (laneShapeId: string, contact: 'start' | 'end') => number | null,
-  externalLanes: Map<string, LaneShape> = new Map()
+  externalLanes: Map<string, LaneShape> = new Map(),
+  /**
+   * Lane shape ids on the roads a carried <junction> wires up, mapped to that
+   * junction's id, with the lanes of its CONNECTING roads listed separately.
+   * An edge inside one such group that has a connecting road at one end is
+   * written down in the carried XML already; synthesizing a stub for it would
+   * emit the intersection twice.
+   */
+  carriedJunction: {
+    ofLane: Map<string, string>
+    onConnectingRoad: Set<string>
+  } = { ofLane: new Map(), onConnectingRoad: new Set() }
 ): ConnectivityPlan {
   const validNext = new Map<string, string[]>()
   const validPrev = new Map<string, string[]>()
@@ -1082,11 +1130,78 @@ function planConnectivity(
   const succRoads = new Map<number, Set<number>>()
   const predRoads = new Map<number, Set<number>>()
   const edgesByPair = new Map<string, LaneEdge[]>()
+  /**
+   * Road -> carried junction it contacts, from the edges skipped below. The
+   * edge is not rebuilt, but the road still has to say it runs into that
+   * junction, exactly as the source did.
+   */
+  const carriedJunctionLink: { roadId: number; junctionId: number; atStart: boolean }[] = []
+  /**
+   * Both ends of each regenerated connecting road of a carried junction.
+   * The <connection> table only records the incoming -> connecting edge, so
+   * skipping these lane edges wholesale left the connecting road itself with
+   * an empty <link>: the source said predecessor road 0 and successor road 1,
+   * and the export said nothing. These are applied after the synthesized
+   * junctions are planned, so a real edge always wins the slot.
+   */
+  const carriedConnectingLink: {
+    connectingRoad: number
+    connectingLane: string
+    otherRoad: number
+    otherLane: string
+  }[] = []
   for (const [laneId, nexts] of validNext) {
     const fromRoad = roadIdOf.get(laneId)!
     for (const to of nexts) {
       if (externalLanes.has(laneId) && externalLanes.has(to)) continue
       const toRoad = roadIdOf.get(to)!
+      // The contact is already written down in a carried <junction> and in
+      // the two roads' own <link> records; building it again here would emit
+      // a second intersection on top of the first.
+      const carriedFrom = carriedJunction.ofLane.get(laneId)
+      if (
+        carriedFrom !== undefined &&
+        carriedFrom === carriedJunction.ofLane.get(to) &&
+        (carriedJunction.onConnectingRoad.has(laneId) ||
+          carriedJunction.onConnectingRoad.has(to))
+      ) {
+        const junctionId = parseInt(carriedFrom, 10)
+        if (Number.isFinite(junctionId)) {
+          // The road that is NOT the connecting one links to the junction.
+          // A travel edge leaves a right-side lane at its road's end and a
+          // left-side lane at its road's start, so the slot follows the sign
+          // of the lane id, as everywhere else here.
+          if (!carriedJunction.onConnectingRoad.has(laneId)) {
+            carriedJunctionLink.push({
+              roadId: fromRoad,
+              junctionId,
+              atStart: (odrIdOf.get(laneId) ?? -1) > 0,
+            })
+          } else {
+            carriedConnectingLink.push({
+              connectingRoad: fromRoad,
+              connectingLane: laneId,
+              otherRoad: toRoad,
+              otherLane: to,
+            })
+          }
+          if (!carriedJunction.onConnectingRoad.has(to)) {
+            carriedJunctionLink.push({
+              roadId: toRoad,
+              junctionId,
+              atStart: (odrIdOf.get(to) ?? -1) < 0,
+            })
+          } else {
+            carriedConnectingLink.push({
+              connectingRoad: toRoad,
+              connectingLane: to,
+              otherRoad: fromRoad,
+              otherLane: laneId,
+            })
+          }
+        }
+        continue
+      }
       succRoads.set(fromRoad, (succRoads.get(fromRoad) ?? new Set()).add(toRoad))
       predRoads.set(toRoad, (predRoads.get(toRoad) ?? new Set()).add(fromRoad))
       const key = `${fromRoad}->${toRoad}`
@@ -1251,6 +1366,44 @@ function planConnectivity(
         if (expressed) plan.handledYieldPairs.add(`${lane.id}|${yieldShapeId}`)
       }
     }
+  }
+
+  // A road contacting a carried junction says so in its own <link>, the way
+  // the source did. The edge itself was left to the carried XML, so nothing
+  // above claimed this slot — and if something did, that link is a real one
+  // and wins.
+  for (const { roadId, junctionId, atStart } of carriedJunctionLink) {
+    const slot = atStart ? plan.roadPredecessor : plan.roadSuccessor
+    if (!slot.has(roadId)) slot.set(roadId, { kind: 'junction', id: junctionId })
+  }
+
+  // A regenerated connecting road of a carried junction links to the roads
+  // at both of its ends, the way the source did. The <connection> table only
+  // records the incoming edge, so without this the road came out inside the
+  // junction with an empty <link> and nothing to traverse. As above, a slot
+  // a real edge already claimed is left alone.
+  for (const { connectingRoad, connectingLane, otherRoad, otherLane } of carriedConnectingLink) {
+    // A travel edge leaves a right-side lane at its road's end and a
+    // left-side lane at its road's start, so both the slot and the contact
+    // point on the other road follow the lane-id signs — same rule as the
+    // ordinary road-to-road case above.
+    const ownId = odrIdOf.get(connectingLane) ?? -1
+    const otherId = odrIdOf.get(otherLane) ?? -1
+    const ownLeft = ownId > 0
+    const otherLeft = otherId > 0
+    // `connectingLane -> otherLane` is a travel edge when the connecting
+    // lane lists it as a next; the reverse pair is pushed separately.
+    const outgoing = (validNext.get(connectingLane) ?? []).includes(otherLane)
+    const slot = outgoing === ownLeft ? plan.roadPredecessor : plan.roadSuccessor
+    if (!slot.has(connectingRoad)) {
+      slot.set(connectingRoad, {
+        kind: 'road',
+        id: otherRoad,
+        contactPoint: outgoing === otherLeft ? 'end' : 'start',
+      })
+    }
+    const laneSlot = outgoing === ownLeft ? plan.lanePredecessor : plan.laneSuccessor
+    if (!laneSlot.has(connectingLane)) laneSlot.set(connectingLane, otherId)
   }
   return plan
 }
@@ -1556,6 +1709,71 @@ interface ObjectEntry {
   userData?: { code: string; value: string }[]
 }
 
+/**
+ * Build the `<signal>` record for one traffic light / sign shape at a station
+ * already projected onto its road. Shared by the full-regeneration exporter and
+ * the surgical `<signal>` rewrite, so a signal added to an otherwise verbatim
+ * road is emitted with exactly the same attribute set as a regenerated one.
+ */
+function buildSignalEntry(
+  kind: 'traffic_light' | 'traffic_sign',
+  shape: TrafficLightShape | TrafficSignShape,
+  id: number,
+  s: number,
+  t: number
+): SignalEntry {
+  const heightM = pxToMeter(shape.props.h)
+  const widthM = pxToMeter(shape.props.w)
+  const orientation: '+' | '-' = t >= 0 ? '+' : '-'
+  if (kind === 'traffic_light') {
+    const style = (shape.props as TrafficLightProps).style ?? ''
+    const isPed = style.startsWith('pedestrian') || style.includes('ped')
+    // Conventional signal type codes: 1000001 = vehicle, 1000002 = pedestrian.
+    return {
+      id,
+      s,
+      t,
+      zOffset: isPed ? 1.5 : 4.5,
+      height: heightM,
+      width: widthM,
+      name: style,
+      type: isPed ? '1000002' : '1000001',
+      subtype: '-1',
+      dynamic: 'yes',
+      orientation,
+    }
+  }
+  // Static traffic sign: reuse the exact OpenDRIVE type / subtype / country
+  // recorded at import time; fresh signs fall back to type "-1" with the sign
+  // code as the name. Full attribute round-trip rides on
+  // <userData code="signAttributes">.
+  const attrs = (shape.props.attributes ?? {}) as Record<string, string | undefined>
+  const entry: SignalEntry = {
+    id,
+    s,
+    t,
+    zOffset: 2,
+    height: heightM,
+    width: widthM,
+    name: trafficSignCode(attrs),
+    type: attrs.odr_signal_type || '-1',
+    subtype: attrs.odr_signal_subtype || '-1',
+    country: attrs.odr_country || undefined,
+    dynamic: 'no',
+    orientation,
+  }
+  const stash: Record<string, string> = {}
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'type' || k === 'refers_osm_id' || k.startsWith('odr_')) continue
+    if (v === undefined || v === null || v === '') continue
+    stash[k] = String(v)
+  }
+  if (Object.keys(stash).length > 0) {
+    entry.userData = [{ code: 'signAttributes', value: JSON.stringify(stash) }]
+  }
+  return entry
+}
+
 function attachShapesToRoads(
   shapeMap: Map<string, BaseShape>,
   trafficLights: TrafficLightShape[],
@@ -1634,58 +1852,9 @@ function attachShapesToRoads(
       if (best && best.proj.distance > maxAttachDistanceMeter) best = null
     }
     if (!best) continue
-    const heightM = pxToMeter(tl.props.h)
-    const widthM = pxToMeter(tl.props.w)
+
     const list = roadSignals.get(best.roadId) ?? []
-    let entry: SignalEntry
-    if (kind === 'traffic_light') {
-      const style = (tl.props as TrafficLightProps).style ?? ''
-      const isPed = style.startsWith('pedestrian') || style.includes('ped')
-      // Conventional signal type codes: 1000001 = vehicle, 1000002 = pedestrian.
-      const sigType = isPed ? '1000002' : '1000001'
-      entry = {
-        id: signalIdCounter++,
-        s: best.proj.s,
-        t: best.proj.t,
-        zOffset: isPed ? 1.5 : 4.5,
-        height: heightM,
-        width: widthM,
-        name: style,
-        type: sigType,
-        subtype: '-1',
-        dynamic: 'yes',
-        orientation: best.proj.t >= 0 ? '+' : '-',
-      }
-    } else {
-      // Static traffic sign: reuse the exact OpenDRIVE type / subtype /
-      // country recorded at import time; fresh signs fall back to type "-1"
-      // with the sign code as the name. Full attribute round-trip rides on
-      // <userData code="signAttributes">.
-      const attrs = (tl.props.attributes ?? {}) as Record<string, string | undefined>
-      entry = {
-        id: signalIdCounter++,
-        s: best.proj.s,
-        t: best.proj.t,
-        zOffset: 2,
-        height: heightM,
-        width: widthM,
-        name: trafficSignCode(attrs),
-        type: attrs.odr_signal_type || '-1',
-        subtype: attrs.odr_signal_subtype || '-1',
-        country: attrs.odr_country || undefined,
-        dynamic: 'no',
-        orientation: best.proj.t >= 0 ? '+' : '-',
-      }
-      const stash: Record<string, string> = {}
-      for (const [k, v] of Object.entries(attrs)) {
-        if (k === 'type' || k === 'refers_osm_id' || k.startsWith('odr_')) continue
-        if (v === undefined || v === null || v === '') continue
-        stash[k] = String(v)
-      }
-      if (Object.keys(stash).length > 0) {
-        entry.userData = [{ code: 'signAttributes', value: JSON.stringify(stash) }]
-      }
-    }
+    const entry = buildSignalEntry(kind, tl, signalIdCounter++, best.proj.s, best.proj.t)
     if (affectedByRoad.size > 0) {
       entry.validity = laneIdRanges(affectedByRoad.get(best.roadId)!)
     }
@@ -1911,31 +2080,33 @@ function attachShapesToRoads(
   return { roadSignals, roadObjects, roadSignalRefs, signalIdByShape }
 }
 
+/** One `<signal>` element, indented from `indent` (children one step deeper). */
+function emitSignalElement(s: SignalEntry, indent: string): string {
+  const attrs = `id="${s.id}" s="${fmt(s.s)}" t="${fmt(s.t)}" zOffset="${fmt(s.zOffset)}" name="${escapeXml(s.name)}" dynamic="${s.dynamic}" orientation="${s.orientation}" type="${s.type}" subtype="${s.subtype}" country="${escapeXml(s.country ?? 'OpenDRIVE')}" value="0" height="${fmt(s.height)}" width="${fmt(s.width)}"`
+  if (!(s.validity?.length || s.stopLinePoints || s.userData?.length)) {
+    return `${indent}<signal ${attrs}/>`
+  }
+  const inner = `${indent}  `
+  const lines: string[] = [`${indent}<signal ${attrs}>`]
+  for (const v of s.validity ?? []) {
+    lines.push(`${inner}<validity fromLane="${v.fromLane}" toLane="${v.toLane}"/>`)
+  }
+  if (s.stopLinePoints) {
+    const json = JSON.stringify(s.stopLinePoints.map(p => [roundMm(p.x), roundMm(p.y)]))
+    lines.push(`${inner}<userData code="stopLine" value="${escapeXml(json)}"/>`)
+  }
+  for (const ud of s.userData ?? []) {
+    lines.push(`${inner}<userData code="${escapeXml(ud.code)}" value="${escapeXml(ud.value)}"/>`)
+  }
+  lines.push(`${indent}</signal>`)
+  return lines.join('\n')
+}
+
 function emitSignals(signals: SignalEntry[], references: SignalReferenceEntry[]): string {
   if (!signals.length && !references.length) return `    <signals/>`
   const lines: string[] = []
   lines.push(`    <signals>`)
-  for (const s of signals) {
-    const attrs = `id="${s.id}" s="${fmt(s.s)}" t="${fmt(s.t)}" zOffset="${fmt(s.zOffset)}" name="${escapeXml(s.name)}" dynamic="${s.dynamic}" orientation="${s.orientation}" type="${s.type}" subtype="${s.subtype}" country="${escapeXml(s.country ?? 'OpenDRIVE')}" value="0" height="${fmt(s.height)}" width="${fmt(s.width)}"`
-    if (s.validity?.length || s.stopLinePoints || s.userData?.length) {
-      lines.push(`      <signal ${attrs}>`)
-      for (const v of s.validity ?? []) {
-        lines.push(`        <validity fromLane="${v.fromLane}" toLane="${v.toLane}"/>`)
-      }
-      if (s.stopLinePoints) {
-        const json = JSON.stringify(
-          s.stopLinePoints.map((p) => [roundMm(p.x), roundMm(p.y)])
-        )
-        lines.push(`        <userData code="stopLine" value="${escapeXml(json)}"/>`)
-      }
-      for (const ud of s.userData ?? []) {
-        lines.push(`        <userData code="${escapeXml(ud.code)}" value="${escapeXml(ud.value)}"/>`)
-      }
-      lines.push(`      </signal>`)
-    } else {
-      lines.push(`      <signal ${attrs}/>`)
-    }
-  }
+  for (const s of signals) lines.push(emitSignalElement(s, '      '))
   for (const ref of references) {
     lines.push(
       `      <signalReference s="${fmt(ref.s)}" t="${fmt(ref.t)}" id="${ref.id}" orientation="${ref.orientation}">`
@@ -2103,7 +2274,13 @@ function emitRoad(
   objects: ObjectEntry[],
   shapeMap: Map<string, BaseShape>,
   laneIdToRoadId: Map<string, number>,
-  laneIdToOdrLaneId: Map<string, number>
+  laneIdToOdrLaneId: Map<string, number>,
+  /**
+   * Junction this road belongs to, when it is one whose <junction> element
+   * survived the edit verbatim. The carried <connection> table names the road
+   * by id, so it has to come back stamped with that junction.
+   */
+  junctionId?: string
 ): string {
   const first = bundle.lanes[0]
   const speed = bundle.lanes.find(l => l.props.attributes?.speed_limit)?.props.attributes?.speed_limit
@@ -2113,17 +2290,14 @@ function emitRoad(
     first.props.attributes?.odr_road_name || first.props.attributes?.subtype || 'road'
   )
   const lines: string[] = []
-  // Mainline (bundle) roads never belong to a junction; junction membership
-  // is carried by the synthesized connecting roads (emitConnectingRoad).
-  // Known limitation: a regenerated road that originally sat inside a
-  // junction (odr_junction_id on its lanes) is demoted to a mainline road.
-  // Stamping the original junction id here alone would dangle — the original
-  // <junction> element is regenerated as synthesized stubs whenever one of
-  // its member roads goes dirty — so restoring the attribute requires
-  // rebuilding the original junction's <connection> records around this
-  // road instead of synthesizing stubs.
+  // A regenerated road belongs to a junction only when the original
+  // <junction> element survived this export: the carried <connection> table
+  // still names this road by id, so the attribute points at something real.
+  // When the junction had to be rebuilt instead, membership is carried by the
+  // synthesized connecting roads (emitConnectingRoad) and this road is
+  // emitted as a mainline.
   lines.push(
-    `  <road name="${name}" length="${fmt(emittedRoadLength(bundle.geom))}" id="${roadId}" junction="-1">`
+    `  <road name="${name}" length="${fmt(emittedRoadLength(bundle.geom))}" id="${roadId}" junction="${junctionId ?? '-1'}">`
   )
   lines.push(emitLink(roadId, plan))
   if (speed) {
@@ -2170,6 +2344,56 @@ export interface OpenDriveExportOptions {
   sidecar?: OdrSidecar | null
 }
 
+/**
+ * One end of a carried road's <link>, with the lanes of the neighbour that
+ * its lanes name across that end.
+ *
+ * Used to re-point a reference into a road that split: the road gives its id
+ * to one side, and a member reaching the other side is emitted pointing at
+ * the road that took those lanes instead.
+ */
+interface MemberEnd {
+  /** The member road making the reference. */
+  from: string
+  /** Which of the member's own <link> slots holds it. */
+  end: 'predecessor' | 'successor'
+  /** The road id the source named. */
+  to: string
+  /** Which end of `to` the reference meets, from its contactPoint. */
+  toAt: 'start' | 'end'
+  /** Lane ids of `to` that the member's lanes name across this end. */
+  laneIds: Set<number>
+}
+
+/**
+ * The lane shape recorded for road `rid` whose ODR lane id is `laneId`, at
+ * the `atEnd` end of the road.
+ *
+ * A multi-<laneSection> road becomes one lane shape per section, all sharing
+ * the same lane id, so the end decides which one a reference means.
+ */
+function laneShapeWithOdrIdOnRoad(
+  carry: CarryPlan,
+  shapeMap: Map<string, BaseShape>,
+  rid: string,
+  laneId: number,
+  atEnd: 'start' | 'end' = 'start'
+): string | undefined {
+  let best: { id: string; s: number } | undefined
+  for (const lid of carry.records[rid]?.laneShapeIds ?? []) {
+    const shape = shapeMap.get(lid)
+    if (!shape || shape.type !== 'lane') continue
+    const attrs = (shape as unknown as LaneShape).props.attributes
+    if (parseInt(attrs?.odr_lane_id ?? '', 10) !== laneId) continue
+    const s = parseFloat(attrs?.odr_section_s ?? '0')
+    const sectionS = Number.isFinite(s) ? s : 0
+    if (!best || (atEnd === 'start' ? sectionS < best.s : sectionS > best.s)) {
+      best = { id: lid, s: sectionS }
+    }
+  }
+  return best?.id
+}
+
 /** Carry-through plan: which original elements stay verbatim. */
 interface CarryPlan {
   doc: OdrDocument
@@ -2193,13 +2417,59 @@ interface CarryPlan {
   surgicalRoadText: Map<string, string>
   /** Original junction ids that must be regenerated (members changed). */
   dirtyJunctionIds: Set<string>
+  /**
+   * Junctions whose <connection> table still resolves, so the element is
+   * re-emitted as written and its members may regenerate independently.
+   * A junction outside this set keeps the old all-or-nothing rule.
+   */
+  carriedJunctionIds: Set<string>
   verbatimJunctionTexts: string[]
+  /**
+   * Original junction id per REGENERATED road that belonged to one, for roads
+   * whose junction is carried verbatim. The road keeps the id the carried
+   * <connection> table names it by, so it is re-emitted with its junction
+   * attribute instead of being demoted to a mainline.
+   */
+  junctionOfRegeneratedRoad: Map<string, string>
+  /**
+   * Original road id -> the carried junction that already wires it up: its
+   * connecting roads plus every road they link to. Connectivity planning
+   * drops the lane edges inside such a group so it does not synthesize a
+   * second intersection on top of the carried one.
+   */
+  carriedJunctionOfRoad: Map<string, string>
+  /** Of those, the ones that are the junction's CONNECTING roads. */
+  carriedJunctionConnectingRoadIds: Set<string>
+  /**
+   * Per original road id, the lane shapes whose ODR lane id a carried
+   * <connection> names. A road that splits into two bundles must give its id
+   * to the bundle holding these, or the carried table stops resolving.
+   */
+  junctionLaneShapeIds: Map<string, Set<string>>
+  /**
+   * References from a carried junction's members into the half of a split
+   * road that lost the road id. The member's own text is re-pointed at the
+   * road that took those lanes when it is emitted.
+   */
+  splitRetargets: MemberEnd[]
+  /**
+   * Signal ids the carried (verbatim / surgical) text still defines. What a
+   * reference in that text has to be measured against, once the regeneration
+   * path's ids are known too.
+   */
+  carriedSignalIds: Set<string>
   /** Surviving controllers, keyed by original id so regenerated signals of the same group can merge in. */
   verbatimControllers: { id: string; text: string }[]
   /** First id for regenerated roads / junctions (above every original id). */
   idBase: number
   signalIdBase: number
   controllerIdBase: number
+  /**
+   * Emitted `<signal id>` per shape id for signals kept or added by the
+   * surgical `<signal>` rewrite. Their roads are verbatim, so the regeneration
+   * path never sees these shapes — `<controller>` grouping reads them here.
+   */
+  surgicalSignalIdByShape: Map<string, string>
 }
 
 /**
@@ -2221,15 +2491,27 @@ interface CarryPlan {
  *   dirty road dirties every road it touches, so its signal + references are
  *   either all verbatim or all regenerated.
  *
- * Roads referencing unrecorded elements (e.g. a selective import) are never
- * carried verbatim, so verbatim output cannot dangle into missing roads.
+ * Roads referencing an unrecorded ROAD (e.g. a selective import) are never
+ * carried verbatim, so verbatim output cannot dangle into missing roads. A
+ * road referencing a JUNCTION id that has no matching <junction> element is
+ * different: that reference was already dangling in the source document, so
+ * carrying the road verbatim (dangling ref intact) creates no new loss.
  */
 function planCarryThrough(
   sidecar: OdrSidecar | null | undefined,
   shapeMap: Map<string, BaseShape>,
   trafficLights: TrafficLightShape[],
   trafficSigns: TrafficSignShape[],
-  crosswalks: CrosswalkShape[]
+  crosswalks: CrosswalkShape[],
+  /**
+   * Junction ids a previous planning round found unusable once the bundles
+   * were actually built (see the re-plan loop in exportToOpenDrive). Seeding
+   * them as rebuildable here lets the SAME fixpoint that classifies every
+   * other junction take them into account, so the plan it settles on is
+   * internally consistent — the alternative, patching a settled plan from the
+   * emit side, left roads stamped with a junction the output no longer had.
+   */
+  forcedRebuildableJunctionIds: ReadonlySet<string> = new Set()
 ): CarryPlan | null {
   const records = sidecar?.roadRecords
   if (!sidecar || !records || Object.keys(records).length === 0) return null
@@ -2254,6 +2536,29 @@ function planCarryThrough(
     for (const lid of rec.laneShapeIds) laneRoadOf.set(lid, rid)
   }
 
+  /**
+   * ODR lane ids of the affected lanes that live on `roadId`, for the
+   * `<validity>` of a signal added to an otherwise verbatim road. Returns an
+   * empty list when none do (the signal then applies to the whole road).
+   */
+  const affectedOdrLaneIdsOnRoad = (
+    affectedLaneIds: readonly string[] | undefined,
+    roadId: string
+  ): number[] => {
+    const out: number[] = []
+    for (const lid of affectedLaneIds ?? []) {
+      if (laneRoadOf.get(lid) !== roadId) continue
+      const lane = shapeMap.get(lid)
+      if (!lane || lane.type !== 'lane') continue
+      const odrLaneId = parseInt(
+        (lane as unknown as LaneShape).props.attributes?.odr_lane_id ?? '',
+        10
+      )
+      if (Number.isFinite(odrLaneId) && !out.includes(odrLaneId)) out.push(odrLaneId)
+    }
+    return out
+  }
+
   const stopLinePts = (lsId: string | null | undefined): Point2D[] | null => {
     if (!lsId) return null
     const ls = shapeMap.get(lsId) as unknown as LinestringShape | undefined
@@ -2266,6 +2571,33 @@ function planCarryThrough(
   // (mirrors the importer's record builder).
   const regStatesByRoad = new Map<string, CarryRegulatoryState[]>()
   const regShapes: { shapeId: string; touching: Set<string> }[] = []
+  /**
+   * Live `<signal>` shapes per road that will hold their definition, for the
+   * surgical `<signal>` rewrite.
+   *
+   * An imported signal belongs to the road it came from (`odr_road_id`). A
+   * signal the user drew has no such attribute, so its road is derived from
+   * the lanes it applies to: when every affected lane lives on one recorded
+   * road, that road defines it. (Roads that merely *reference* a signal keep a
+   * `<signalReference>` and never hold the definition, so they are not
+   * listed.) A shape whose road cannot be settled this way is left out, and
+   * the shape-accounting below keeps it out of `consumedShapeIds` so the
+   * regeneration path still emits it.
+   */
+  const signalShapesByRoad = new Map<string, SurgicalSignalShape[]>()
+  /** Road each signal shape is to be defined on, when one could be settled. */
+  const signalDefiningRoad = new Map<string, string>()
+  /**
+   * Signal shapes the user drew whose defining road could not be settled,
+   * because the lanes they apply to live on more than one recorded road.
+   *
+   * Nothing in the carried text defines such a signal, and the surgical
+   * rewrite cannot place it either (it rewrites one road's element and would
+   * have to pick one). Only the regeneration path can emit it, and that path
+   * only sees shapes the carry did not consume — so these must not be
+   * consumed, and the roads they could belong to have to regenerate.
+   */
+  const unplaceableSignalShapeIds = new Set<string>()
   const addRegState = (
     state: CarryRegulatoryState,
     affected: readonly string[],
@@ -2273,9 +2605,13 @@ function planCarryThrough(
   ): void => {
     const touching = new Set<string>()
     if (own && records[own]) touching.add(own)
+    const affectedRoads = new Set<string>()
     for (const lid of affected) {
       const rid = laneRoadOf.get(lid)
-      if (rid) touching.add(rid)
+      if (rid) {
+        touching.add(rid)
+        affectedRoads.add(rid)
+      }
     }
     for (const rid of touching) {
       const list = regStatesByRoad.get(rid) ?? []
@@ -2283,8 +2619,35 @@ function planCarryThrough(
       regStatesByRoad.set(rid, list)
     }
     regShapes.push({ shapeId: state.shapeId, touching })
+    if (!isSignalKind(state.kind)) return
+    const definingRoad =
+      own && records[own]
+        ? own
+        : // New shape: only an unambiguous single affected road can hold it.
+          !own && affectedRoads.size === 1
+          ? [...affectedRoads][0]
+          : undefined
+    if (definingRoad === undefined) {
+      if (!own) unplaceableSignalShapeIds.add(state.shapeId)
+      return
+    }
+    signalDefiningRoad.set(state.shapeId, definingRoad)
+    const list = signalShapesByRoad.get(definingRoad) ?? []
+    list.push({
+      shapeId: state.shapeId,
+      odrSignalId: state.attributes['odr_signal_id'] ?? '',
+      canvasX: state.numbers[0],
+      canvasY: state.numbers[1],
+      x: pxToEnuX(state.numbers[0]),
+      y: pxToEnuY(state.numbers[1]),
+      payload: serializeSignalPayload(state),
+    })
+    signalShapesByRoad.set(definingRoad, list)
   }
+  /** The live shape behind a signal-kind regulatory state, for re-emission. */
+  const signalShapeById = new Map<string, { kind: 'traffic_light' | 'traffic_sign'; shape: TrafficLightShape | TrafficSignShape }>()
   for (const tl of trafficLights) {
+    signalShapeById.set(tl.id, { kind: 'traffic_light', shape: tl })
     addRegState(
       {
         kind: 'traffic_light',
@@ -2300,6 +2663,7 @@ function planCarryThrough(
     )
   }
   for (const ts of trafficSigns) {
+    signalShapeById.set(ts.id, { kind: 'traffic_sign', shape: ts })
     addRegState(
       {
         kind: 'traffic_sign',
@@ -2376,43 +2740,137 @@ function planCarryThrough(
   }
 
   // Seed dirtiness: hash mismatch, missing shapes, or references that leave
-  // the recorded set. An edited road whose edit is purely lateral is rewritten
-  // surgically (only its lane widths change) and stays clean.
+  // the recorded set. An edited road whose edit is purely lateral (and / or
+  // confined to its signals) is rewritten surgically and stays clean.
   const dirty = new Set<string>()
   const surgicalRoadText = new Map<string, string>()
+  /** Shapes whose signal survived surgically, so the regen path must skip them. */
+  const surgicalSignalShapeIds = new Set<string>()
+  /**
+   * Emitted `<signal id>` per shape id for surgically rewritten signals.
+   *
+   * Kept as the string the output really carries. A source id need not be a
+   * decimal number — `light500` and `0500` are both legal — and rounding it
+   * through `number` does not come back: the comparison against the source
+   * ids then misses, and the group emits a `<control signalId="NaN">` or one
+   * naming a signal that does not exist.
+   */
+  const surgicalSignalIdByShape = new Map<string, string>()
+  // Fresh ids for signals added to an otherwise verbatim road are taken from
+  // the same space the regeneration path uses, so the two cannot collide.
+  let nextSurgicalSignalId = Math.max(doc.maxNumericSignalId, 0) + 1
+  /**
+   * Move / drop / add the `<signal>` elements of `roadText` to match the live
+   * shapes, and record the ids they came out under. Null when the rewrite
+   * cannot express the change (a signal pushed off the road, one that grew a
+   * stop line), which the caller answers according to what it can fall back
+   * to.
+   */
+  const rewriteRoadSignalsSurgically = (
+    rid: string,
+    parsed: OdrRoad,
+    roadText: string,
+    baselines: Readonly<Record<string, SignalBaseline>>
+  ): string | null => {
+    const result = rewriteSignals(
+      roadText,
+      parsed,
+      signalShapesByRoad.get(rid) ?? [],
+      baselines,
+      nextSurgicalSignalId,
+      (shapeId, id, s, t, indent) => {
+        const live = signalShapeById.get(shapeId)
+        if (!live) return null
+        const entry = buildSignalEntry(live.kind, live.shape, parseInt(id, 10), s, t)
+        const affected = affectedOdrLaneIdsOnRoad(live.shape.props.affectedLaneIds, rid)
+        if (affected.length > 0) entry.validity = laneIdRanges(affected)
+        // A stop line is emitted as a separate <object>, which this rewrite
+        // does not touch; a signal that carries one must go through full
+        // regeneration instead.
+        if (live.shape.props.stopLineId) return null
+        return emitSignalElement(entry, indent)
+      }
+    )
+    if (result === null) return null
+    nextSurgicalSignalId += result.allocatedIds
+    for (const [shapeId, id] of result.signalIdByShape) {
+      surgicalSignalShapeIds.add(shapeId)
+      surgicalSignalIdByShape.set(shapeId, id)
+    }
+    return result.text
+  }
   for (const [rid, rec] of Object.entries(records)) {
     const docRoad = docRoadById.get(rid)
     if (!docRoad) {
       dirty.add(rid)
       continue
     }
-    if (
-      docRoad.linkRoadRefs.some(ref => !records[ref]) ||
-      docRoad.linkJunctionRefs.some(ref => !docJunctionById.has(ref))
-    ) {
+    if (docRoad.linkRoadRefs.some(ref => !records[ref])) {
       dirty.add(rid)
       continue
     }
+    // A junction link naming an id with no matching <junction> element is
+    // already dangling in the source document (bad authoring, or a
+    // deliberately partial import) — it cannot regenerate into something
+    // valid, so it stays exactly as dangling in the output. Forcing the road
+    // (and by propagation its real junction, if it shares members with one)
+    // to regenerate over a reference that was never resolvable only adds
+    // blast radius without fixing anything.
     const laneStates = exportLaneStates(rec)
     const regStates = regStatesByRoad.get(rid) ?? []
     if (!laneStates || hashRoadState(laneStates, regStates) !== rec.stateHash) {
-      // The road changed. When only its boundary geometry moved (the road's
-      // non-geometric state — lane attributes / connectivity / right-of-way /
-      // regulatory shapes — still matches) AND the geometry moved only
-      // laterally, keep its plan view / laneOffset / elevation / signals /
-      // objects / links verbatim and rewrite only the lane <width> records.
-      // Any other change (moved traffic light, edited attributes, longitudinal
-      // drag, lane add/remove) fails the check and the road regenerates fully.
+      // The road changed. Two edits are expressible as a byte-local rewrite of
+      // the original <road> element, and they compose:
+      //
+      //  - boundary points moved only laterally  -> rewrite the lane <width>s
+      //  - a signal moved / added / deleted      -> rewrite the <signal>s
+      //
+      // Both require the lane semantics (attributes, connectivity,
+      // right-of-way) to be untouched, and the signal rewrite additionally
+      // requires the non-<signal> regulatory shapes (crosswalks, emitted as
+      // <object>s) to be untouched. Anything else — edited attributes, a
+      // longitudinal drag, a lane added or removed, a crosswalk moved — fails
+      // the check and the road regenerates fully.
+      const laneSemanticsUnchanged =
+        laneStates != null &&
+        rec.laneSemanticHash !== undefined &&
+        hashRoadLaneSemantics(laneStates) === rec.laneSemanticHash
+      // Legacy records (no laneSemanticHash) keep the original precondition.
       const semanticUnchanged =
         laneStates != null &&
         rec.semanticHash !== undefined &&
         hashRoadSemantics(laneStates, regStates) === rec.semanticHash
-      const parsed = semanticUnchanged ? parsedRoadById.get(rid) : undefined
-      const laneShapes = parsed ? laneShapesByKey(rec) : null
-      const surgical =
-        parsed && laneShapes
-          ? buildSurgicalRoad(parsed, docRoad.text, laneShapes, shapeMap)
-          : null
+      const signalsMayHaveMoved =
+        laneSemanticsUnchanged &&
+        !semanticUnchanged &&
+        rec.nonSignalRegulatoryHash !== undefined &&
+        hashRoadNonSignalRegulatory(regStates) === rec.nonSignalRegulatoryHash
+
+      // Lane geometry that did not move needs no width rewrite at all: the
+      // <lanes> subtree stays byte-verbatim (rewriting it would reformat every
+      // <width> record for nothing).
+      const laneGeometryUnchanged =
+        laneStates != null && hashRoadState(laneStates, []) === rec.laneGeometryHash
+
+      const parsed =
+        semanticUnchanged || signalsMayHaveMoved ? parsedRoadById.get(rid) : undefined
+      const laneShapes = parsed && !laneGeometryUnchanged ? laneShapesByKey(rec) : null
+      let surgical: string | null = null
+      if (parsed && laneGeometryUnchanged) surgical = docRoad.text
+      else if (parsed && laneShapes) {
+        surgical = buildSurgicalRoad(parsed, docRoad.text, laneShapes, shapeMap)
+      }
+
+      if (surgical !== null && signalsMayHaveMoved) {
+        // The widths (if any changed) are in; now move / drop / add the
+        // <signal> elements on top of the same text.
+        surgical = rewriteRoadSignalsSurgically(
+          rid,
+          parsed!,
+          surgical,
+          rec.signalBaselines ?? {}
+        )
+      }
       if (surgical !== null) surgicalRoadText.set(rid, surgical)
       else dirty.add(rid)
     }
@@ -2439,29 +2897,381 @@ function planCarryThrough(
     for (const jref of r.linkJunctionRefs) members.get(jref)?.add(r.id)
   }
 
-  // Propagate to a fixpoint. A dirty junction drags only its connecting
-  // (junction-stamped) roads into regeneration — clean incoming / outgoing
-  // roads keep their verbatim text (with the junction link id rewritten) —
-  // so a single edited road regenerates its own junctions, not the whole
-  // junction graph. Regulatory shapes are atomic across the roads they touch.
+  /**
+   * The lane shape on `rid` that a <connection> means by ODR lane id `laneId`,
+   * or null when the emitted road will not have that lane id.
+   *
+   * A <connection> names lanes by number, and the exporter does not keep the
+   * source's numbers: it renumbers a regenerated bundle from +/-1 outward. So
+   * for a road that regenerates, the number a carried table uses is only
+   * still right if the lane at that position comes back at that position.
+   * Lanes the importer dropped (a type it does not model) shift every lane
+   * outside them, which is exactly the case that used to slip through.
+   *
+   * For a road staying verbatim the emitted numbers are the source's by
+   * construction, so the source number is the answer.
+   */
+  const laneNamedBy = (rid: string, laneId: number, atEnd?: 'start' | 'end'): string | null => {
+    const rec = records[rid]
+    if (!rec) return null
+    const live: { shapeId: string; odrLaneId: number; sectionS: number }[] = []
+    for (const lid of rec.laneShapeIds) {
+      const shape = shapeMap.get(lid)
+      if (!shape || shape.type !== 'lane') return null
+      const attrs = (shape as unknown as LaneShape).props.attributes
+      const odrLaneId = parseInt(attrs?.odr_lane_id ?? '', 10)
+      if (!Number.isFinite(odrLaneId)) return null
+      // A multi-<laneSection> road becomes one lane shape per section, so a
+      // reference to "lane 1 of road 27" means lane 1 of the section at the
+      // end the reference reaches, not the first one that matches.
+      const sectionS = parseFloat(attrs?.odr_section_s ?? '0')
+      live.push({ shapeId: lid, odrLaneId, sectionS: Number.isFinite(sectionS) ? sectionS : 0 })
+    }
+    const candidates = live.filter(l => l.odrLaneId === laneId)
+    if (candidates.length === 0) return null
+    const match =
+      candidates.length === 1
+        ? candidates[0]
+        : atEnd === undefined
+          ? null
+          : [...candidates].sort((a, b) =>
+              atEnd === 'start' ? a.sectionS - b.sectionS : b.sectionS - a.sectionS
+            )[0]
+    // Ambiguous: several sections offer this lane id and the caller did not
+    // say which end it means. Refusing to guess keeps the carry conservative.
+    if (!match) return null
+    if (dirty.has(rid)) {
+      // Regeneration renumbers each side from 1 outward, in the source's
+      // order. The carried number survives only when the lane's rank on its
+      // side within its own section still equals |laneId|.
+      const sameSide = live
+        .filter(l => Math.sign(l.odrLaneId) === Math.sign(laneId) && l.sectionS === match.sectionS)
+        .sort((a, b) => Math.abs(a.odrLaneId) - Math.abs(b.odrLaneId))
+      const rank = sameSide.findIndex(l => l.shapeId === match.shapeId) + 1
+      if (rank !== Math.abs(laneId)) return null
+    }
+    return match.shapeId
+  }
+
+  /** Does `laneId` still list `otherId` among its next / prev? */
+  const stillConnected = (laneId: string, otherId: string): boolean => {
+    const shape = shapeMap.get(laneId)
+    if (!shape || shape.type !== 'lane') return false
+    const props = (shape as unknown as LaneShape).props
+    return (props.next ?? []).includes(otherId) || (props.prev ?? []).includes(otherId)
+  }
+
+  /** ODR lane ids of the live lane shapes recorded for `rid`. */
+  const liveOdrLaneIds = (rid: string): Set<number> | null => {
+    const rec = records[rid]
+    if (!rec) return null
+    const ids = new Set<number>()
+    for (const lid of rec.laneShapeIds) {
+      const shape = shapeMap.get(lid)
+      if (!shape || shape.type !== 'lane') return null
+      const odrLaneId = parseInt(
+        (shape as unknown as LaneShape).props.attributes?.odr_lane_id ?? '',
+        10
+      )
+      if (!Number.isFinite(odrLaneId)) return null
+      ids.add(odrLaneId)
+    }
+    return ids
+  }
+
+  /**
+   * Which side of `rid` a regenerating road keeps its id on, or 0 when it
+   * does not split.
+   *
+   * A regenerated road is one bundle per side: lanes with a positive ODR id
+   * run against s and are emitted as a separate <road> from the negative
+   * ones, and only one of the two can inherit the source's id. The side the
+   * junction's <connection> table names gets first claim (see the id
+   * assignment in the exporter), so `claimed` decides it; with no claim the
+   * road is not one this junction relies on and either side will do.
+   */
+  const splitSideKeepingRoadId = (rid: string, claimed: number): number => {
+    if (!dirty.has(rid)) return 0
+    const ids = liveOdrLaneIds(rid)
+    if (!ids) return 0
+    let positive = false
+    let negative = false
+    for (const id of ids) {
+      if (id > 0) positive = true
+      else if (id < 0) negative = true
+    }
+    if (!positive || !negative) return 0
+    return claimed !== 0 ? claimed : 1
+  }
+
+  /**
+   * Does a reference to lane `laneId` of `rid` still resolve on the road
+   * that keeps `rid`'s id?
+   *
+   * For a road staying verbatim the answer is always yes: its element text
+   * is re-emitted byte for byte, lanes the importer does not model (a type
+   * it has no shape for) included. Only a regenerating road can lose a lane
+   * — by renumbering it, or by handing it to the other half of a split.
+   */
+  const laneStaysOnRoad = (
+    rid: string,
+    laneId: number,
+    splitSide: number,
+    atEnd: 'start' | 'end'
+  ): boolean => {
+    if (!dirty.has(rid)) return true
+    if (splitSide !== 0 && Math.sign(laneId) !== splitSide) return false
+    return laneNamedBy(rid, laneId, atEnd) !== null
+  }
+
+  /**
+   * Every (road, lane) a member of `j` names, from the member's own <link>
+   * as well as from its lanes.
+   *
+   * The <connection> table only records the incoming -> connecting edge. The
+   * connecting road's OTHER end — where it meets the outgoing road — lives in
+   * the connecting road's own <link>, and carrying the junction carries that
+   * text too. Both ends have to hold, or a neighbour ends up pointing at a
+   * lane that moved to a different road.
+   *
+   * Reported per (member, end) so a member pointing into the side of a split
+   * road that lost the id can be re-pointed at the road that took its lanes,
+   * rather than the whole junction being given up.
+   *
+   * A split puts one side on a fresh road, renumbered from 1 outward exactly
+   * as it was on the original (the ranks within a side do not change when
+   * the other side leaves), so the numbers hold and the new road is
+   * unambiguous as long as the whole reference moved together.
+   */
+  const splitSideIsRetargetable = (
+    rid: string,
+    laneIds: Iterable<number>,
+    splitSide: number,
+    atEnd: 'start' | 'end'
+  ): boolean => {
+    if (!records[rid] || !dirty.has(rid) || splitSide === 0) return false
+    let any = false
+    for (const laneId of laneIds) {
+      // Lanes on the side that kept the id are not moving.
+      if (Math.sign(laneId) === splitSide) continue
+      if (laneNamedBy(rid, laneId, atEnd) === null) return false
+      any = true
+    }
+    return any
+  }
+
+  const memberLinkEnds = (j: OdrDocJunction): MemberEnd[] | null => {
+    const out: MemberEnd[] = []
+    for (const m of j.memberRoadIds) {
+      const docRoad = docRoadById.get(m)
+      if (!docRoad) return null
+      const linkText = docRoad.text.match(/<link>[\s\S]*?<\/link>/)?.[0] ?? ''
+      const tagOf = (end: string): string | undefined =>
+        linkText.match(new RegExp(`<${end}\\s+elementType="road"[^>]*/?>`))?.[0]
+      const ends: Record<string, string | undefined> = {
+        predecessor: tagOf('predecessor')?.match(/\belementId="(\d+)"/)?.[1],
+        successor: tagOf('successor')?.match(/\belementId="(\d+)"/)?.[1],
+      }
+      const contactOf = (end: string): 'start' | 'end' =>
+        (tagOf(end)?.match(/\bcontactPoint="([^"]*)"/)?.[1] as 'start' | 'end' | undefined) ??
+        (end === 'predecessor' ? 'end' : 'start')
+      // Only the outermost <laneSection>s reach the neighbours: a lane's
+      // <predecessor> in the FIRST section names a lane of the road at the
+      // road's own predecessor, and its <successor> in the LAST section a
+      // lane of the road at the successor. In between, the same tags name
+      // lanes of the next section of this very road, which is nobody else's
+      // business — reading them as neighbour references made a four-section
+      // connecting road look like it pointed at two roads at once.
+      const sections = docRoad.text.match(/<laneSection\b[\s\S]*?<\/laneSection>/g) ?? [
+        docRoad.text,
+      ]
+      const sectionFor = (end: string): string =>
+        end === 'predecessor' ? sections[0] : sections[sections.length - 1]
+      const byEnd = new Map<string, Set<number>>()
+      for (const end of ['predecessor', 'successor']) {
+        if (ends[end] === undefined) continue
+        for (const laneM of sectionFor(end).matchAll(
+          /<lane\b[^>]*?\bid="(-?\d+)"(?:[^>]*?\/>|[^>]*?>[\s\S]*?<\/lane>)/g
+        )) {
+          if (parseInt(laneM[1], 10) === 0) continue
+          for (const l of laneM[0].matchAll(
+            new RegExp(`<${end}\\s+id="(-?\\d+)"\\s*/>`, 'g')
+          )) {
+            const set = byEnd.get(end) ?? new Set<number>()
+            set.add(parseInt(l[1], 10))
+            byEnd.set(end, set)
+          }
+        }
+      }
+      for (const [end, laneIds] of byEnd) {
+        out.push({
+          from: m,
+          end: end as MemberEnd['end'],
+          to: ends[end]!,
+          toAt: contactOf(end),
+          laneIds,
+        })
+      }
+    }
+    return out
+  }
+
+  /**
+   * Can this junction's <connection> table survive as written?
+   *
+   * The table names roads by id and lanes by id, and says which lane runs
+   * into which. Carrying it verbatim asserts all three are still true, so
+   * all three are checked here:
+   *
+   * - the road exists and was recorded, so there is something to regenerate
+   *   it from;
+   * - the lane the table names comes back under that number (`laneNamedBy`);
+   * - the two lanes are still connected in the live graph. A user who cut a
+   *   connection left the lanes in place, and a rule that only looked at
+   *   lane existence handed their deleted connection straight back;
+   * - every lane the carried text points at — including the far end of each
+   *   connecting road, which the table does not mention — is still on the
+   *   road that names it (`lanesKeepingRoadId`).
+   *
+   * Moving an interior point does not break any of these: a <connection>
+   * says which lane continues into which, not where they are. Changing an
+   * endpoint, a connection or a lane's road does.
+   */
+  const connectionTableSurvives = (j: OdrDocJunction): MemberEnd[] | null => {
+    const fail = null
+    const splitRetargets: MemberEnd[] = []
+    // A <junction type="direct"> has no connecting roads — its <connection>
+    // records name a linkedRoad instead — so there is nothing here to keep
+    // out of regeneration. It keeps the old all-or-nothing treatment.
+    if (/\btype="direct"/.test(j.text)) return fail
+    for (const m of j.memberRoadIds) {
+      if (!records[m] || !docRoadById.has(m)) return fail
+    }
+    // The side of each road the junction claims, so a split road's id goes
+    // where the table needs it (mirrors the id assignment in the exporter).
+    const claimedSide = new Map<string, number>()
+    for (const conn of j.text.match(/<connection\b[^>]*?(?:\/>|>[\s\S]*?<\/connection>)/g) ?? []) {
+      const incoming = conn.match(/\bincomingRoad="([^"]*)"/)?.[1]
+      const connecting = conn.match(/\bconnectingRoad="([^"]*)"/)?.[1]
+      if (incoming === undefined || connecting === undefined) return fail
+      // The connecting road is met at `contactPoint`; the incoming road is
+      // met at the end its own <link> gives to this junction.
+      const connectingAt =
+        (conn.match(/\bcontactPoint="([^"]*)"/)?.[1] as 'start' | 'end' | undefined) ?? 'start'
+      const incomingText = docRoadById.get(incoming)?.text ?? ''
+      const incomingAt: 'start' | 'end' = new RegExp(
+        `<predecessor\\s+elementType="junction"\\s+elementId="${j.id}"`
+      ).test(incomingText)
+        ? 'start'
+        : 'end'
+      const links = conn.match(/<laneLink\b[^>]*>/g) ?? []
+      if (links.length === 0) return fail
+      for (const link of links) {
+        const from = parseInt(link.match(/\bfrom="([^"]*)"/)?.[1] ?? '', 10)
+        const to = parseInt(link.match(/\bto="([^"]*)"/)?.[1] ?? '', 10)
+        if (!Number.isFinite(from) || !Number.isFinite(to)) return fail
+        const fromShape = laneNamedBy(incoming, from, incomingAt)
+        const toShape = laneNamedBy(connecting, to, connectingAt)
+        if (fromShape === null || toShape === null) return fail
+        if (!stillConnected(fromShape, toShape) && !stillConnected(toShape, fromShape)) return fail
+        for (const [rid, laneId] of [
+          [incoming, from],
+          [connecting, to],
+        ] as const) {
+          const side = Math.sign(laneId)
+          const seen = claimedSide.get(rid)
+          if (seen !== undefined && seen !== side) return fail
+          claimedSide.set(rid, side)
+        }
+      }
+    }
+    // Both ends of every member road have to keep resolving, not just the
+    // incoming edge the table writes down.
+    const ends = memberLinkEnds(j)
+    if (!ends) return fail
+    for (const { from, end, to, toAt, laneIds } of ends) {
+      // A road outside the records is not something this export regenerates,
+      // so its lanes are whatever the source said.
+      if (!records[to]) {
+        if (dirty.has(to)) return fail
+        continue
+      }
+      const splitSide = splitSideKeepingRoadId(to, claimedSide.get(to) ?? 0)
+      let missing = false
+      for (const laneId of laneIds) {
+        if (laneStaysOnRoad(to, laneId, splitSide, toAt)) continue
+        // A lane the emitted road simply does not have any more (renumbered,
+        // or deleted) is not something a road reference can be re-pointed
+        // around.
+        if (splitSide === 0 || Math.sign(laneId) === splitSide) return fail
+        missing = true
+      }
+      if (!missing) continue
+      // `to` split and this end reaches the half that lost the id. One road
+      // reference serves all of the member's lanes, so it can only follow
+      // the lanes when they ALL moved — a reference straddling both halves
+      // has no single road to point at.
+      for (const laneId of laneIds) if (Math.sign(laneId) === splitSide) return fail
+      if (!splitSideIsRetargetable(to, laneIds, splitSide, toAt)) return fail
+      splitRetargets.push({ from, end, to, toAt, laneIds: new Set(laneIds) })
+    }
+    return splitRetargets
+  }
+
+  // Junctions whose table survives are carried verbatim, so their member
+  // roads may regenerate without dragging each other in. Only a junction
+  // whose table has to be rebuilt still propagates dirtiness to its
+  // connecting roads — the rebuild replaces their <connection> records, so
+  // they have to be re-emitted under the synthesized structure.
+  // Classification and propagation are ONE fixpoint. `connectionTableSurvives`
+  // reads the dirty set (a road that regenerates renumbers its lanes and may
+  // split in two), and demoting a junction to "rebuildable" dirties its
+  // connecting roads, which can in turn demote the next junction. Deciding
+  // once up front and propagating afterwards left roads stamped with a
+  // junction that the later pass had stopped emitting.
+  //
+  // The loop only ever adds to `dirty` and only ever moves a junction from
+  // carried to rebuildable, so it terminates.
+  const rebuildable = new Set<string>(forcedRebuildableJunctionIds)
   const dirtyJunctionIds = new Set<string>()
+  /**
+   * References from carried members into the half of a split road that lost
+   * the road id, to be re-pointed when those members are emitted. Recomputed
+   * on every pass, because a road going dirty changes which ones there are.
+   */
+  let splitRetargets: MemberEnd[] = []
   let changed = true
   while (changed) {
     changed = false
-    for (const [jid, memberSet] of members) {
+    splitRetargets = []
+    for (const j of doc.junctions) {
+      if (!rebuildable.has(j.id)) {
+        const retargets = connectionTableSurvives(j)
+        if (retargets === null) {
+          rebuildable.add(j.id)
+          changed = true
+        } else {
+          splitRetargets.push(...retargets)
+        }
+      }
+      if (!rebuildable.has(j.id)) continue
+      // A junction that has to be rebuilt drags only its connecting
+      // (junction-stamped) roads into regeneration — clean incoming /
+      // outgoing roads keep their verbatim text, with the junction link id
+      // rewritten on emission.
       let bad = false
-      for (const m of memberSet) {
+      for (const m of members.get(j.id)!) {
         if (!records[m] || dirty.has(m)) {
           bad = true
           break
         }
       }
       if (!bad) continue
-      if (!dirtyJunctionIds.has(jid)) {
-        dirtyJunctionIds.add(jid)
+      if (!dirtyJunctionIds.has(j.id)) {
+        dirtyJunctionIds.add(j.id)
         changed = true
       }
-      for (const m of junctionStamped.get(jid) ?? []) {
+      for (const m of junctionStamped.get(j.id) ?? []) {
         if (records[m] && !dirty.has(m)) {
           dirty.add(m)
           changed = true
@@ -2469,11 +3279,17 @@ function planCarryThrough(
       }
     }
     for (const reg of regShapes) {
-      let bad = false
-      for (const rid of reg.touching) {
-        if (dirty.has(rid)) {
-          bad = true
-          break
+      // A signal the user drew across lanes of several roads has no road that
+      // can define it in carried text. The regeneration path is the only one
+      // that can emit it, so the roads it applies to go there — the same
+      // treatment a regulatory shape gets when one of its roads is dirty.
+      let bad = unplaceableSignalShapeIds.has(reg.shapeId)
+      if (!bad) {
+        for (const rid of reg.touching) {
+          if (dirty.has(rid)) {
+            bad = true
+            break
+          }
         }
       }
       if (!bad) continue
@@ -2485,6 +3301,9 @@ function planCarryThrough(
       }
     }
   }
+  const carriedJunctionIds = new Set(
+    doc.junctions.filter(j => !rebuildable.has(j.id)).map(j => j.id)
+  )
 
   const cleanRoadIds = new Set<string>()
   for (const rid of Object.keys(records)) {
@@ -2496,9 +3315,26 @@ function planCarryThrough(
     for (const lid of records[rid].laneShapeIds) verbatimLaneIds.add(lid)
   }
 
+  // A road that was rewritten surgically and then dragged into regeneration by
+  // the fixpoint above emits nothing of that rewrite: its text is thrown away
+  // and its signals come back out of the regeneration path under different
+  // ids. The provisional ids are not in the output, so they must not survive
+  // into <controller> grouping or into the consumed-shape accounting.
+  for (const [shapeId, rid] of signalDefiningRoad) {
+    if (!cleanRoadIds.has(rid)) surgicalSignalIdByShape.delete(shapeId)
+  }
+
+  // A regulatory shape is "consumed" only when the verbatim / surgical output
+  // really carries it. Every road it touches being clean is necessary but not
+  // sufficient: a signal shape must additionally have been emitted by the
+  // surgical rewrite. Marking one consumed without that would drop it from the
+  // regeneration path too, and it would appear in no output at all.
   const consumedShapeIds = new Set<string>()
   for (const reg of regShapes) {
     if (reg.touching.size === 0) continue
+    // No carried road defines this one (its lanes span several), so nothing
+    // in the verbatim / surgical output carries it whatever its roads did.
+    if (unplaceableSignalShapeIds.has(reg.shapeId)) continue
     let allClean = true
     for (const rid of reg.touching) {
       if (!cleanRoadIds.has(rid)) {
@@ -2506,7 +3342,19 @@ function planCarryThrough(
         break
       }
     }
-    if (allClean) consumedShapeIds.add(reg.shapeId)
+    if (!allClean) continue
+    // Signal-kind shapes on a surgically rewritten road are covered only if
+    // that rewrite gave them an id; on an untouched road they are covered by
+    // the verbatim text.
+    const definingRoad = signalDefiningRoad.get(reg.shapeId)
+    if (
+      definingRoad !== undefined &&
+      surgicalRoadText.has(definingRoad) &&
+      !surgicalSignalIdByShape.has(reg.shapeId)
+    ) {
+      continue
+    }
+    consumedShapeIds.add(reg.shapeId)
   }
 
   const verbatimRoads: OdrDocRoad[] = []
@@ -2514,31 +3362,110 @@ function planCarryThrough(
     if (cleanRoadIds.has(r.id)) verbatimRoads.push(r)
   }
 
+  // A carried junction keeps naming its connecting roads by id, so a
+  // regenerated one must come back stamped with that junction rather than as
+  // a mainline — otherwise the <connection> points at a road that no longer
+  // claims membership. The same table already expresses the incoming ->
+  // connecting edges, so connectivity planning must not build them again.
+  const junctionOfRegeneratedRoad = new Map<string, string>()
+  const carriedJunctionOfRoad = new Map<string, string>()
+  const carriedJunctionConnectingRoadIds = new Set<string>()
+  const junctionLaneShapeIds = new Map<string, Set<string>>()
+  /** The lane shape of `rid` whose ODR lane id is `laneId`, if any. */
+  const laneShapeWithOdrId = (rid: string, laneId: number): string | undefined => {
+    for (const lid of records[rid]?.laneShapeIds ?? []) {
+      const shape = shapeMap.get(lid)
+      if (!shape || shape.type !== 'lane') continue
+      const odrLaneId = parseInt(
+        (shape as unknown as LaneShape).props.attributes?.odr_lane_id ?? '',
+        10
+      )
+      if (odrLaneId === laneId) return lid
+    }
+    return undefined
+  }
+  for (const j of doc.junctions) {
+    if (!carriedJunctionIds.has(j.id) || dirtyJunctionIds.has(j.id)) continue
+    for (const conn of j.text.match(/<connection\b[^>]*?(?:\/>|>[\s\S]*?<\/connection>)/g) ?? []) {
+      const incoming = conn.match(/\bincomingRoad="([^"]*)"/)?.[1] ?? ''
+      const connecting = conn.match(/\bconnectingRoad="([^"]*)"/)?.[1] ?? ''
+      for (const link of conn.match(/<laneLink\b[^>]*>/g) ?? []) {
+        const from = parseInt(link.match(/\bfrom="([^"]*)"/)?.[1] ?? '', 10)
+        const to = parseInt(link.match(/\bto="([^"]*)"/)?.[1] ?? '', 10)
+        for (const [rid, laneId] of [
+          [incoming, from],
+          [connecting, to],
+        ] as const) {
+          const lid = laneShapeWithOdrId(rid, laneId)
+          if (lid === undefined) continue
+          const set = junctionLaneShapeIds.get(rid) ?? new Set<string>()
+          set.add(lid)
+          junctionLaneShapeIds.set(rid, set)
+        }
+      }
+    }
+    // A connecting road meets the incoming road at one end and the outgoing
+    // road at the other. The <connection> names only the first pair; the
+    // second is on the connecting road's own <link>. Both contacts are
+    // written down in the carried XML.
+    for (const m of junctionStamped.get(j.id) ?? []) {
+      if (dirty.has(m)) junctionOfRegeneratedRoad.set(m, j.id)
+      carriedJunctionOfRoad.set(m, j.id)
+      carriedJunctionConnectingRoadIds.add(m)
+      for (const ref of docRoadById.get(m)?.linkRoadRefs ?? []) {
+        carriedJunctionOfRoad.set(ref, j.id)
+      }
+    }
+  }
+
+  // Signal ids the carried-through output actually still defines. A road kept
+  // verbatim defines everything it did at import; a road rewritten surgically
+  // defines what its rewritten text says, which is fewer signals when one was
+  // deleted and more when one was added. Anything referring to a signal id
+  // (<control>, <signalReference>) has to be measured against THIS set, not
+  // against "was the defining road clean" — a surgical road is clean and can
+  // still have dropped the signal.
+  const carriedSignalIds = new Set<string>()
+  for (const r of verbatimRoads) {
+    const surgical = surgicalRoadText.get(r.id)
+    if (surgical === undefined) {
+      for (const sid of r.signalIds) carriedSignalIds.add(sid)
+      continue
+    }
+    for (const tag of surgical.match(/<signal\b[^>]*>/g) ?? []) {
+      const sid = tag.match(/\bid="([^"]*)"/)?.[1]
+      if (sid !== undefined) carriedSignalIds.add(sid)
+    }
+  }
+
+  // A <signalReference> in carried text can only be resolved once the
+  // regeneration path has run and its ids are known: a signal whose road was
+  // edited is not in `carriedSignalIds`, but it is not gone either — it comes
+  // back under a fresh id, and the reference should follow it rather than be
+  // deleted. Pruning here, before that, threw away live references (a
+  // reference on a road with no lane shapes has no shape to re-emit it, so
+  // nothing replaced it). The decision is made in exportToOpenDrive instead;
+  // `carriedSignalIds` is what it starts from.
+
   const verbatimJunctionTexts: string[] = []
   for (const j of doc.junctions) {
     if (!dirtyJunctionIds.has(j.id)) verbatimJunctionTexts.push(j.text)
   }
 
   // Controllers are kept whenever at least one controlled signal survives in
-  // a verbatim road. <control> records naming signals that regenerated (their
-  // road was edited, so the signal is re-emitted under a fresh id) are dropped
-  // from the controller's text; the rest of the element stays byte-identical.
+  // the carried output. <control> records naming signals that regenerated
+  // (their road was edited, so the signal is re-emitted under a fresh id) or
+  // that were deleted outright are dropped from the controller's text; the
+  // rest of the element stays byte-identical.
   //
   // Dropping the whole controller when a single signal moved would lose the
   // intersection's signal grouping for every OTHER signal too — the grouping
   // is not recoverable from the regenerated side, which only knows the
   // controllerId carried on traffic-light shapes.
-  const signalRoadOf = new Map<string, string>()
-  for (const r of doc.roads) {
-    for (const sid of r.signalIds) signalRoadOf.set(sid, r.id)
-  }
   const verbatimControllers: { id: string; text: string }[] = []
   for (const c of doc.controllers) {
     if (c.signalIds.length === 0) continue
-    const keptSignalIds = c.signalIds.filter(sid => {
-      const rid = signalRoadOf.get(sid)
-      return rid !== undefined && cleanRoadIds.has(rid)
-    })
+    const keptSignalIds = c.signalIds.filter(sid => carriedSignalIds.has(sid))
     if (keptSignalIds.length === 0) continue
     verbatimControllers.push({
       id: c.id,
@@ -2560,84 +3487,67 @@ function planCarryThrough(
     verbatimRoads,
     surgicalRoadText,
     dirtyJunctionIds,
+    carriedJunctionIds,
     verbatimJunctionTexts,
+    junctionOfRegeneratedRoad,
+    carriedJunctionOfRoad,
+    carriedJunctionConnectingRoadIds,
+    junctionLaneShapeIds,
+    splitRetargets,
+    carriedSignalIds,
     verbatimControllers,
     idBase: Math.max(doc.maxNumericElementId, 0) + 1,
-    signalIdBase: Math.max(doc.maxNumericSignalId, 0) + 1,
+    // Ids already handed to signals added on a surgically rewritten road are
+    // spent; regeneration continues above them.
+    signalIdBase: nextSurgicalSignalId,
+    surgicalSignalIdByShape,
     controllerIdBase: Math.max(doc.maxNumericControllerId, 0) + 1,
   }
 }
 
 /**
- * Build an OpenDRIVE 1.8 XML document from a snapshot.
+ * One round of "plan the carry-through, then build the bundles it assumed".
  *
- * With `options.sidecar` (captured by the OpenDRIVE importer), unedited
- * roads are re-emitted verbatim from the original XML; see planCarryThrough.
+ * Which junctions can keep their <connection> table depends on where the
+ * bundles put each lane, and which lanes there are to bundle depends on which
+ * roads the plan decided to regenerate. The two are settled together: this
+ * function plans, builds, then re-checks every carried junction against the
+ * bundles that came out, and reports in `newlyRejected` the junctions whose
+ * table did not survive the check. The caller re-runs it with those seeded as
+ * rebuildable until nothing new is rejected, so the plan that is finally used
+ * is the one the bundles actually agree with.
  */
-export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDriveExportOptions = {}): string {
-  const shapes = snapshot.shapes
-  const shapeMap = buildShapeMap(shapes)
-  const lanes: LaneShape[] = []
-  const trafficLights: TrafficLightShape[] = []
-  const trafficSigns: TrafficSignShape[] = []
-  const crosswalks: CrosswalkShape[] = []
-  const polygons: { shape: PolygonShape; vertices: { x: number; y: number }[] }[] = []
-  for (const s of shapes) {
-    if (s.type === 'lane') lanes.push(s as unknown as LaneShape)
-    else if (s.type === 'traffic_light') trafficLights.push(s as unknown as TrafficLightShape)
-    else if (s.type === 'traffic_sign') trafficSigns.push(s as unknown as TrafficSignShape)
-    else if (s.type === 'crosswalk') crosswalks.push(s as unknown as CrosswalkShape)
-    else if (s.type === 'polygon') {
-      const poly = s as unknown as PolygonShape
-      const vertices: { x: number; y: number }[] = []
-      for (const pid of poly.props.pointIds) {
-        const p = shapeMap.get(pid) as unknown as PointShape | undefined
-        if (p) vertices.push({ x: p.x, y: p.y })
-      }
-      if (vertices.length >= 3) polygons.push({ shape: poly, vertices })
-    }
-  }
-
-  // Carry-through: with an importer sidecar, unedited original roads are
-  // re-emitted verbatim and excluded from regeneration.
-  const carry = planCarryThrough(options.sidecar, shapeMap, trafficLights, trafficSigns, crosswalks)
+function planBundlesAndJunctions(
+  sidecar: OdrSidecar | null | undefined,
+  shapeMap: Map<string, BaseShape>,
+  lanes: LaneShape[],
+  trafficLights: TrafficLightShape[],
+  trafficSigns: TrafficSignShape[],
+  crosswalks: CrosswalkShape[],
+  pointOverrides: Map<string, Point2D>,
+  forcedRebuildableJunctionIds: ReadonlySet<string>
+): {
+  carry: CarryPlan | null
+  exportBundles: ExportBundle[]
+  roadIdByBundle: Map<ExportBundle, number>
+  laneIdToRoadId: Map<string, number>
+  laneIdToOdrLaneId: Map<string, number>
+  nextRoadId: number
+  junctionOfExportedRoad: Map<number, string>
+  carriedJunction: { ofLane: Map<string, string>; onConnectingRoad: Set<string> }
+  splitRetargetOf: Map<string, Map<string, string>>
+  externalLanes: Map<string, LaneShape>
+  connectingSourceFor: (laneShapeId: string) => ConnectingSource | null
+  connectingTargetFor: (laneShapeId: string) => ConnectingTarget | null
+  contactWidth: (laneShapeId: string, contact: 'start' | 'end') => number | null
+  newlyRejected: Set<string>
+} {
+  const carry = planCarryThrough(
+    sidecar, shapeMap, trafficLights, trafficSigns, crosswalks, forcedRebuildableJunctionIds
+  )
   const regenLanes = carry ? lanes.filter(l => !carry.verbatimLaneIds.has(l.id)) : lanes
-  const regenTrafficLights = carry
-    ? trafficLights.filter(t => !carry.consumedShapeIds.has(t.id))
-    : trafficLights
-  const regenTrafficSigns = carry
-    ? trafficSigns.filter(t => !carry.consumedShapeIds.has(t.id))
-    : trafficSigns
-  const regenCrosswalks = carry
-    ? crosswalks.filter(c => !carry.consumedShapeIds.has(c.id))
-    : crosswalks
-
-  const dateStr = new Date().toISOString()
-  const bbox = computeEnuBoundingBox(shapeMap)
-  const geoRefProj = originToProjString(snapshot.origin)
-  const lines: string[] = []
-  lines.push(`<?xml version="1.0" encoding="UTF-8"?>`)
-  lines.push(`<OpenDRIVE>`)
-  if (carry?.headerText) {
-    // Carry-through keeps the original header (geoReference, bbox, vendor)
-    // so an unedited round trip preserves the source coordinate frame.
-    lines.push(carry.headerText)
-  } else {
-    // OpenDRIVE 1.8 expects <geoReference> inside <header>. We always emit one —
-    // tmerc-at-origin when snapshot.origin is set, WGS84 longlat as a fallback —
-    // so downstream tools (esmini, RoadRunner, asam-qc-opendrive) see a defined
-    // coordinate reference system rather than nothing. The N/S/E/W attributes
-    // are populated from the actual point cloud so the header bbox reflects the
-    // map extent in ENU metres.
-    lines.push(
-      `  <header revMajor="1" revMinor="8" name="drawtonomy" version="1.0" date="${dateStr}" ` +
-        `north="${fmt(bbox.north)}" south="${fmt(bbox.south)}" east="${fmt(bbox.east)}" west="${fmt(bbox.west)}" vendor="drawtonomy">`
-    )
-    lines.push(`    <geoReference><![CDATA[${escapeCdata(geoRefProj)}]]></geoReference>`)
-    lines.push(`  </header>`)
-  }
-
-  const pointOverrides = buildBoundaryAlignmentOverrides(shapeMap, lanes)
+  /** Junctions this round found unusable that the plan had still carried. */
+  const newlyRejected = new Set<string>()
 
   // Group laterally adjacent lanes into road bundles and build their
   // geometry. Degenerate bundles (zero-length reference lines) are dropped;
@@ -2725,6 +3635,42 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
     reusableRoadIds.delete(key)
     exactReuse.set(bundle, reused)
     claimedOriginIds.add(reused)
+  }
+  // A road with lanes on both sides splits into two bundles, and only one of
+  // them can inherit the road's id. When a <junction> the export means to
+  // carry names one of the two sides, that side has to be the one that gets
+  // the id — otherwise the carried <connection> would point at a road that no
+  // longer has the lanes it names, and the whole intersection falls back to
+  // being synthesized. Majority voting alone picks by bundle order, which has
+  // nothing to do with which side the intersection uses.
+  if (carry) {
+    // Lane shape -> its bundle, built once. Scanning every bundle for every
+    // carried road is quadratic in the number of edited roads, which on a
+    // few-thousand-road map is the difference between seconds and minutes.
+    const bundleOfLaneShape = new Map<string, ExportBundle>()
+    const bundleOrder = new Map<ExportBundle, number>()
+    exportBundles.forEach((b, i) => {
+      bundleOrder.set(b, i)
+      for (const l of b.lanes) bundleOfLaneShape.set(l.id, b)
+    })
+    for (const [rid, jid] of carry.carriedJunctionOfRoad) {
+      if (carry.dirtyJunctionIds.has(jid) || !/^\d+$/.test(rid)) continue
+      const origin = parseInt(rid, 10)
+      if (claimedOriginIds.has(origin)) continue
+      const wanted = carry.junctionLaneShapeIds.get(rid)
+      if (!wanted || wanted.size === 0) continue
+      // Same choice the old full scan made: the earliest unclaimed bundle
+      // in bundle order that holds one of the lanes the table names.
+      let bundle: ExportBundle | undefined
+      for (const lid of wanted) {
+        const b = bundleOfLaneShape.get(lid)
+        if (!b || exactReuse.has(b)) continue
+        if (!bundle || bundleOrder.get(b)! < bundleOrder.get(bundle)!) bundle = b
+      }
+      if (!bundle) continue
+      exactReuse.set(bundle, origin)
+      claimedOriginIds.add(origin)
+    }
   }
   for (const bundle of exportBundles) {
     const reused = exactReuse.get(bundle) ?? dominantOriginId(bundle)
@@ -2871,6 +3817,308 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
     return pxToMeter(Math.hypot(ri.x - li.x, ri.y - li.y))
   }
 
+  // A carried <junction> names its members by id, so carrying it is only
+  // sound when every regenerated member came back under the id the table
+  // uses. Id inheritance normally delivers that (exactReuse), but a
+  // re-bundling edit can hand a road's lanes to a different id, and then the
+  // table would dangle. Verify it here and drop back to rebuilding the
+  // intersection for any junction where it did not hold.
+  const junctionOfExportedRoad = new Map<number, string>()
+  const carriedJunction = { ofLane: new Map<string, string>(), onConnectingRoad: new Set<string>() }
+  /**
+   * Per carried member road, the road ids its <link> has to be re-pointed to
+   * because the road it names gave those lanes to the other half of a split.
+   * Resolved here, where the bundles are known, so emission and the carry
+   * decision cannot disagree about where a reference ends up.
+   */
+  const splitRetargetOf = new Map<string, Map<string, string>>()
+  if (carry) {
+    const bundleRoadOfLane = new Map<string, number>()
+    for (const bundle of exportBundles) {
+      const rid = roadIdByBundle.get(bundle)!
+      for (const l of bundle.lanes) bundleRoadOfLane.set(l.id, rid)
+    }
+    /** The lane id a lane shape is actually emitted under. */
+    const bundleLaneIdOfLane = laneIdToOdrLaneId
+    /**
+     * Is the lane a <connection> calls `laneId` of road `rid` really emitted
+     * as lane `laneId` of road `rid`?
+     *
+     * Both halves matter. The road id can move — a road with lanes on both
+     * sides splits into two bundles and only one inherits the id — and so
+     * can the lane number, because a regenerated bundle is renumbered from
+     * +/-1 outward and lanes the importer does not model are simply not
+     * there to be counted. Checking only the road id let a table keep a
+     * `to="-3"` that the emitted road had renumbered to `-2`.
+     */
+    const laneKeptItsRoadId = (rid: string, laneId: number, atEnd: 'start' | 'end'): boolean => {
+      if (!carry.records[rid] || !/^\d+$/.test(rid)) return false
+      if (carry.cleanRoadIds.has(rid)) return true
+      const lid = laneShapeWithOdrIdOnRoad(carry, shapeMap, rid, laneId, atEnd)
+      if (lid === undefined) return false
+      return bundleRoadOfLane.get(lid) === parseInt(rid, 10) && bundleLaneIdOfLane.get(lid) === laneId
+    }
+    // Regenerated roads per junction, indexed once. Filtering the whole map
+    // for every junction is quadratic in the number of intersections.
+    const stampedByJunction = new Map<string, string[]>()
+    for (const [rid, jid] of carry.junctionOfRegeneratedRoad) {
+      const list = stampedByJunction.get(jid) ?? []
+      list.push(rid)
+      stampedByJunction.set(jid, list)
+    }
+    const docRoadTextById = new Map(carry.doc.roads.map(r => [r.id, r.text]))
+    /**
+     * Where a carried member's reference into a split road has to be
+     * re-pointed, or null when it cannot be.
+     *
+     * A road <link> names ONE road, so following the lanes that moved is only
+     * possible when they all moved to the same road AND kept the numbers the
+     * reference uses. The plan checks that each lane can be found; only the
+     * built bundles say where each one actually went, and an edit that breaks
+     * the moving side into two bundles scatters them. Answering with the first
+     * lane's new road (and applying it to the rest) pointed the other lanes at
+     * a road that does not have them.
+     */
+    const splitRetargetTarget = ({ to, toAt, laneIds }: MemberEnd): number | null => {
+      let target: number | null = null
+      for (const laneId of laneIds) {
+        const shapeId = laneShapeWithOdrIdOnRoad(carry, shapeMap, to, laneId, toAt)
+        if (shapeId === undefined) return null
+        const moved = bundleRoadOfLane.get(shapeId)
+        if (moved === undefined) return null
+        // The reference keeps its lane numbers, so the lane has to come back
+        // under the very number the carried text names.
+        if (bundleLaneIdOfLane.get(shapeId) !== laneId) return null
+        if (target === null) target = moved
+        else if (target !== moved) return null
+      }
+      return target
+    }
+    /** Members whose reference into a split road could not be re-pointed. */
+    const brokenRetargetFrom = new Set<string>()
+    for (const retarget of carry.splitRetargets) {
+      const target = splitRetargetTarget(retarget)
+      if (target === null) {
+        brokenRetargetFrom.add(retarget.from)
+        continue
+      }
+      if (String(target) === retarget.to) continue
+      const forRoad = splitRetargetOf.get(retarget.from) ?? new Map<string, string>()
+      forRoad.set(retarget.to, String(target))
+      splitRetargetOf.set(retarget.from, forRoad)
+    }
+    for (const j of carry.doc.junctions) {
+      // Only junctions the plan decided to carry are checked here. One it
+      // never claimed — a <junction type="direct">, say, which has no
+      // connecting roads at all — is already outside this mechanism and stays
+      // verbatim on its own terms.
+      if (!carry.carriedJunctionIds.has(j.id) || carry.dirtyJunctionIds.has(j.id)) continue
+      const stamped = stampedByJunction.get(j.id) ?? []
+      // A member of this junction whose reference into a split road cannot
+      // follow the lanes (they scattered across bundles, or came back
+      // renumbered) has no road to point at, so the table goes.
+      let membersKeptIds = ![...brokenRetargetFrom].some(
+        from => carry.carriedJunctionOfRoad.get(from) === j.id
+      )
+      for (const conn of j.text.match(/<connection\b[^>]*?(?:\/>|>[\s\S]*?<\/connection>)/g) ?? []) {
+        const incoming = conn.match(/\bincomingRoad="([^"]*)"/)?.[1] ?? ''
+        const connecting = conn.match(/\bconnectingRoad="([^"]*)"/)?.[1] ?? ''
+        const connectingAt =
+          (conn.match(/\bcontactPoint="([^"]*)"/)?.[1] as 'start' | 'end' | undefined) ?? 'start'
+        const incomingAt: 'start' | 'end' = new RegExp(
+          `<predecessor\\s+elementType="junction"\\s+elementId="${j.id}"`
+        ).test(docRoadTextById.get(incoming) ?? '')
+          ? 'start'
+          : 'end'
+        for (const link of conn.match(/<laneLink\b[^>]*>/g) ?? []) {
+          const from = parseInt(link.match(/\bfrom="([^"]*)"/)?.[1] ?? '', 10)
+          const to = parseInt(link.match(/\bto="([^"]*)"/)?.[1] ?? '', 10)
+          if (
+            !laneKeptItsRoadId(incoming, from, incomingAt) ||
+            !laneKeptItsRoadId(connecting, to, connectingAt)
+          ) {
+            membersKeptIds = false
+            break
+          }
+        }
+        if (!membersKeptIds) break
+      }
+      // A regenerated connecting road is about to be stamped with this
+      // junction, so it must have come back under the id the table names.
+      for (const rid of stamped) {
+        const rec = carry.records[rid]
+        if (!rec || !/^\d+$/.test(rid)) {
+          membersKeptIds = false
+          break
+        }
+        const want = parseInt(rid, 10)
+        if (!rec.laneShapeIds.every(lid => bundleRoadOfLane.get(lid) === want)) {
+          membersKeptIds = false
+          break
+        }
+      }
+      if (!membersKeptIds) {
+        // The table cannot be carried after all. Record it and let the caller
+        // re-plan with this junction seeded as rebuildable, so the plan's own
+        // fixpoint decides what that costs (which roads regenerate, which
+        // shapes are consumed) rather than the emit side patching a plan that
+        // has already been used to decide everything else.
+        if (!forcedRebuildableJunctionIds.has(j.id)) newlyRejected.add(j.id)
+        carry.dirtyJunctionIds.add(j.id)
+        continue
+      }
+      for (const rid of stamped) junctionOfExportedRoad.set(parseInt(rid, 10), j.id)
+    }
+
+    for (const [rid, jid] of carry.carriedJunctionOfRoad) {
+      if (carry.dirtyJunctionIds.has(jid)) continue
+      const connecting = carry.carriedJunctionConnectingRoadIds.has(rid)
+      for (const lid of carry.records[rid]?.laneShapeIds ?? []) {
+        carriedJunction.ofLane.set(lid, jid)
+        if (connecting) carriedJunction.onConnectingRoad.add(lid)
+      }
+    }
+    // Junctions dropped above must no longer be emitted verbatim.
+    carry.verbatimJunctionTexts = carry.doc.junctions
+      .filter(j => !carry.dirtyJunctionIds.has(j.id))
+      .map(j => j.text)
+  }
+
+  return {
+    carry,
+    exportBundles,
+    roadIdByBundle,
+    laneIdToRoadId,
+    laneIdToOdrLaneId,
+    nextRoadId,
+    junctionOfExportedRoad,
+    carriedJunction,
+    splitRetargetOf,
+    externalLanes,
+    connectingSourceFor,
+    connectingTargetFor,
+    contactWidth,
+    newlyRejected,
+  }
+}
+
+/**
+ * Counters for the plan / build fixpoint, for the regression tests. Not part
+ * of the public API and not read by the exporter itself.
+ */
+export const __replanCounters = {
+  /** Times the whole carry plan + bundle build was run for one export. */
+  planRounds: 0,
+  /** Junctions newly rejected in each round after the first. */
+  rejectedPerRound: [] as number[],
+  reset(): void {
+    this.planRounds = 0
+    this.rejectedPerRound = []
+  },
+}
+
+/**
+ * Build an OpenDRIVE 1.8 XML document from a snapshot.
+ *
+ * With `options.sidecar` (captured by the OpenDRIVE importer), unedited
+ * roads are re-emitted verbatim from the original XML; see planCarryThrough.
+ */
+export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDriveExportOptions = {}): string {
+  const shapes = snapshot.shapes
+  const shapeMap = buildShapeMap(shapes)
+  const lanes: LaneShape[] = []
+  const trafficLights: TrafficLightShape[] = []
+  const trafficSigns: TrafficSignShape[] = []
+  const crosswalks: CrosswalkShape[] = []
+  const polygons: { shape: PolygonShape; vertices: { x: number; y: number }[] }[] = []
+  for (const s of shapes) {
+    if (s.type === 'lane') lanes.push(s as unknown as LaneShape)
+    else if (s.type === 'traffic_light') trafficLights.push(s as unknown as TrafficLightShape)
+    else if (s.type === 'traffic_sign') trafficSigns.push(s as unknown as TrafficSignShape)
+    else if (s.type === 'crosswalk') crosswalks.push(s as unknown as CrosswalkShape)
+    else if (s.type === 'polygon') {
+      const poly = s as unknown as PolygonShape
+      const vertices: { x: number; y: number }[] = []
+      for (const pid of poly.props.pointIds) {
+        const p = shapeMap.get(pid) as unknown as PointShape | undefined
+        if (p) vertices.push({ x: p.x, y: p.y })
+      }
+      if (vertices.length >= 3) polygons.push({ shape: poly, vertices })
+    }
+  }
+
+  const pointOverrides = buildBoundaryAlignmentOverrides(shapeMap, lanes)
+
+  // Carry-through: with an importer sidecar, unedited original roads are
+  // re-emitted verbatim and excluded from regeneration.
+  //
+  // Whether a junction's <connection> table can be carried depends on facts
+  // only the built bundles know (which road id each lane ends up on, and
+  // under which lane number). So planning and bundle building run as one
+  // loop: when the check below rejects a junction the plan had carried, the
+  // whole plan is recomputed with that junction seeded as rebuildable, and
+  // the bundles are rebuilt from the new plan. Patching the settled plan from
+  // here instead — withdrawing the maps the junction appeared in without
+  // redoing cleanRoadIds / verbatimRoads / the lane partition — left roads
+  // stamped with a junction the output no longer emitted, and neighbours
+  // linking to it.
+  //
+  // Each round moves at least one junction from carried to rebuildable and
+  // never back, so the loop runs at most (number of junctions) + 1 times.
+  const rejectedJunctionIds = new Set<string>()
+  __replanCounters.planRounds++
+  let planned = planBundlesAndJunctions(
+    options.sidecar, shapeMap, lanes, trafficLights, trafficSigns, crosswalks,
+    pointOverrides, rejectedJunctionIds
+  )
+  while (planned.newlyRejected.size > 0) {
+    __replanCounters.planRounds++
+    __replanCounters.rejectedPerRound.push(planned.newlyRejected.size)
+    for (const jid of planned.newlyRejected) rejectedJunctionIds.add(jid)
+    planned = planBundlesAndJunctions(
+      options.sidecar, shapeMap, lanes, trafficLights, trafficSigns, crosswalks,
+      pointOverrides, rejectedJunctionIds
+    )
+  }
+  const { carry, exportBundles, roadIdByBundle, laneIdToRoadId, laneIdToOdrLaneId,
+    nextRoadId, junctionOfExportedRoad, carriedJunction, splitRetargetOf,
+    externalLanes, connectingSourceFor, connectingTargetFor, contactWidth } = planned
+  const regenTrafficLights = carry
+    ? trafficLights.filter(t => !carry.consumedShapeIds.has(t.id))
+    : trafficLights
+  const regenTrafficSigns = carry
+    ? trafficSigns.filter(t => !carry.consumedShapeIds.has(t.id))
+    : trafficSigns
+  const regenCrosswalks = carry
+    ? crosswalks.filter(c => !carry.consumedShapeIds.has(c.id))
+    : crosswalks
+
+  const dateStr = new Date().toISOString()
+  const bbox = computeEnuBoundingBox(shapeMap)
+  const geoRefProj = originToProjString(snapshot.origin)
+  const lines: string[] = []
+  lines.push(`<?xml version="1.0" encoding="UTF-8"?>`)
+  lines.push(`<OpenDRIVE>`)
+  if (carry?.headerText) {
+    // Carry-through keeps the original header (geoReference, bbox, vendor)
+    // so an unedited round trip preserves the source coordinate frame.
+    lines.push(carry.headerText)
+  } else {
+    // OpenDRIVE 1.8 expects <geoReference> inside <header>. We always emit one —
+    // tmerc-at-origin when snapshot.origin is set, WGS84 longlat as a fallback —
+    // so downstream tools (esmini, RoadRunner, asam-qc-opendrive) see a defined
+    // coordinate reference system rather than nothing. The N/S/E/W attributes
+    // are populated from the actual point cloud so the header bbox reflects the
+    // map extent in ENU metres.
+    lines.push(
+      `  <header revMajor="1" revMinor="8" name="drawtonomy" version="1.0" date="${dateStr}" ` +
+        `north="${fmt(bbox.north)}" south="${fmt(bbox.south)}" east="${fmt(bbox.east)}" west="${fmt(bbox.west)}" vendor="drawtonomy">`
+    )
+    lines.push(`    <geoReference><![CDATA[${escapeCdata(geoRefProj)}]]></geoReference>`)
+    lines.push(`  </header>`)
+  }
+
+
   const plan = planConnectivity(
     exportBundles,
     laneIdToRoadId,
@@ -2879,7 +4127,8 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
     connectingSourceFor,
     connectingTargetFor,
     contactWidth,
-    externalLanes
+    externalLanes,
+    carriedJunction
   )
   const roads = exportBundles.map(b => ({ roadId: roadIdByBundle.get(b)!, geom: b.geom }))
   const { roadSignals, roadObjects, roadSignalRefs, signalIdByShape } = attachShapesToRoads(
@@ -2894,6 +4143,35 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
     undefined,
     carry?.signalIdBase
   )
+
+  // A <signalReference> living in carried text names a signal by id. Now that
+  // both paths have run, each named id is in exactly one of three states:
+  //
+  //   - still defined in carried text            -> leave the reference alone
+  //   - re-emitted by regeneration under a new id -> retarget to that id,
+  //     keeping the reference's own s / t / orientation / validity, which the
+  //     regeneration path does not know
+  //   - defined nowhere                           -> the user deleted it, so
+  //     the reference goes
+  //
+  // Deciding this while planning collapsed the middle case into the last one:
+  // a reference to a signal whose road was merely edited was deleted, and on a
+  // road with no lane shapes nothing re-emitted it.
+  const finalSignalIdBySourceId = new Map<string, string>()
+  if (carry) {
+    for (const [shapeId, id] of signalIdByShape) {
+      const shape = shapeMap.get(shapeId)
+      const sourceId = (shape as unknown as TrafficLightShape | undefined)?.props?.attributes
+        ?.odr_signal_id
+      if (sourceId) finalSignalIdBySourceId.set(sourceId, String(id))
+    }
+  }
+  const retargetSignalReferences = (text: string): string =>
+    carry === null
+      ? text
+      : rewriteSignalReferences(text, sid =>
+          carry.carriedSignalIds.has(sid) ? sid : (finalSignalIdBySourceId.get(sid) ?? null)
+        )
 
   // Verbatim road blocks first (original document order). Two minimal
   // rewrites keep their links valid; nothing else is touched:
@@ -2927,6 +4205,10 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
       newJunctionOfRoad.set(spec.incomingRoadId, spec.junctionId)
       newJunctionOfRoad.set(spec.outgoingRoadId, spec.junctionId)
     }
+    // A road the junction plan let split gave its id to one side; a carried
+    // member reaching the other side is re-pointed at the road that took
+    // those lanes (resolved with the bundles, in splitRetargetOf), so its
+    // <successor>/<predecessor> still resolves.
     for (const r of carry.verbatimRoads) {
       let junctionMap: Map<string, string> | undefined
       for (const jref of r.linkJunctionRefs) {
@@ -2940,8 +4222,15 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
       }
       // Surgical roads reuse the verbatim emission path (same link rewriting)
       // but start from the width-rewritten text instead of the original.
-      const baseText = carry.surgicalRoadText.get(r.id) ?? r.text
-      lines.push(rewriteRoadLinkTargets(baseText, rewriteMap, junctionMap ?? new Map()))
+      const baseText = retargetSignalReferences(carry.surgicalRoadText.get(r.id) ?? r.text)
+      const roadMap = splitRetargetOf.get(r.id)
+      lines.push(
+        rewriteRoadLinkTargets(
+          baseText,
+          roadMap ? new Map([...rewriteMap, ...roadMap]) : rewriteMap,
+          junctionMap ?? new Map()
+        )
+      )
     }
   }
 
@@ -2957,7 +4246,8 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
         roadObjects.get(roadId) ?? [],
         shapeMap,
         laneIdToRoadId,
-        laneIdToOdrLaneId
+        laneIdToOdrLaneId,
+        junctionOfExportedRoad.get(roadId)
       )
     )
   }
@@ -2973,22 +4263,55 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
   // Imported lights carry the original controller id, so a group whose
   // controller also survives verbatim is merged back into that element
   // instead of being emitted twice under a fresh id.
-  const controllerGroups = new Map<string, number[]>()
+  // Ids are strings: a regenerated signal's is a number, but one carried
+  // through the surgical rewrite keeps whatever spelling the source used.
+  const controllerGroups = new Map<string, string[]>()
+  const addToControllerGroup = (groupId: string, signalId: string): void => {
+    const group = controllerGroups.get(groupId) ?? []
+    group.push(signalId)
+    controllerGroups.set(groupId, group)
+  }
   for (const tl of regenTrafficLights) {
     const groupId = tl.props.controllerId
     if (!groupId) continue
     const signalId = signalIdByShape.get(tl.id)
     if (signalId === undefined) continue
-    const group = controllerGroups.get(groupId) ?? []
-    group.push(signalId)
-    controllerGroups.set(groupId, group)
+    addToControllerGroup(groupId, String(signalId))
   }
+  // Lights on surgically rewritten roads never reach the regeneration path.
+  // A light that KEPT its source id is already named by the verbatim
+  // <controller>; one that was ADDED holds a fresh id that nothing lists yet,
+  // so it joins its group here. The plan only keeps an entry here for a road
+  // whose surgical text was really emitted, so every id named below is defined
+  // in the output (see the fixpoint cleanup in planCarryThrough).
+  if (carry) {
+    const originalSignalIds = new Set(carry.doc.roads.flatMap(r => r.signalIds))
+    for (const tl of trafficLights) {
+      const groupId = tl.props.controllerId
+      if (!groupId) continue
+      const signalId = carry.surgicalSignalIdByShape.get(tl.id)
+      if (signalId === undefined || originalSignalIds.has(signalId)) continue
+      addToControllerGroup(groupId, signalId)
+    }
+  }
+
+  /**
+   * What became of each ORIGINAL `<controller id>`: the id it is emitted
+   * under now, or absent when no controller for that group is emitted at all.
+   * A `<junction>` may name a controller, and carrying the junction's text
+   * verbatim keeps that name — which has to still resolve.
+   *
+   * An imported traffic light carries its source controller id as its group
+   * id, so a group regenerating under a fresh id is exactly this mapping.
+   */
+  const finalControllerIdByOriginal = new Map<string, string>()
 
   // Verbatim controllers, with regenerated signals of the same group folded
   // back in as extra <control> records.
   if (carry) {
     for (const { id, text } of carry.verbatimControllers) {
       const regenerated = controllerGroups.get(id)
+      finalControllerIdByOriginal.set(id, id)
       if (regenerated === undefined) {
         lines.push(text)
         continue
@@ -3000,16 +4323,24 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
 
   let controllerIdCounter = carry ? carry.controllerIdBase : 1
   for (const [groupId, signalIds] of controllerGroups) {
-    lines.push(`  <controller id="${controllerIdCounter++}" name="${escapeXml(groupId)}" sequence="0">`)
+    const id = controllerIdCounter++
+    finalControllerIdByOriginal.set(groupId, String(id))
+    lines.push(`  <controller id="${id}" name="${escapeXml(groupId)}" sequence="0">`)
     for (const signalId of signalIds) {
       lines.push(`    <control signalId="${signalId}" type="0"/>`)
     }
     lines.push(`  </controller>`)
   }
 
-  // Verbatim junctions (all member roads verbatim).
+  // Verbatim junctions (all member roads verbatim), with their <controller>
+  // references re-pointed at the ids the controllers really came out under
+  // and references to controllers that are gone removed. Without this a
+  // carried junction went on naming a controller the deleted signal took with
+  // it, or the source id of one that regenerated.
   if (carry) {
-    for (const text of carry.verbatimJunctionTexts) lines.push(text)
+    for (const text of carry.verbatimJunctionTexts) {
+      lines.push(rewriteJunctionControllerRefs(text, finalControllerIdByOriginal))
+    }
   }
 
   // Synthesized junctions for branch / merge connectivity (see planConnectivity).
@@ -3017,7 +4348,7 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
     lines.push(`  <junction id="${junction.id}" name="junction${junction.id}">`)
     junction.connections.forEach((conn, idx) => {
       lines.push(
-        `    <connection id="${idx}" incomingRoad="${conn.incoming}" connectingRoad="${conn.connecting}" contactPoint="start">`
+        `    <connection id="${idx}" incomingRoad="${conn.incoming}" connectingRoad="${conn.connecting}" contactPoint="${conn.contactPoint ?? 'start'}">`
       )
       for (const ll of conn.laneLinks) {
         lines.push(`      <laneLink from="${ll.from}" to="${ll.to}"/>`)

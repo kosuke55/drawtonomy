@@ -1,0 +1,608 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenDRIVE>
+<header revMajor="1" revMinor="6" name="chain">
+    <geoReference><![CDATA[+proj=tmerc +lat_0=35.0 +lon_0=139.0 +datum=WGS84]]></geoReference>
+  </header>
+<road name="head" length="40" id="0" junction="-1">
+    <link><successor elementType="junction" elementId="10005"/></link>
+    <planView><geometry s="0" x="0" y="0" hdg="0" length="40"><line/></geometry></planView>
+    <lanes>
+      <laneSection s="0">
+        <right>
+          <lane id="-1" type="driving" level="false">
+
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+          <lane id="-2" type="driving" level="false">
+
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+<road name="conn5" length="40" id="1005" junction="2005">
+    <link>
+      <predecessor elementType="road" elementId="1004" contactPoint="end"/>
+      <successor elementType="road" elementId="1006" contactPoint="start"/>
+    </link>
+    <planView><geometry s="0" x="240" y="0" hdg="0" length="40"><line/></geometry></planView>
+    <lanes>
+      <laneSection s="0">
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link><predecessor id="-1"/><successor id="-1"/></link>
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+          <lane id="-2" type="driving" level="false">
+            <link><predecessor id="-2"/><successor id="-2"/></link>
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+<road name="conn6" length="40" id="1006" junction="2006">
+    <link>
+      <predecessor elementType="road" elementId="1005" contactPoint="end"/>
+      <successor elementType="road" elementId="1007" contactPoint="start"/>
+    </link>
+    <planView><geometry s="0" x="280" y="0" hdg="0" length="40"><line/></geometry></planView>
+    <lanes>
+      <laneSection s="0">
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link><predecessor id="-1"/><successor id="-1"/></link>
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+          <lane id="-2" type="driving" level="false">
+            <link><predecessor id="-2"/><successor id="-2"/></link>
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+<road name="conn7" length="40" id="1007" junction="2007">
+    <link>
+      <predecessor elementType="road" elementId="1006" contactPoint="end"/>
+      <successor elementType="road" elementId="9999" contactPoint="start"/>
+    </link>
+    <planView><geometry s="0" x="320" y="0" hdg="0" length="40"><line/></geometry></planView>
+    <lanes>
+      <laneSection s="0">
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link><predecessor id="-1"/><successor id="-1"/></link>
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+          <lane id="-2" type="driving" level="false">
+            <link><predecessor id="-2"/><successor id="-2"/></link>
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+<road name="tail" length="40" id="9999" junction="-1">
+    <link><predecessor elementType="junction" elementId="2007"/></link>
+    <planView><geometry s="0" x="360" y="0" hdg="0" length="40"><line/></geometry></planView>
+    <lanes>
+      <laneSection s="0">
+        <right>
+          <lane id="-1" type="driving" level="false">
+
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+          <lane id="-2" type="driving" level="false">
+
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+  <road name="conn0" length="40.000100" id="1000" junction="-1">
+    <link>
+      <predecessor elementType="junction" elementId="10005"/>
+      <successor elementType="road" elementId="1001" contactPoint="start"/>
+    </link>
+    <type s="0" type="town">
+      <speed max="37" unit="km/h"/>
+    </type>
+    <planView>
+      <geometry s="0.000000" x="40.000000" y="0.000000" hdg="0.000000" length="40.000000">
+        <line/>
+      </geometry>
+    </planView>
+    <elevationProfile/>
+    <lateralProfile/>
+    <lanes>
+      <laneSection s="0">
+        <center>
+          <lane id="0" type="none" level="false">
+            <link/>
+            <roadMark sOffset="0" type="solid" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link>
+              <successor id="-1"/>
+            </link>
+            <width sOffset="0.000000" a="3.500000" b="0" c="0" d="0"/>
+            <roadMark sOffset="0" type="solid" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+    <objects/>
+    <signals/>
+    <userData code="laneAttributes" value="{&quot;-1&quot;:{&quot;subtype&quot;:&quot;road&quot;,&quot;one_way&quot;:&quot;yes&quot;,&quot;turn_direction&quot;:&quot;straight&quot;,&quot;speed_limit&quot;:&quot;37&quot;}}"/>
+  </road>
+  <road name="conn0" length="40.000100" id="10000" junction="-1">
+    <link>
+      <predecessor elementType="junction" elementId="10005"/>
+      <successor elementType="road" elementId="10001" contactPoint="start"/>
+    </link>
+    <planView>
+      <geometry s="0.000000" x="40.000000" y="-3.500000" hdg="0.000000" length="40.000000">
+        <line/>
+      </geometry>
+    </planView>
+    <elevationProfile/>
+    <lateralProfile/>
+    <lanes>
+      <laneSection s="0">
+        <center>
+          <lane id="0" type="none" level="false">
+            <link/>
+            <roadMark sOffset="0" type="solid" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link>
+              <successor id="-1"/>
+            </link>
+            <width sOffset="0.000000" a="3.500000" b="0" c="0" d="0"/>
+            <roadMark sOffset="0" type="solid" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+    <objects/>
+    <signals/>
+    <userData code="laneAttributes" value="{&quot;-1&quot;:{&quot;subtype&quot;:&quot;road&quot;,&quot;one_way&quot;:&quot;yes&quot;,&quot;turn_direction&quot;:&quot;straight&quot;}}"/>
+  </road>
+  <road name="conn1" length="40.000100" id="1001" junction="-1">
+    <link>
+      <predecessor elementType="road" elementId="1000" contactPoint="end"/>
+      <successor elementType="road" elementId="1002" contactPoint="start"/>
+    </link>
+    <planView>
+      <geometry s="0.000000" x="80.000000" y="0.000000" hdg="0.000000" length="40.000000">
+        <line/>
+      </geometry>
+    </planView>
+    <elevationProfile/>
+    <lateralProfile/>
+    <lanes>
+      <laneSection s="0">
+        <center>
+          <lane id="0" type="none" level="false">
+            <link/>
+            <roadMark sOffset="0" type="solid" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link>
+              <predecessor id="-1"/>
+              <successor id="-1"/>
+            </link>
+            <width sOffset="0.000000" a="3.500000" b="0" c="0" d="0"/>
+            <roadMark sOffset="0" type="solid" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+    <objects/>
+    <signals/>
+    <userData code="laneAttributes" value="{&quot;-1&quot;:{&quot;subtype&quot;:&quot;road&quot;,&quot;one_way&quot;:&quot;yes&quot;,&quot;turn_direction&quot;:&quot;straight&quot;}}"/>
+  </road>
+  <road name="conn1" length="40.000100" id="10001" junction="-1">
+    <link>
+      <predecessor elementType="road" elementId="10000" contactPoint="end"/>
+      <successor elementType="road" elementId="10002" contactPoint="start"/>
+    </link>
+    <planView>
+      <geometry s="0.000000" x="80.000000" y="-3.500000" hdg="0.000000" length="40.000000">
+        <line/>
+      </geometry>
+    </planView>
+    <elevationProfile/>
+    <lateralProfile/>
+    <lanes>
+      <laneSection s="0">
+        <center>
+          <lane id="0" type="none" level="false">
+            <link/>
+            <roadMark sOffset="0" type="solid" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link>
+              <predecessor id="-1"/>
+              <successor id="-1"/>
+            </link>
+            <width sOffset="0.000000" a="3.500000" b="0" c="0" d="0"/>
+            <roadMark sOffset="0" type="solid" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+    <objects/>
+    <signals/>
+    <userData code="laneAttributes" value="{&quot;-1&quot;:{&quot;subtype&quot;:&quot;road&quot;,&quot;one_way&quot;:&quot;yes&quot;,&quot;turn_direction&quot;:&quot;straight&quot;}}"/>
+  </road>
+  <road name="conn2" length="40.000100" id="1002" junction="-1">
+    <link>
+      <predecessor elementType="road" elementId="1001" contactPoint="end"/>
+      <successor elementType="road" elementId="1003" contactPoint="start"/>
+    </link>
+    <planView>
+      <geometry s="0.000000" x="120.000000" y="0.000000" hdg="0.000000" length="40.000000">
+        <line/>
+      </geometry>
+    </planView>
+    <elevationProfile/>
+    <lateralProfile/>
+    <lanes>
+      <laneSection s="0">
+        <center>
+          <lane id="0" type="none" level="false">
+            <link/>
+            <roadMark sOffset="0" type="solid" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link>
+              <predecessor id="-1"/>
+              <successor id="-1"/>
+            </link>
+            <width sOffset="0.000000" a="3.500000" b="0" c="0" d="0"/>
+            <roadMark sOffset="0" type="solid" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+    <objects/>
+    <signals/>
+    <userData code="laneAttributes" value="{&quot;-1&quot;:{&quot;subtype&quot;:&quot;road&quot;,&quot;one_way&quot;:&quot;yes&quot;,&quot;turn_direction&quot;:&quot;straight&quot;}}"/>
+  </road>
+  <road name="conn2" length="40.000100" id="10002" junction="-1">
+    <link>
+      <predecessor elementType="road" elementId="10001" contactPoint="end"/>
+      <successor elementType="road" elementId="10003" contactPoint="start"/>
+    </link>
+    <planView>
+      <geometry s="0.000000" x="120.000000" y="-3.500000" hdg="0.000000" length="40.000000">
+        <line/>
+      </geometry>
+    </planView>
+    <elevationProfile/>
+    <lateralProfile/>
+    <lanes>
+      <laneSection s="0">
+        <center>
+          <lane id="0" type="none" level="false">
+            <link/>
+            <roadMark sOffset="0" type="solid" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link>
+              <predecessor id="-1"/>
+              <successor id="-1"/>
+            </link>
+            <width sOffset="0.000000" a="3.500000" b="0" c="0" d="0"/>
+            <roadMark sOffset="0" type="solid" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+    <objects/>
+    <signals/>
+    <userData code="laneAttributes" value="{&quot;-1&quot;:{&quot;subtype&quot;:&quot;road&quot;,&quot;one_way&quot;:&quot;yes&quot;,&quot;turn_direction&quot;:&quot;straight&quot;}}"/>
+  </road>
+  <road name="conn3" length="40.000100" id="1003" junction="-1">
+    <link>
+      <predecessor elementType="road" elementId="1002" contactPoint="end"/>
+      <successor elementType="junction" elementId="10004"/>
+    </link>
+    <planView>
+      <geometry s="0.000000" x="160.000000" y="0.000000" hdg="0.000000" length="40.000000">
+        <line/>
+      </geometry>
+    </planView>
+    <elevationProfile/>
+    <lateralProfile/>
+    <lanes>
+      <laneSection s="0">
+        <center>
+          <lane id="0" type="none" level="false">
+            <link/>
+            <roadMark sOffset="0" type="solid" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link>
+              <predecessor id="-1"/>
+            </link>
+            <width sOffset="0.000000" a="3.500000" b="0" c="0" d="0"/>
+            <roadMark sOffset="0" type="solid" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+    <objects/>
+    <signals/>
+    <userData code="laneAttributes" value="{&quot;-1&quot;:{&quot;subtype&quot;:&quot;road&quot;,&quot;one_way&quot;:&quot;yes&quot;,&quot;turn_direction&quot;:&quot;straight&quot;}}"/>
+  </road>
+  <road name="conn3" length="40.000100" id="10003" junction="-1">
+    <link>
+      <predecessor elementType="road" elementId="10002" contactPoint="end"/>
+      <successor elementType="junction" elementId="10004"/>
+    </link>
+    <planView>
+      <geometry s="0.000000" x="160.000000" y="-3.500000" hdg="0.000000" length="40.000000">
+        <line/>
+      </geometry>
+    </planView>
+    <elevationProfile/>
+    <lateralProfile/>
+    <lanes>
+      <laneSection s="0">
+        <center>
+          <lane id="0" type="none" level="false">
+            <link/>
+            <roadMark sOffset="0" type="solid" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link>
+              <predecessor id="-1"/>
+            </link>
+            <width sOffset="0.000000" a="3.500000" b="0" c="0" d="0"/>
+            <roadMark sOffset="0" type="solid" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+    <objects/>
+    <signals/>
+    <userData code="laneAttributes" value="{&quot;-1&quot;:{&quot;subtype&quot;:&quot;road&quot;,&quot;one_way&quot;:&quot;yes&quot;,&quot;turn_direction&quot;:&quot;straight&quot;}}"/>
+  </road>
+  <road name="conn4" length="40.000100" id="1004" junction="-1">
+    <link>
+      <predecessor elementType="junction" elementId="10004"/>
+      <successor elementType="road" elementId="1005" contactPoint="start"/>
+    </link>
+    <planView>
+      <geometry s="0.000000" x="200.000000" y="0.000000" hdg="0.000000" length="40.000000">
+        <line/>
+      </geometry>
+    </planView>
+    <elevationProfile/>
+    <lateralProfile/>
+    <lanes>
+      <laneSection s="0">
+        <center>
+          <lane id="0" type="none" level="false">
+            <link/>
+            <roadMark sOffset="0" type="solid" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link>
+              <successor id="-1"/>
+            </link>
+            <width sOffset="0.000000" a="3.500000" b="0" c="0" d="0"/>
+            <roadMark sOffset="0" type="solid" weight="standard" color="white" width="0.13"/>
+          </lane>
+          <lane id="-2" type="driving" level="false">
+            <link>
+              <successor id="-2"/>
+            </link>
+            <width sOffset="0.000000" a="3.500000" b="0" c="0" d="0"/>
+            <roadMark sOffset="0" type="solid" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+    <objects/>
+    <signals/>
+    <userData code="laneAttributes" value="{&quot;-1&quot;:{&quot;subtype&quot;:&quot;road&quot;,&quot;one_way&quot;:&quot;yes&quot;,&quot;turn_direction&quot;:&quot;straight&quot;},&quot;-2&quot;:{&quot;subtype&quot;:&quot;road&quot;,&quot;one_way&quot;:&quot;yes&quot;,&quot;turn_direction&quot;:&quot;straight&quot;}}"/>
+  </road>
+  <road name="connecting" length="0.001000" id="10006" junction="10004">
+    <link>
+      <predecessor elementType="road" elementId="1003" contactPoint="end"/>
+      <successor elementType="road" elementId="1004" contactPoint="start"/>
+    </link>
+    <planView>
+      <geometry s="0" x="200.000000" y="0.000000" hdg="0.000000" length="0.001000">
+        <line/>
+      </geometry>
+    </planView>
+    <elevationProfile/>
+    <lateralProfile/>
+    <lanes>
+      <laneSection s="0">
+        <center>
+          <lane id="0" type="none" level="false">
+            <link/>
+            <roadMark sOffset="0" type="none" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link>
+              <predecessor id="-1"/>
+              <successor id="-1"/>
+            </link>
+            <width sOffset="0" a="3.500000" b="0" c="0" d="0"/>
+            <roadMark sOffset="0" type="none" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+    <objects/>
+    <signals/>
+  </road>
+  <road name="connecting" length="0.001000" id="10007" junction="10004">
+    <link>
+      <predecessor elementType="road" elementId="10003" contactPoint="end"/>
+      <successor elementType="road" elementId="1004" contactPoint="start"/>
+    </link>
+    <planView>
+      <geometry s="0" x="200.000000" y="-3.500000" hdg="0.000000" length="0.001000">
+        <line/>
+      </geometry>
+    </planView>
+    <elevationProfile/>
+    <lateralProfile/>
+    <lanes>
+      <laneSection s="0">
+        <center>
+          <lane id="0" type="none" level="false">
+            <link/>
+            <roadMark sOffset="0" type="none" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link>
+              <predecessor id="-1"/>
+              <successor id="-2"/>
+            </link>
+            <width sOffset="0" a="3.500000" b="0" c="0" d="0"/>
+            <roadMark sOffset="0" type="none" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+    <objects/>
+    <signals/>
+  </road>
+  <road name="connecting" length="0.001000" id="10008" junction="10005">
+    <link>
+      <predecessor elementType="road" elementId="0" contactPoint="end"/>
+      <successor elementType="road" elementId="1000" contactPoint="start"/>
+    </link>
+    <planView>
+      <geometry s="0" x="40.000000" y="0.000000" hdg="0.000000" length="0.001000">
+        <line/>
+      </geometry>
+    </planView>
+    <elevationProfile/>
+    <lateralProfile/>
+    <lanes>
+      <laneSection s="0">
+        <center>
+          <lane id="0" type="none" level="false">
+            <link/>
+            <roadMark sOffset="0" type="none" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link>
+              <predecessor id="-1"/>
+              <successor id="-1"/>
+            </link>
+            <width sOffset="0" a="3.500000" b="0" c="0" d="0"/>
+            <roadMark sOffset="0" type="none" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+    <objects/>
+    <signals/>
+  </road>
+  <road name="connecting" length="0.001000" id="10009" junction="10005">
+    <link>
+      <predecessor elementType="road" elementId="0" contactPoint="end"/>
+      <successor elementType="road" elementId="10000" contactPoint="start"/>
+    </link>
+    <planView>
+      <geometry s="0" x="40.000000" y="-3.500000" hdg="0.000000" length="0.001000">
+        <line/>
+      </geometry>
+    </planView>
+    <elevationProfile/>
+    <lateralProfile/>
+    <lanes>
+      <laneSection s="0">
+        <center>
+          <lane id="0" type="none" level="false">
+            <link/>
+            <roadMark sOffset="0" type="none" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link>
+              <predecessor id="-2"/>
+              <successor id="-1"/>
+            </link>
+            <width sOffset="0" a="3.500000" b="0" c="0" d="0"/>
+            <roadMark sOffset="0" type="none" weight="standard" color="white" width="0.13"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+    <objects/>
+    <signals/>
+  </road>
+<junction name="j5" id="2005">
+    <connection id="0" incomingRoad="1004" connectingRoad="1005" contactPoint="start">
+      <laneLink from="-1" to="-1"/>
+      <laneLink from="-2" to="-2"/>
+    </connection>
+  </junction>
+<junction name="j6" id="2006">
+    <connection id="0" incomingRoad="1005" connectingRoad="1006" contactPoint="start">
+      <laneLink from="-1" to="-1"/>
+      <laneLink from="-2" to="-2"/>
+    </connection>
+  </junction>
+<junction name="j7" id="2007">
+    <connection id="0" incomingRoad="1006" connectingRoad="1007" contactPoint="start">
+      <laneLink from="-1" to="-1"/>
+      <laneLink from="-2" to="-2"/>
+    </connection>
+  </junction>
+  <junction id="10004" name="junction10004">
+    <connection id="0" incomingRoad="1003" connectingRoad="10006" contactPoint="start">
+      <laneLink from="-1" to="-1"/>
+    </connection>
+    <connection id="1" incomingRoad="10003" connectingRoad="10007" contactPoint="start">
+      <laneLink from="-1" to="-1"/>
+    </connection>
+  </junction>
+  <junction id="10005" name="junction10005">
+    <connection id="0" incomingRoad="0" connectingRoad="10008" contactPoint="start">
+      <laneLink from="-1" to="-1"/>
+    </connection>
+    <connection id="1" incomingRoad="0" connectingRoad="10009" contactPoint="start">
+      <laneLink from="-2" to="-1"/>
+    </connection>
+  </junction>
+</OpenDRIVE>

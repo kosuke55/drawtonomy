@@ -40,6 +40,51 @@ export interface OdrRoadRecord {
    * precondition for surgical (lateral-only) width regeneration.
    */
   semanticHash?: string
+  /**
+   * Hash of the road's state with BOTH the boundary geometry and the whole
+   * regulatory layer removed: only lane attributes / connectivity /
+   * right-of-way contribute. When this still matches at export but
+   * `semanticHash` does not, the edit stayed inside the two layers the
+   * surgical path can rewrite in place — lane `<width>` records and the
+   * road's `<signal>` elements. `semanticHash` alone cannot say that,
+   * because it folds a moved / added / deleted signal into the same value
+   * as a renamed lane.
+   */
+  laneSemanticHash?: string
+  /**
+   * Hash of the lane side alone, boundary geometry included (the regulatory
+   * layer dropped). Equality means the lanes are completely untouched, so a
+   * road whose only edit was to its signals keeps its `<lanes>` subtree
+   * byte-verbatim instead of going through the width rewrite.
+   */
+  laneGeometryHash?: string
+  /**
+   * Hash of the regulatory shapes the road does NOT emit as `<signal>`
+   * elements (crosswalks, emitted as `<object>`s). Equality here, together
+   * with `laneSemanticHash` equality, is the precondition for the surgical
+   * `<signal>` rewrite: everything else that changed is confined to the
+   * traffic lights / signs, which `rewriteSignals` checks element by element
+   * against the road's original `<signals>` block.
+   */
+  nonSignalRegulatoryHash?: string
+  /**
+   * Import-time baseline of each traffic light / sign this road emits as a
+   * `<signal>`, keyed by the source `<signal id>`. The surgical `<signal>`
+   * rewrite compares the live shape against it to be sure the signal was
+   * *moved* and not swapped for a different one (relabelled, re-aimed at other
+   * lanes, re-grouped under another controller, given a new stop line), and to
+   * tell a moved signal from an untouched one without a tolerance.
+   */
+  signalBaselines?: Record<string, SignalBaseline>
+}
+
+/** Import-time state of one `<signal>`-emitting shape. */
+export interface SignalBaseline {
+  /** Non-positional payload; see `serializeSignalPayload`. */
+  payload: string
+  /** Canvas-pixel position, compared by value equality. */
+  x: number
+  y: number
 }
 
 /** Editable state of one lane shape, as fed into the road state hash. */
@@ -138,9 +183,98 @@ export function hashRoadSemantics(
   return hashRoadState(geomFreeLanes, geomFreeReg)
 }
 
+/**
+ * Hash of a road's lane semantics only: `hashRoadSemantics` with the whole
+ * regulatory layer dropped as well. Equality means the lanes' attributes,
+ * connectivity and right-of-way are untouched, whatever happened to the
+ * boundary geometry and to the signals — the precondition for combining
+ * surgical width rewriting with surgical `<signal>` rewriting.
+ */
+export function hashRoadLaneSemantics(lanes: readonly CarryLaneState[]): string {
+  const geomFreeLanes = lanes.map(l => ({ ...l, leftPts: null, rightPts: null }))
+  return hashRoadState(geomFreeLanes, [])
+}
+
+/**
+ * Kinds that a road emits as `<signal>` elements, and whose position the
+ * surgical path can therefore rewrite in place. Crosswalks become `<object>`
+ * elements instead, so they stay fully hashed.
+ */
+const SIGNAL_KINDS: ReadonlySet<CarryRegulatoryState['kind']> = new Set([
+  'traffic_light',
+  'traffic_sign',
+])
+
+/**
+ * Hash of the regulatory shapes a road does NOT emit as `<signal>` elements
+ * (crosswalks, which become `<object>`s). Their full state — membership,
+ * position, attributes, stop line — contributes, because nothing in the
+ * surgical path can rewrite them in place.
+ *
+ * The `<signal>` kinds are deliberately left out: the authority on what
+ * changed about them is the road's own original `<signals>` block, which
+ * `rewriteSignals` matches every live shape against element by element. A
+ * hash cannot tell "one signal moved" from "one signal was replaced by a
+ * different one", but that comparison can.
+ */
+export function hashRoadNonSignalRegulatory(regulatory: readonly CarryRegulatoryState[]): string {
+  return hashRoadState([], regulatory.filter(r => !SIGNAL_KINDS.has(r.kind)))
+}
+
+/** True for the regulatory kinds a road emits as `<signal>` elements. */
+export function isSignalKind(kind: CarryRegulatoryState['kind']): boolean {
+  return SIGNAL_KINDS.has(kind)
+}
+
+/**
+ * Everything about a traffic light / sign except where it sits: kind, size,
+ * attributes, affected lanes, stop line and controller. Two shapes with the
+ * same payload differ only by position, which is what the surgical `<signal>`
+ * rewrite can express; any other difference means the signal was replaced, not
+ * moved. `numbers[0]` / `numbers[1]` are the position and are excluded;
+ * the remaining entries (size, rotation) stay in.
+ */
+export function serializeSignalPayload(state: CarryRegulatoryState): string {
+  return (
+    `${state.kind}|#:${state.numbers.slice(2).join(',')}|A:${fmtAttrs(state.attributes)}` +
+    `|F:${fmtIds(state.affectedLaneIds)}|S:${fmtPts(state.stopLinePts)}|C:${state.controllerId}`
+  )
+}
+
+/**
+ * Import-time baseline of a signal-kind shape: its non-positional payload plus
+ * its canvas-pixel position. The position is compared by value equality at
+ * export, so "did this signal move?" is answered by the numbers being the same
+ * numbers — never by a tolerance, which would let a small drag rewrite nothing
+ * or a rounding difference rewrite an untouched element.
+ */
+export function signalBaseline(state: CarryRegulatoryState): SignalBaseline {
+  return { payload: serializeSignalPayload(state), x: state.numbers[0], y: state.numbers[1] }
+}
+
 // ---------------------------------------------------------------------------
 // Raw document access
 // ---------------------------------------------------------------------------
+
+/** One road-level `<predecessor>`/`<successor>` with elementType="road". */
+export interface OdrDocRoadLink {
+  /** Which end of THIS road the link sits on. */
+  end: 'predecessor' | 'successor'
+  /** The road it reaches. */
+  elementId: string
+  /** Which end of the neighbour it touches, when stated. */
+  contactPoint: 'start' | 'end' | null
+}
+
+/** One `<connection>` record of a junction, kept structurally. */
+export interface OdrDocConnection {
+  id: string | null
+  incomingRoad: string
+  connectingRoad: string
+  /** The end of the connecting road the incoming road meets. */
+  contactPoint: 'start' | 'end' | null
+  laneLinks: { from: number; to: number }[]
+}
 
 export interface OdrDocRoad {
   id: string
@@ -150,6 +284,8 @@ export interface OdrDocRoad {
   text: string
   /** elementIds of road-level <predecessor>/<successor> with elementType="road". */
   linkRoadRefs: string[]
+  /** The same links with the end and contact point they state. */
+  roadLinks: OdrDocRoadLink[]
   /** elementIds of road-level links with elementType="junction". */
   linkJunctionRefs: string[]
   /** ids of <signal> definitions inside this road. */
@@ -161,6 +297,8 @@ export interface OdrDocJunction {
   text: string
   /** incomingRoad / connectingRoad ids referenced by <connection> records. */
   memberRoadIds: string[]
+  /** The `<connection>` records themselves, in document order. */
+  connections: OdrDocConnection[]
 }
 
 export interface OdrDocController {
@@ -183,10 +321,31 @@ export interface OdrDocument {
   maxNumericControllerId: number
 }
 
-/** Match all `<tag .../>` or `<tag ...>...</tag>` blocks (tags do not nest). */
-function matchBlocks(xml: string, tag: string): string[] {
-  const re = new RegExp(`<${tag}\\b[^>]*(?:/>|>[\\s\\S]*?</${tag}>)`, 'g')
-  return xml.match(re) ?? []
+/**
+ * Match all `<tag .../>` or `<tag ...>...</tag>` elements (tags do not nest).
+ *
+ * The attribute run is `[^>]*?` and the two forms are anchored separately, so
+ * a self-closing element ends at its OWN `/>`. Written as `[^>]*(?:/>|>…)`,
+ * the greedy run walks past the slash of `<a/>` and the `>…</tag>` branch then
+ * matches to the NEXT element's closing tag, swallowing two siblings as one.
+ *
+ * `matchElementsWithIndent` keeps the leading whitespace of the line, for
+ * rewrites that delete whole lines.
+ */
+const elementRe = (tag: string, indent: boolean): RegExp =>
+  new RegExp(
+    `${indent ? '[^\\S\\n]*' : ''}<${tag}\\b[^>]*?(?:/>|>[\\s\\S]*?</${tag}>)${indent ? '\\n?' : ''}`,
+    'g'
+  )
+
+function matchElements(xml: string, tag: string): string[] {
+  return xml.match(elementRe(tag, false)) ?? []
+}
+
+/** Opening tag of an element block (`<tag ...>` or `<tag .../>`). */
+function openingTagOf(block: string): string {
+  const end = block.indexOf('>')
+  return end >= 0 ? block.slice(0, end + 1) : block
 }
 
 /** Attribute value from an element's opening tag, or null. */
@@ -209,17 +368,25 @@ export function extractOdrDocument(xml: string): OdrDocument | null {
   const headerMatch = xml.match(/<header\b[^>]*(?:\/>|>[\s\S]*?<\/header>)/)
 
   const roads: OdrDocRoad[] = []
-  for (const text of matchBlocks(xml, 'road')) {
+  for (const text of matchElements(xml, 'road')) {
     const id = attrOf(text, 'id')
     if (id === null) continue
     const linkRoadRefs: string[] = []
+    const roadLinks: OdrDocRoadLink[] = []
     const linkJunctionRefs: string[] = []
     for (const tag of text.match(/<(?:predecessor|successor)\b[^>]*\/?>/g) ?? []) {
       const elementType = tag.match(/\belementType="([^"]*)"/)?.[1]
       const elementId = tag.match(/\belementId="([^"]*)"/)?.[1]
       if (elementId === undefined) continue
-      if (elementType === 'road') linkRoadRefs.push(elementId)
-      else if (elementType === 'junction') linkJunctionRefs.push(elementId)
+      if (elementType === 'road') {
+        linkRoadRefs.push(elementId)
+        const cp = tag.match(/\bcontactPoint="([^"]*)"/)?.[1]
+        roadLinks.push({
+          end: tag.startsWith('<successor') ? 'successor' : 'predecessor',
+          elementId,
+          contactPoint: cp === 'start' || cp === 'end' ? cp : null,
+        })
+      } else if (elementType === 'junction') linkJunctionRefs.push(elementId)
     }
     const signalIds: string[] = []
     for (const tag of text.match(/<signal\b[^>]*/g) ?? []) {
@@ -231,27 +398,47 @@ export function extractOdrDocument(xml: string): OdrDocument | null {
       junction: attrOf(text, 'junction') ?? '-1',
       text,
       linkRoadRefs,
+      roadLinks,
       linkJunctionRefs,
       signalIds,
     })
   }
 
   const junctions: OdrDocJunction[] = []
-  for (const text of matchBlocks(xml, 'junction')) {
+  for (const text of matchElements(xml, 'junction')) {
     const id = attrOf(text, 'id')
     if (id === null) continue
     const memberRoadIds: string[] = []
-    for (const tag of text.match(/<connection\b[^>]*/g) ?? []) {
+    const connections: OdrDocConnection[] = []
+    for (const block of matchElements(text, 'connection')) {
+      const open = openingTagOf(block)
       for (const name of ['incomingRoad', 'connectingRoad'] as const) {
-        const v = tag.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1]
+        const v = open.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1]
         if (v !== undefined && !memberRoadIds.includes(v)) memberRoadIds.push(v)
       }
+      const incomingRoad = open.match(/\bincomingRoad="([^"]*)"/)?.[1]
+      const connectingRoad = open.match(/\bconnectingRoad="([^"]*)"/)?.[1]
+      if (incomingRoad === undefined || connectingRoad === undefined) continue
+      const cp = open.match(/\bcontactPoint="([^"]*)"/)?.[1]
+      const laneLinks: { from: number; to: number }[] = []
+      for (const link of block.match(/<laneLink\b[^>]*?\/?>/g) ?? []) {
+        const from = parseInt(link.match(/\bfrom="([^"]*)"/)?.[1] ?? '', 10)
+        const to = parseInt(link.match(/\bto="([^"]*)"/)?.[1] ?? '', 10)
+        if (Number.isFinite(from) && Number.isFinite(to)) laneLinks.push({ from, to })
+      }
+      connections.push({
+        id: open.match(/\bid="([^"]*)"/)?.[1] ?? null,
+        incomingRoad,
+        connectingRoad,
+        contactPoint: cp === 'start' || cp === 'end' ? cp : null,
+        laneLinks,
+      })
     }
-    junctions.push({ id, text, memberRoadIds })
+    junctions.push({ id, text, memberRoadIds, connections })
   }
 
   const controllers: OdrDocController[] = []
-  for (const text of matchBlocks(xml, 'controller')) {
+  for (const text of matchElements(xml, 'controller')) {
     const id = attrOf(text, 'id') ?? ''
     const signalIds: string[] = []
     for (const tag of text.match(/<control\b[^>]*/g) ?? []) {
@@ -302,6 +489,41 @@ export function dropControlRecords(text: string, keepSignalIds: ReadonlySet<stri
 }
 
 /**
+ * Re-point or drop the `<signalReference>` records of a `<road>` element,
+ * keeping every other byte untouched.
+ *
+ * A `<signalReference>` re-applies a signal DEFINED on another road, and
+ * carries its own placement (s / t / orientation / validity) for this road,
+ * which exists nowhere else. `resolve` is asked what became of each
+ * referenced id: a new id to point at, or null when the signal is defined
+ * nowhere in the output and the record has to go.
+ *
+ * Both answers matter. Treating "not in the carried text" as "deleted" threw
+ * away references to signals that had merely been re-emitted under a fresh
+ * id, taking their placement with them.
+ *
+ * Each record is matched up to its own end (see `elementRe`): a self-closing
+ * `<signalReference .../>` followed by a sibling with a `<validity>` child
+ * used to match as ONE record, so the first id decided keep / retarget / drop
+ * for both — deleting a reference the user had not touched, or leaving the
+ * second id un-retargeted and dangling.
+ */
+export function rewriteSignalReferences(
+  text: string,
+  resolve: (signalId: string) => string | null
+): string {
+  return text.replace(elementRe('signalReference', true), match => {
+    const head = openingTagOf(match)
+    const sid = head.match(/\bid="([^"]*)"/)?.[1]
+    if (sid === undefined) return match
+    const target = resolve(sid)
+    if (target === null) return ''
+    if (target === sid) return match
+    return match.replace(head, head.replace(/(\bid=")[^"]*(")/, `$1${target}$2`))
+  })
+}
+
+/**
  * Append `<control signalId="..."/>` records to a `<controller>` element,
  * just before its closing tag, keeping every existing byte intact.
  *
@@ -309,7 +531,7 @@ export function dropControlRecords(text: string, keepSignalIds: ReadonlySet<stri
  * the surviving controller element absorbs them instead of a duplicate
  * controller being emitted for the same group.
  */
-export function appendControlRecords(text: string, signalIds: readonly number[]): string {
+export function appendControlRecords(text: string, signalIds: readonly string[]): string {
   if (signalIds.length === 0) return text
   const added = signalIds.map(id => `    <control signalId="${id}" type="0"/>`).join('\n')
   // Self-closing <controller .../> has no children yet; expand it.
@@ -319,6 +541,35 @@ export function appendControlRecords(text: string, signalIds: readonly number[])
   const close = text.lastIndexOf('</controller>')
   if (close < 0) return text
   return `${text.slice(0, close)}${added}\n  ${text.slice(close)}`
+}
+
+/**
+ * Re-point or drop the `<controller>` references inside a carried
+ * `<junction>` element, keeping every other byte untouched.
+ *
+ * A `<junction>` may list the controllers that run its signal groups, by id.
+ * Carrying the element verbatim keeps those ids, but a controller can be
+ * emitted under a different id (its group regenerated) or not at all (every
+ * signal it controlled was deleted). `mapping` says which, keyed by the
+ * ORIGINAL id; an id it does not mention is emitted nowhere, so the reference
+ * is removed rather than left dangling.
+ */
+export function rewriteJunctionControllerRefs(
+  text: string,
+  mapping: ReadonlyMap<string, string>
+): string {
+  return text.replace(
+    /[^\S\n]*<controller\b[^>]*?(?:\/>|>[\s\S]*?<\/controller>)\n?/g,
+    match => {
+      const head = match.slice(0, match.indexOf('>') + 1)
+      const id = head.match(/\bid="([^"]*)"/)?.[1]
+      if (id === undefined) return match
+      const target = mapping.get(id)
+      if (target === undefined) return ''
+      if (target === id) return match
+      return match.replace(head, head.replace(/(\bid=")[^"]*(")/, `$1${target}$2`))
+    }
+  )
 }
 
 /**

@@ -3,7 +3,7 @@ import { parseOpenDriveXml } from '../../src/exporter/opendriveParser'
 import { odrToShapes } from '../../src/exporter/odrToShapes'
 import { exportToOpenDrive } from '../../src/exporter/opendrive'
 import { evalElevation, sampleReferenceLine } from '../../src/exporter/odrGeometry'
-import { fitElevationProfile, evalElevationRecords } from '../../src/exporter/odrElevationFit'
+import { fitElevationProfile, evalElevationRecords, resolveElevationGaps } from '../../src/exporter/odrElevationFit'
 import type { DrawtonomySnapshot } from '../../src/types'
 
 /** A straight road climbing from 12 m to ~15 m over 100 m, in two segments. */
@@ -35,6 +35,27 @@ const SLOPED_ROAD = `<?xml version="1.0"?>
 
 /** Same road with no <elevationProfile> at all. */
 const FLAT_ROAD = SLOPED_ROAD.replace(/<elevationProfile>[\s\S]*?<\/elevationProfile>/, '')
+
+/**
+ * A road whose elevation profile starts at height 0 (a = 0, b = 0 at s = 0)
+ * but is not flat further along — the pattern real vertical-curve maps use
+ * at a station-0 record (e.g. a sag starting level before climbing). This
+ * used to collide with the "z === 0 means no elevation" heuristic: the very
+ * first sample legitimately evaluates to exactly 0.
+ */
+const ZERO_START_ROAD = SLOPED_ROAD.replace(
+  /<elevationProfile>[\s\S]*?<\/elevationProfile>/,
+  '<elevationProfile>' +
+    '<elevation s="0" a="0" b="0" c="0.0006" d="0"/>' +
+    '<elevation s="50" a="1.5" b="0.04" c="0" d="0"/>' +
+    '</elevationProfile>'
+)
+
+/** All records present but numerically flat (a = b = c = d = 0 everywhere). */
+const ALL_ZERO_RECORD_ROAD = SLOPED_ROAD.replace(
+  /<elevationProfile>[\s\S]*?<\/elevationProfile>/,
+  '<elevationProfile><elevation s="0" a="0" b="0" c="0" d="0"/></elevationProfile>'
+)
 
 /** Build a snapshot from an odrToShapes result, carrying point heights. */
 function snapshotOf(xml: string): DrawtonomySnapshot {
@@ -89,6 +110,64 @@ function snapshotOf(xml: string): DrawtonomySnapshot {
     timestamp: new Date().toISOString(),
     shapes: shapes as DrawtonomySnapshot['shapes'],
   }
+}
+
+/** Where to strip the height annotation off a road's boundary vertices. */
+type ZDropPattern =
+  /** The very first vertex of each boundary (the e6mini pattern). */
+  | 'first'
+  /** One vertex in the middle of each boundary: an interior hole. */
+  | 'middle'
+  /** Every vertex past the halfway point: an unannotated end stretch. */
+  | 'tailHalf'
+
+/**
+ * Build a snapshot whose boundary vertices are missing their height in the
+ * given pattern, so the exporter's gap handling is exercised deliberately
+ * rather than as a side effect of the importer's own heuristics.
+ *
+ * Returns the station (m along the source road) of the dropped middle
+ * vertex, so a test can probe exactly where the hole was.
+ */
+function snapshotWithDroppedZ(
+  xml: string,
+  pattern: ZDropPattern
+): { snapshot: DrawtonomySnapshot; droppedAt: number } {
+  const roadLength = parseOpenDriveXml(xml).roads[0].length
+  const base = snapshotOf(xml)
+  const imported = odrToShapes(parseOpenDriveXml(xml))
+  const dropIds = new Set<string>()
+  for (const ls of imported.linestrings) {
+    const n = ls.pointIds.length
+    if (pattern === 'first') dropIds.add(ls.pointIds[0])
+    else if (pattern === 'middle') dropIds.add(ls.pointIds[Math.floor(n / 2)])
+    else for (let i = Math.floor(n / 2); i < n; i++) dropIds.add(ls.pointIds[i])
+  }
+  const shapes = base.shapes.map(s => {
+    if (s.type !== 'point' || !dropIds.has(s.id)) return s
+    const { z: _z, ...props } = s.props as Record<string, unknown>
+    return { ...s, props } as typeof s
+  })
+  // Boundary vertices are laid out along the road, so the middle vertex sits
+  // at roughly half the road's length.
+  return { snapshot: { ...base, shapes }, droppedAt: roadLength / 2 }
+}
+
+/**
+ * Nudge exactly one point sideways in a snapshot, simulating a user edit
+ * that disqualifies the road from the verbatim carry-through path (this test
+ * suite's snapshots have no sidecar, so exportToOpenDrive always goes
+ * through the fitting exporter — this just documents intent).
+ *
+ * One point, not all of them: translating the whole road leaves its shape
+ * (and so its refitted profile) untouched, which is a much weaker input
+ * than the single-vertex edit these tests mean to describe.
+ */
+function moveOnePoint(snapshot: DrawtonomySnapshot): DrawtonomySnapshot {
+  const idx = snapshot.shapes.findIndex(s => s.type === 'point')
+  if (idx === -1) throw new Error('no point shape to move')
+  const shapes = snapshot.shapes.map((s, i) => (i === idx ? { ...s, x: s.x + 1 } : s))
+  return { ...snapshot, shapes }
 }
 
 describe('elevation parsing', () => {
@@ -207,6 +286,50 @@ describe('fitElevationProfile', () => {
     const records = fitElevationProfile([{ s: 4, z: 7 }, { s: 20, z: 8 }])
     expect(records[0].s).toBe(0)
   })
+
+  it('keeps a held span exactly flat, not just flat at its ends', () => {
+    // `resolveElevationGaps` marks the samples it filled in by holding a
+    // known height. Fitting straight through them let the neighbouring
+    // grade's estimated slope leak into the held span: the cubic from
+    // (0, 5) to (10, 5) left with slope 0 and arrived with the grade's
+    // 0.25 m/m, sagging to 4.6875 m at s = 5 m — 31 cm below a value that
+    // is supposed to be constant, and outside the fitter's 5 cm tolerance.
+    const samples = resolveElevationGaps(
+      [
+        { s: 0, z: undefined },
+        { s: 10, z: 5 },
+        { s: 20, z: 10 },
+        { s: 30, z: 15 },
+        { s: 40, z: 20 },
+      ],
+      40
+    )
+    expect(samples).not.toBeNull()
+    const records = fitElevationProfile(samples!)
+    for (let s = 0; s <= 10 + 1e-9; s += 0.5) {
+      expect(evalElevationRecords(records, s)).toBeCloseTo(5, 9)
+    }
+    // The measured part is untouched.
+    for (const [s, z] of [[20, 10], [30, 15], [40, 20]] as const) {
+      expect(Math.abs(evalElevationRecords(records, s) - z)).toBeLessThanOrEqual(0.05)
+    }
+  })
+
+  it('keeps a held tail span flat too', () => {
+    const samples = resolveElevationGaps(
+      [
+        { s: 0, z: 10 },
+        { s: 15, z: 20 },
+        { s: 30, z: undefined },
+      ],
+      30
+    )
+    expect(samples).not.toBeNull()
+    const records = fitElevationProfile(samples!)
+    for (let s = 15; s <= 30 + 1e-9; s += 0.5) {
+      expect(evalElevationRecords(records, s)).toBeCloseTo(20, 9)
+    }
+  })
 })
 
 describe('elevation round-trip (import -> export)', () => {
@@ -228,6 +351,133 @@ describe('elevation round-trip (import -> export)', () => {
 
   it('keeps emitting an empty profile for roads with no height', () => {
     const xml = exportToOpenDrive(snapshotOf(FLAT_ROAD))
+    expect(xml).toContain('<elevationProfile/>')
+    expect(xml).not.toContain('<elevation ')
+  })
+})
+
+// Regression: issue #984. A regenerated road (its shapes were edited, so it
+// cannot be re-emitted verbatim) used to lose its <elevationProfile> even
+// though its source profile was not flat, because of two independent bugs:
+//
+//   1. odrToShapes stripped z = 0 off every point unconditionally, so a
+//      profile that legitimately evaluates to exactly 0 at some station
+//      (e.g. a = b = 0 at s = 0) came back looking height-free there.
+//   2. exportToOpenDrive discarded ALL elevation samples for a road if even
+//      one boundary point was missing z, instead of only the un-annotated
+//      stretch.
+describe('elevation survives regeneration after an edit (#984)', () => {
+  it('keeps the elevation record for a profile that starts at height 0', () => {
+    const source = parseOpenDriveXml(ZERO_START_ROAD).roads[0]
+    expect(source.hasElevation).toBe(true)
+    // Sanity: the source really does evaluate to exactly 0 at s = 0, the
+    // condition that used to be indistinguishable from "no elevation".
+    expect(evalElevation(source.elevations, 0)).toBe(0)
+
+    const edited = moveOnePoint(snapshotOf(ZERO_START_ROAD))
+    const xml = exportToOpenDrive(edited)
+    expect(xml).toContain('<elevationProfile>')
+    expect(xml).toContain('<elevation ')
+
+    const out = parseOpenDriveXml(xml).roads[0]
+    expect(out.hasElevation).toBe(true)
+    for (let f = 0; f <= 1.0001; f += 0.05) {
+      const srcZ = evalElevation(source.elevations, f * source.length)
+      const outZ = evalElevation(out.elevations, f * out.length)
+      expect(Math.abs(outZ - srcZ)).toBeLessThanOrEqual(0.05)
+    }
+  })
+
+  it('does not fabricate elevation for a genuinely flat road after an edit', () => {
+    // Regression guard for the fix above: a road whose profile really is
+    // flat (all-zero record, road.hasElevation === false) must still round
+    // trip to an empty <elevationProfile/> — the "no elevation" convention
+    // is a semantic call (a=b=c=d=0), not an artifact of dropping z = 0.
+    const edited = moveOnePoint(snapshotOf(ALL_ZERO_RECORD_ROAD))
+    const xml = exportToOpenDrive(edited)
+    expect(xml).toContain('<elevationProfile/>')
+    expect(xml).not.toContain('<elevation ')
+  })
+
+  it('does not fabricate elevation for a road with no profile at all after an edit', () => {
+    const edited = moveOnePoint(snapshotOf(FLAT_ROAD))
+    const xml = exportToOpenDrive(edited)
+    expect(xml).toContain('<elevationProfile/>')
+    expect(xml).not.toContain('<elevation ')
+  })
+
+  // These three check the *height values* a partly annotated boundary
+  // produces, not just that some <elevation> element came out. They use a
+  // uniformly sampled road, where the reconstruction rule (station-space vs
+  // array-index interpolation) barely changes the numbers; the rule itself
+  // is pinned on deliberately uneven stations in odrElevationGaps.test.ts.
+  it('reconstructs an interior hole to the height the source had there', () => {
+    // A vertex in the middle of the road loses its z. The exporter must not
+    // just keep emitting *a* profile — it must put the reconstructed height
+    // where the source profile actually was.
+    const source = parseOpenDriveXml(SLOPED_ROAD).roads[0]
+    const { snapshot, droppedAt } = snapshotWithDroppedZ(SLOPED_ROAD, 'middle')
+    const xml = exportToOpenDrive(moveOnePoint(snapshot))
+    const out = parseOpenDriveXml(xml).roads[0]
+    expect(out.hasElevation).toBe(true)
+
+    // The hole itself: compare at the same fraction of the road, since the
+    // exported reference line is the leftmost boundary and its stations
+    // shift slightly. 5 cm is the fitter's own height tolerance
+    // (`DEFAULT_MAX_ERROR`) — a geometric allowance, not a fudge factor;
+    // the un-fixed index-space filler was off by whole metres here.
+    const f = droppedAt / source.length
+    const srcZ = evalElevation(source.elevations, f * source.length)
+    const outZ = evalElevation(out.elevations, f * out.length)
+    expect(Math.abs(outZ - srcZ)).toBeLessThanOrEqual(0.05)
+
+    // And the rest of the road is unharmed by the reconstruction.
+    for (let g = 0; g <= 1.0001; g += 0.05) {
+      expect(
+        Math.abs(
+          evalElevation(out.elevations, g * out.length) -
+            evalElevation(source.elevations, g * source.length)
+        )
+      ).toBeLessThanOrEqual(0.05)
+    }
+  })
+
+  it('keeps the profile when only the first vertex loses its height', () => {
+    // The e6mini pattern: every station but the very first carries a fitted
+    // z. One dropped vertex at the road start must not cost the road its
+    // profile.
+    const source = parseOpenDriveXml(SLOPED_ROAD).roads[0]
+    const { snapshot } = snapshotWithDroppedZ(SLOPED_ROAD, 'first')
+    const xml = exportToOpenDrive(moveOnePoint(snapshot))
+    const out = parseOpenDriveXml(xml).roads[0]
+    expect(out.hasElevation).toBe(true)
+
+    // Past the dropped vertex the profile still tracks the source within the
+    // fitter's 5 cm height tolerance. Stations are compared as a fraction of
+    // each road's length, since the exported reference line is the leftmost
+    // boundary and its stations shift slightly.
+    const srcZ = (g: number) => evalElevation(source.elevations, g * source.length)
+    const outZ = (g: number) => evalElevation(out.elevations, g * out.length)
+    for (let g = 0.1; g <= 1.0001; g += 0.05) {
+      expect(Math.abs(outZ(g) - srcZ(g))).toBeLessThanOrEqual(0.05)
+    }
+
+    // Over the unannotated head the height is *held* at the first known
+    // value, not run backwards down the grade. It stays between the source
+    // height there and the first annotated height, so the hold can only be
+    // flatter than the truth, never steeper or the wrong way.
+    const held = outZ(0)
+    expect(held).toBeGreaterThanOrEqual(srcZ(0) - 0.05)
+    expect(held).toBeLessThanOrEqual(srcZ(0.1) + 0.05)
+  })
+
+  it('emits no profile at all when a whole end stretch is unannotated', () => {
+    // Half the road has no height data. Nothing supports a height there,
+    // and the fitter would run its last cubic straight through it, so the
+    // road must fall back to the "no elevation" convention instead of
+    // exporting an invented one.
+    const { snapshot } = snapshotWithDroppedZ(SLOPED_ROAD, 'tailHalf')
+    const xml = exportToOpenDrive(moveOnePoint(snapshot))
     expect(xml).toContain('<elevationProfile/>')
     expect(xml).not.toContain('<elevation ')
   })

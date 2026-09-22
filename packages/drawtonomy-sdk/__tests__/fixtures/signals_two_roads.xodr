@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenDRIVE>
+  <header revMajor="1" revMinor="6" name="signals_two_roads">
+    <geoReference><![CDATA[+proj=tmerc +lat_0=35.62614 +lon_0=139.77525 +datum=WGS84 +units=m +no_defs]]></geoReference>
+  </header>
+  <road name="entry" length="100" id="1" junction="-1">
+    <link>
+      <successor elementType="road" elementId="2" contactPoint="start"/>
+    </link>
+    <planView>
+      <geometry s="0" x="0" y="0" hdg="0" length="100">
+        <line/>
+      </geometry>
+    </planView>
+    <elevationProfile>
+      <elevation s="0" a="0.5" b="0" c="0" d="0"/>
+    </elevationProfile>
+    <lanes>
+      <laneOffset s="0" a="0" b="0" c="0" d="0"/>
+      <laneSection s="0">
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link><successor id="-1"/></link>
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+            <roadMark sOffset="0" type="broken" color="white"/>
+          </lane>
+          <lane id="-2" type="driving" level="false">
+            <link><successor id="-2"/></link>
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+    <signals>
+      <signal s="90" t="-8.5" id="100" name="Signal1" dynamic="yes" orientation="-" zOffset="5" country="OpenDRIVE" type="1000001" subtype="-1" hOffset="0" pitch="0" roll="0" height="1.2" width="0.6">
+        <validity fromLane="-2" toLane="-1"/>
+      </signal>
+      <signal s="40" t="-8.5" id="101" name="Sign1" dynamic="no" orientation="-" zOffset="2" country="OpenDRIVE" type="274" subtype="50" hOffset="0" pitch="0" roll="0" height="0.8" width="0.8">
+        <validity fromLane="-2" toLane="-1"/>
+      </signal>
+    </signals>
+  </road>
+  <road name="curve" length="78.539816" id="2" junction="-1">
+    <link>
+      <predecessor elementType="road" elementId="1" contactPoint="end"/>
+    </link>
+    <planView>
+      <geometry s="0" x="100" y="0" hdg="0" length="78.539816">
+        <arc curvature="0.02"/>
+      </geometry>
+    </planView>
+    <lanes>
+      <laneSection s="0">
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link><predecessor id="-1"/></link>
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+          <lane id="-2" type="driving" level="false">
+            <link><predecessor id="-2"/></link>
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+    <signals>
+      <signalReference id="100" s="10" t="-8.5" orientation="-">
+        <validity fromLane="-2" toLane="-1"/>
+      </signalReference>
+    </signals>
+  </road>
+  <controller id="900" name="ctrl">
+    <control signalId="100" type="0"/>
+  </controller>
+</OpenDRIVE>

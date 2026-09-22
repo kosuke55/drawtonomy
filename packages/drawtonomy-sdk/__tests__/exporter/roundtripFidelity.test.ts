@@ -1931,7 +1931,7 @@ describe('carry-through export (sidecar verbatim re-emission)', () => {
     expect(moved).toBe(true)
   })
 
-  it('moving a traffic light regenerates only its carrying road', () => {
+  it('moving a traffic light rewrites only its <signal>, not its road', () => {
     const imported = odrToShapesFull(parseOpenDriveXml(CHAIN_XODR))
     const tl = imported.trafficLights[0]
     expect(tl).toBeDefined()
@@ -1940,11 +1940,22 @@ describe('carry-through export (sidecar verbatim re-emission)', () => {
     const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
     const doc = extractOdrDocument(CHAIN_XODR)!
     const road = (id: string) => doc.roads.find(r => r.id === id)!
-    expect(out).not.toContain(road('1').text)
+    // Road 1 carries the signal: it is no longer byte-identical, but only
+    // because the <signal>'s s moved. Everything outside that element — and
+    // every other road — is untouched.
+    const outRoad1 = extractOdrDocument(out)!.roads.find(r => r.id === '1')!.text
+    expect(outRoad1).not.toBe(road('1').text)
+    const maskSignal = (t: string): string => t.replace(/<signal\b[^>]*>/, '<signal>')
+    expect(maskSignal(outRoad1)).toBe(maskSignal(road('1').text))
     expect(out).toContain(road('2').text)
     expect(out).toContain(road('3').text)
-    // The regenerated signal id starts above the original signal id space.
-    expect(out).toMatch(/<signal [^>]*id="8"/)
+    // The signal keeps its original id (so <controller> / <signalReference>
+    // entries pointing at it stay valid) and moved ~3 m down the road.
+    expect(out).toMatch(/<signal [^>]*id="7"/)
+    expect(out).not.toMatch(/<signal [^>]*id="8"/)
+    const movedS = parseFloat(out.match(/<signal [^>]*\bs="([^"]+)"/)![1])
+    expect(movedS).toBeCloseTo(55 + 50 / PIXELS_PER_METER, 3)
+
     const re = importXodr(out)
     const rep = measureFidelity(imported, re)
     expect(rep.matchedLanes).toBe(3)
@@ -1953,7 +1964,7 @@ describe('carry-through export (sidecar verbatim re-emission)', () => {
     expect(rep.trafficLightAffectedPreserved).toBe(1)
   })
 
-  it('regenerates a junction but keeps clean incoming/outgoing roads, re-pointing their junction links', () => {
+  it('carries the junction through an edit to one of its incoming roads', () => {
     const imported = odrToShapesFull(parseOpenDriveXml(SYNTHETIC_XODR))
     const records = imported.sidecar.roadRecords!
     // Nudge an interior boundary point of out_b (road 3).
@@ -1970,18 +1981,19 @@ describe('carry-through export (sidecar verbatim re-emission)', () => {
     const doc = extractOdrDocument(SYNTHETIC_XODR)!
     const road = (id: string) => doc.roads.find(r => r.id === id)!
     const stripIds = (s: string): string => s.replace(/elementId="[^"]*"/g, 'elementId=""')
-    // Roads 1 / 2 / 4 stay verbatim except their junction link elementIds,
-    // which are re-pointed at the regenerated junction.
+    // Roads 1 / 2 / 4 stay verbatim, junction links included: the junction
+    // they point at is the original one.
     for (const rid of ['1', '2', '4']) {
-      expect(stripIds(out)).toContain(stripIds(road(rid).text))
+      expect(out).toContain(road(rid).text)
     }
-    // The dirty road and the junction's connecting roads regenerate.
+    // Only the edited road regenerates. Its <connection> table does not name
+    // any lane the edit removed, so the intersection stays as written and the
+    // connecting road keeps its bytes and its junction attribute.
     expect(out).not.toContain(road('3').text)
-    expect(stripIds(out)).not.toContain(stripIds(road('5').text))
-    // The original junction element is replaced.
+    expect(stripIds(out)).toContain(stripIds(road('5').text))
     const junction = doc.junctions.find(j => j.id === '10')!
-    expect(out).not.toContain(junction.text)
-    expect(out).toMatch(/<junction /)
+    expect(out).toContain(junction.text)
+    expect(out.match(/<junction /g)!.length).toBe(1)
     // Semantic identity through re-import: all lanes and junction edges.
     const re = importXodr(out)
     const rep = measureFidelity(imported, re)
@@ -2087,6 +2099,260 @@ describe('carry-through export (sidecar verbatim re-emission)', () => {
 
   it('keeps an unedited round trip fully verbatim on the micro fixture', () => {
     expectVerbatimRoundTrip(readFileSync(MICRO_FIXTURE, 'utf-8'))
+  })
+
+  // -------------------------------------------------------------------------
+  // Dangling junction references (issue #985)
+  //
+  // A road's <predecessor>/<successor> may name elementType="junction" with an
+  // id that has no matching <junction> element anywhere in the document (a
+  // pre-existing authoring defect, or a deliberately partial/selective
+  // import). That reference was already dangling in the source file, so it
+  // stays exactly as dangling in the output — carrying the road verbatim
+  // creates no NEW loss. Treating it as "unrecorded" and forcing the road (and
+  // by propagation its real, well-defined junction) to regenerate is an
+  // unwarranted blast radius: real content gets rewritten to fix a reference
+  // that was never valid and cannot become valid either way.
+  //
+  // road 30 -> successor junction "999" (undefined anywhere: dangling).
+  // road 31 -> successor junction "100" (defined junction; its connecting
+  //            road 40 is edited below to make it genuinely dirty).
+  // road 32 -> a 0.2 m micro road (no materialized lanes) that is itself a
+  //            connecting road of junction "100" (connection id="1"), so it
+  //            has nothing to regenerate from if it is dropped into `dirty`
+  //            by propagation.
+  // -------------------------------------------------------------------------
+  const DANGLING_JUNCTION_XODR = `<?xml version="1.0"?>
+<OpenDRIVE>
+  <header revMajor="1" revMinor="6" name="dangling">
+    <geoReference><![CDATA[+proj=tmerc +lat_0=35.0 +lon_0=139.0 +datum=WGS84]]></geoReference>
+  </header>
+  <road name="dangling_ref" length="40" id="30" junction="-1">
+    <link><successor elementType="junction" elementId="999"/></link>
+    <planView><geometry s="0" x="0" y="0" hdg="0" length="40"><line/></geometry></planView>
+    <lanes>
+      <laneSection s="0">
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+  <road name="west_approach" length="40" id="31" junction="-1">
+    <link><successor elementType="junction" elementId="100"/></link>
+    <planView><geometry s="0" x="100" y="0" hdg="0" length="40"><line/></geometry></planView>
+    <lanes>
+      <laneSection s="0">
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+  <road name="east_departure" length="40" id="33" junction="-1">
+    <link><predecessor elementType="junction" elementId="100"/></link>
+    <planView><geometry s="0" x="180" y="0" hdg="0" length="40"><line/></geometry></planView>
+    <lanes>
+      <laneSection s="0">
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+  <road name="micro" length="0.2" id="32" junction="100">
+    <link>
+      <predecessor elementType="road" elementId="31" contactPoint="end"/>
+      <successor elementType="road" elementId="33" contactPoint="start"/>
+    </link>
+    <planView><geometry s="0" x="140" y="20" hdg="0" length="0.2"><line/></geometry></planView>
+    <lanes>
+      <laneSection s="0">
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link><predecessor id="-1"/><successor id="-1"/></link>
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+  <road name="conn_a" length="20" id="40" junction="100">
+    <link>
+      <predecessor elementType="road" elementId="31" contactPoint="end"/>
+      <successor elementType="road" elementId="33" contactPoint="start"/>
+    </link>
+    <planView><geometry s="0" x="140" y="0" hdg="0" length="20"><line/></geometry></planView>
+    <lanes>
+      <laneSection s="0">
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link><predecessor id="-1"/><successor id="-1"/></link>
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+  <junction name="main_junction" id="100">
+    <connection id="0" incomingRoad="31" connectingRoad="40" contactPoint="start">
+      <laneLink from="-1" to="-1"/>
+    </connection>
+    <connection id="1" incomingRoad="31" connectingRoad="32" contactPoint="start">
+      <laneLink from="-1" to="-1"/>
+    </connection>
+  </junction>
+</OpenDRIVE>`
+
+  it('carries a road unedited even when its junction link is dangling (undefined junction id)', () => {
+    // (a) Fully unedited round trip: every road, including the one whose
+    // successor names a junction ("999") that is never defined, stays
+    // verbatim and the road count is unchanged.
+    const imported = odrToShapesFull(parseOpenDriveXml(DANGLING_JUNCTION_XODR))
+    const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
+    const doc = extractOdrDocument(DANGLING_JUNCTION_XODR)!
+    const outDoc = extractOdrDocument(out)!
+    expect(outDoc.roads.length).toBe(doc.roads.length)
+    const road30 = doc.roads.find(r => r.id === '30')!
+    expect(out).toContain(road30.text)
+    // The dangling reference itself is untouched (still points at "999";
+    // there is nothing to repoint it to, and it was already broken).
+    expect(outDoc.roads.find(r => r.id === '30')!.linkJunctionRefs).toEqual(['999'])
+  })
+
+  it('still regenerates a road whose junction link points at a real, dirty junction (regression guard)', () => {
+    // (b) road 31 references junction "100", which IS defined. This must
+    // still dirty the junction and drag road 31's link the way it always has
+    // — the fix only changes handling of references to junctions that do not
+    // exist. Unlike a plain boundary-geometry edit (which a future carry
+    // scheme could reproduce byte-for-byte and thus keep verbatim), clearing
+    // the connecting road's lane connectivity breaks the maneuver itself: no
+    // carry scheme can reproduce a `<laneLink from="-1" to="-1"/>` connection
+    // whose target lane no longer links back, so this edit must always force
+    // regeneration of road 40 and junction 100, independent of how carry-
+    // through for shape-only edits evolves.
+    const imported = odrToShapesFull(parseOpenDriveXml(DANGLING_JUNCTION_XODR))
+    const laneId = imported.sidecar.roadRecords!['40'].laneShapeIds[0]
+    const lane = imported.lanes.find(l => l.id === laneId)!
+    expect(lane.next.length + lane.prev.length).toBeGreaterThan(0)
+    lane.next = []
+    lane.prev = []
+
+    const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
+    const doc = extractOdrDocument(DANGLING_JUNCTION_XODR)!
+    // The connecting road and the junction it belongs to both regenerate.
+    expect(out).not.toContain(doc.roads.find(r => r.id === '40')!.text)
+    expect(out).not.toContain(doc.junctions.find(j => j.id === '100')!.text)
+    expect(out).toMatch(/<junction /)
+    // road 30's dangling ref to "999" is a completely separate junction id
+    // and must be unaffected by "100" regenerating.
+    expect(out).toContain(doc.roads.find(r => r.id === '30')!.text)
+  })
+
+  // KNOWN LIMITATION. road 32 is a genuine connecting road of junction "100"
+  // (connection id="1", junction="100" on the road itself) with zero
+  // materialized lane shapes (below the importer's minimum section length).
+  // Editing road 40 dirties junction "100", which drags every junction-stamped
+  // connecting road — road 32 among them — into `dirty` by propagation, and
+  // nothing can regenerate a road with no lane shapes. So it is dropped.
+  //
+  // Keeping it means placing it into the rebuilt junction from its source
+  // <connection>, which was tried and withdrawn because that plan and the
+  // connectivity plan the intersection is really built from disagreed. See
+  // odrLaneLessConnecting.test.ts.
+  //
+  // What must hold either way: dropping it takes every reference along.
+  it('drops a micro road (no materialized lanes) with its junction, leaving no reference', () => {
+    const imported = odrToShapesFull(parseOpenDriveXml(DANGLING_JUNCTION_XODR))
+    expect(imported.sidecar.roadRecords!['32'].laneShapeIds).toEqual([])
+
+    const laneId = imported.sidecar.roadRecords!['40'].laneShapeIds[0]
+    const lane = imported.lanes.find(l => l.id === laneId)!
+    const ls = imported.linestrings.find(l => l.id === lane.leftBoundaryId ?? lane.rightBoundaryId)!
+    const midPid = ls.pointIds[Math.floor(ls.pointIds.length / 2)]
+    imported.points.find(p => p.id === midPid)!.x += 20
+
+    const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
+    const outDoc = extractOdrDocument(out)!
+    expect(outDoc.roads.some(r => r.id === '32')).toBe(false)
+    // No surviving road links to it and no junction table names it, so the
+    // loss is a deletion and not a dangling reference.
+    for (const r of outDoc.roads) expect(r.linkRoadRefs).not.toContain('32')
+    expect(out).not.toMatch(/\bconnectingRoad="32"/)
+    expect(out).not.toMatch(/\bincomingRoad="32"/)
+  })
+
+  // road 32 has no lane shapes, but the importer DOES shape a <signal> on it,
+  // so the user can delete that signal. "No lanes to regenerate from" was
+  // being read as "nothing about this road can be edited", and the whole road
+  // was skipped before its regulatory state was even compared — the deletion
+  // was silently discarded.
+  const MICRO_SIGNAL_XODR = DANGLING_JUNCTION_XODR.replace(
+    /(<road name="micro"[\s\S]*?)<\/road>/,
+    `$1  <signals>
+      <signal s="0.1" t="-1" id="500" name="L500" dynamic="yes" orientation="-" zOffset="5" country="OpenDRIVE" type="1000001" subtype="-1" hOffset="0" pitch="0" roll="0" height="1.2" width="0.6">
+        <validity fromLane="-1" toLane="-1"/>
+      </signal>
+    </signals>
+  </road>`
+  ).replace(
+    /(<road name="west_approach"[\s\S]*?)<\/road>/,
+    `$1  <signals>
+      <signalReference id="500" s="20" t="-1" orientation="-">
+        <validity fromLane="-1" toLane="-1"/>
+      </signalReference>
+    </signals>
+  </road>`
+  )
+
+  it('applies a signal deletion on a road that has no lane shapes', () => {
+    const imported = odrToShapesFull(parseOpenDriveXml(MICRO_SIGNAL_XODR))
+    expect(imported.sidecar.roadRecords!['32'].laneShapeIds).toEqual([])
+    // The signal really is shaped (otherwise there is no deletion to test).
+    const light = imported.trafficLights.find(t => t.attributes.odr_signal_id === '500')
+    expect(light).toBeDefined()
+
+    imported.trafficLights = imported.trafficLights.filter(t => t !== light)
+    const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
+    const outDoc = extractOdrDocument(out)!
+    // The definition and the reference to it are both gone, and the road
+    // itself still stands (it has nothing to regenerate from).
+    expect(out).not.toMatch(/<signal\b[^>]*\bid="500"/)
+    expect(out).not.toMatch(/<signalReference\b[^>]*\bid="500"/)
+    expect(outDoc.roads.some(r => r.id === '32')).toBe(true)
+  })
+
+  // KNOWN LIMITATION, same cause as above reached by the regulatory rule. The
+  // signal on road 32 applies to a lane of road 31, so editing road 31 dirties
+  // every road the signal touches, road 32 among them, and it is dropped.
+  //
+  // The signal itself is NOT lost: the shape survives and the regeneration
+  // path re-emits it, which is what this pins.
+  it('re-emits the signal of a dropped lane-less road rather than losing it', () => {
+    const imported = odrToShapesFull(parseOpenDriveXml(MICRO_SIGNAL_XODR))
+    const lane = imported.lanes.find(
+      l => l.id === imported.sidecar.roadRecords!['31'].laneShapeIds[0]
+    )!
+    lane.attributes = { ...(lane.attributes ?? {}), speed_limit: '37' }
+
+    const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
+    const outDoc = extractOdrDocument(out)!
+    expect(outDoc.roads.some(r => r.id === '32')).toBe(false)
+    // Exactly one definition of the light the user never touched, and every
+    // reference names it. The id is the emitting path's, not the source's.
+    const defined = (out.match(/<signal\b[^>]*?\bid="([^"]*)"/g) ?? []).map(
+      t => t.match(/\bid="([^"]*)"/)![1]
+    )
+    expect(defined.length).toBe(1)
+    for (const tag of out.match(/<signalReference\b[^>]*?\bid="([^"]*)"/g) ?? []) {
+      expect(tag.match(/\bid="([^"]*)"/)![1]).toBe(defined[0])
+    }
   })
 })
 
