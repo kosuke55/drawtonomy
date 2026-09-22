@@ -112,16 +112,61 @@ function snapshotOf(xml: string): DrawtonomySnapshot {
   }
 }
 
+/** Where to strip the height annotation off a road's boundary vertices. */
+type ZDropPattern =
+  /** The very first vertex of each boundary (the e6mini pattern). */
+  | 'first'
+  /** One vertex in the middle of each boundary: an interior hole. */
+  | 'middle'
+  /** Every vertex past the halfway point: an unannotated end stretch. */
+  | 'tailHalf'
+
 /**
- * Nudge one point sideways in a snapshot, simulating a user edit that
- * disqualifies the road from the verbatim carry-through path (this test
+ * Build a snapshot whose boundary vertices are missing their height in the
+ * given pattern, so the exporter's gap handling is exercised deliberately
+ * rather than as a side effect of the importer's own heuristics.
+ *
+ * Returns the station (m along the source road) of the dropped middle
+ * vertex, so a test can probe exactly where the hole was.
+ */
+function snapshotWithDroppedZ(
+  xml: string,
+  pattern: ZDropPattern
+): { snapshot: DrawtonomySnapshot; droppedAt: number } {
+  const roadLength = parseOpenDriveXml(xml).roads[0].length
+  const base = snapshotOf(xml)
+  const imported = odrToShapes(parseOpenDriveXml(xml))
+  const dropIds = new Set<string>()
+  for (const ls of imported.linestrings) {
+    const n = ls.pointIds.length
+    if (pattern === 'first') dropIds.add(ls.pointIds[0])
+    else if (pattern === 'middle') dropIds.add(ls.pointIds[Math.floor(n / 2)])
+    else for (let i = Math.floor(n / 2); i < n; i++) dropIds.add(ls.pointIds[i])
+  }
+  const shapes = base.shapes.map(s => {
+    if (s.type !== 'point' || !dropIds.has(s.id)) return s
+    const { z: _z, ...props } = s.props as Record<string, unknown>
+    return { ...s, props } as typeof s
+  })
+  // Boundary vertices are laid out along the road, so the middle vertex sits
+  // at roughly half the road's length.
+  return { snapshot: { ...base, shapes }, droppedAt: roadLength / 2 }
+}
+
+/**
+ * Nudge exactly one point sideways in a snapshot, simulating a user edit
+ * that disqualifies the road from the verbatim carry-through path (this test
  * suite's snapshots have no sidecar, so exportToOpenDrive always goes
  * through the fitting exporter — this just documents intent).
+ *
+ * One point, not all of them: translating the whole road leaves its shape
+ * (and so its refitted profile) untouched, which is a much weaker input
+ * than the single-vertex edit these tests mean to describe.
  */
 function moveOnePoint(snapshot: DrawtonomySnapshot): DrawtonomySnapshot {
-  const shapes = snapshot.shapes.map(s => (s.type === 'point' ? { ...s, x: s.x + 1 } : s))
-  const idx = shapes.findIndex(s => s.type === 'point')
+  const idx = snapshot.shapes.findIndex(s => s.type === 'point')
   if (idx === -1) throw new Error('no point shape to move')
+  const shapes = snapshot.shapes.map((s, i) => (i === idx ? { ...s, x: s.x + 1 } : s))
   return { ...snapshot, shapes }
 }
 
@@ -317,75 +362,79 @@ describe('elevation survives regeneration after an edit (#984)', () => {
     expect(xml).not.toContain('<elevation ')
   })
 
-  it('tolerates an isolated missing z sample without discarding the whole profile', () => {
-    // Simulates the e6mini pattern: 410 of 411 stations carry a fitted z,
-    // only the very first (s = 0, z = 0 exactly under the old heuristic)
-    // came back undefined. Build a snapshot directly (bypassing odrToShapes)
-    // so the gap is deliberate and isolated, then confirm the exporter fills
-    // it by interpolation instead of discarding every other sample.
-    const imported = odrToShapes(parseOpenDriveXml(SLOPED_ROAD))
-    const shapes: unknown[] = []
-    let firstPointSeen = false
-    for (const p of imported.points) {
-      const dropZ = !firstPointSeen
-      firstPointSeen = true
-      shapes.push({
-        id: p.id,
-        type: 'point',
-        x: p.x,
-        y: p.y,
-        rotation: 0,
-        zIndex: 0,
-        props: {
-          color: 'black',
-          visible: true,
-          osmId: p.osmId,
-          ...(dropZ || p.z === undefined ? {} : { z: p.z }),
-        },
-      })
-    }
-    for (const ls of imported.linestrings) {
-      shapes.push({
-        id: ls.id,
-        type: 'linestring',
-        x: ls.x,
-        y: ls.y,
-        rotation: 0,
-        zIndex: 0,
-        props: { pointIds: ls.pointIds, color: 'black', strokeWidth: 2, attributes: ls.attributes, osmId: ls.osmId },
-      })
-    }
-    for (const lane of imported.lanes) {
-      shapes.push({
-        id: lane.id,
-        type: 'lane',
-        x: lane.x,
-        y: lane.y,
-        rotation: 0,
-        zIndex: 0,
-        props: {
-          leftBoundaryId: lane.leftBoundaryId,
-          rightBoundaryId: lane.rightBoundaryId,
-          invertLeft: lane.invertLeft,
-          invertRight: lane.invertRight,
-          color: 'default',
-          size: 'm',
-          attributes: lane.attributes,
-          next: lane.next,
-          prev: lane.prev,
-          osmId: lane.osmId,
-        },
-      })
-    }
-    const snapshot: DrawtonomySnapshot = {
-      version: '1.1',
-      timestamp: new Date().toISOString(),
-      shapes: shapes as DrawtonomySnapshot['shapes'],
-    }
+  // These three check the *height values* a partly annotated boundary
+  // produces, not just that some <elevation> element came out. They use a
+  // uniformly sampled road, where the reconstruction rule (station-space vs
+  // array-index interpolation) barely changes the numbers; the rule itself
+  // is pinned on deliberately uneven stations in odrElevationGaps.test.ts.
+  it('reconstructs an interior hole to the height the source had there', () => {
+    // A vertex in the middle of the road loses its z. The exporter must not
+    // just keep emitting *a* profile — it must put the reconstructed height
+    // where the source profile actually was.
+    const source = parseOpenDriveXml(SLOPED_ROAD).roads[0]
+    const { snapshot, droppedAt } = snapshotWithDroppedZ(SLOPED_ROAD, 'middle')
     const xml = exportToOpenDrive(moveOnePoint(snapshot))
-    expect(xml).toContain('<elevationProfile>')
-    expect(xml).toContain('<elevation ')
     const out = parseOpenDriveXml(xml).roads[0]
     expect(out.hasElevation).toBe(true)
+
+    // The hole itself: compare at the same fraction of the road, since the
+    // exported reference line is the leftmost boundary and its stations
+    // shift slightly. 5 cm is the fitter's own height tolerance
+    // (`DEFAULT_MAX_ERROR`) — a geometric allowance, not a fudge factor;
+    // the un-fixed index-space filler was off by whole metres here.
+    const f = droppedAt / source.length
+    const srcZ = evalElevation(source.elevations, f * source.length)
+    const outZ = evalElevation(out.elevations, f * out.length)
+    expect(Math.abs(outZ - srcZ)).toBeLessThanOrEqual(0.05)
+
+    // And the rest of the road is unharmed by the reconstruction.
+    for (let g = 0; g <= 1.0001; g += 0.05) {
+      expect(
+        Math.abs(
+          evalElevation(out.elevations, g * out.length) -
+            evalElevation(source.elevations, g * source.length)
+        )
+      ).toBeLessThanOrEqual(0.05)
+    }
+  })
+
+  it('keeps the profile when only the first vertex loses its height', () => {
+    // The e6mini pattern: every station but the very first carries a fitted
+    // z. One dropped vertex at the road start must not cost the road its
+    // profile.
+    const source = parseOpenDriveXml(SLOPED_ROAD).roads[0]
+    const { snapshot } = snapshotWithDroppedZ(SLOPED_ROAD, 'first')
+    const xml = exportToOpenDrive(moveOnePoint(snapshot))
+    const out = parseOpenDriveXml(xml).roads[0]
+    expect(out.hasElevation).toBe(true)
+
+    // Past the dropped vertex the profile still tracks the source within the
+    // fitter's 5 cm height tolerance. Stations are compared as a fraction of
+    // each road's length, since the exported reference line is the leftmost
+    // boundary and its stations shift slightly.
+    const srcZ = (g: number) => evalElevation(source.elevations, g * source.length)
+    const outZ = (g: number) => evalElevation(out.elevations, g * out.length)
+    for (let g = 0.1; g <= 1.0001; g += 0.05) {
+      expect(Math.abs(outZ(g) - srcZ(g))).toBeLessThanOrEqual(0.05)
+    }
+
+    // Over the unannotated head the height is *held* at the first known
+    // value, not run backwards down the grade. It stays between the source
+    // height there and the first annotated height, so the hold can only be
+    // flatter than the truth, never steeper or the wrong way.
+    const held = outZ(0)
+    expect(held).toBeGreaterThanOrEqual(srcZ(0) - 0.05)
+    expect(held).toBeLessThanOrEqual(srcZ(0.1) + 0.05)
+  })
+
+  it('emits no profile at all when a whole end stretch is unannotated', () => {
+    // Half the road has no height data. Nothing supports a height there,
+    // and the fitter would run its last cubic straight through it, so the
+    // road must fall back to the "no elevation" convention instead of
+    // exporting an invented one.
+    const { snapshot } = snapshotWithDroppedZ(SLOPED_ROAD, 'tailHalf')
+    const xml = exportToOpenDrive(moveOnePoint(snapshot))
+    expect(xml).toContain('<elevationProfile/>')
+    expect(xml).not.toContain('<elevation ')
   })
 })
