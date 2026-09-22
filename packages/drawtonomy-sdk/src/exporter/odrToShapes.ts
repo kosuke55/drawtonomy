@@ -1127,8 +1127,15 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
         const pointId = idAllocator.next('point')
         const data: ImportedPoint = { id: pointId, x, y, osmId: '' }
         // Keep the third dimension on the point so 2D editing preserves it.
-        // Omit an exact 0 so "no elevation" roads produce no z at all.
-        if (p.z !== undefined && p.z !== 0) data.z = p.z
+        // Gate on the road's own hasElevation flag rather than "z !== 0":
+        // a genuinely flat road (no <elevationProfile>, or an all-zero one)
+        // has road.hasElevation === false and every sample's z is exactly 0,
+        // so gating on the value would work there too — but a road WITH a
+        // non-flat profile can still cross z = 0 at individual stations
+        // (e.g. a profile starting at a=0), and dropping just those points
+        // punched holes that the exporter's all-or-nothing elevation guard
+        // (opendrive.ts) then treated as "no data anywhere".
+        if (p.z !== undefined && road.hasElevation) data.z = p.z
         result.points.push(data)
         pointIds.push(pointId)
       })

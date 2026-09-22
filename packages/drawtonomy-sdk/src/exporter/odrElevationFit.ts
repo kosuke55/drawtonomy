@@ -45,6 +45,131 @@ const DEFAULT_MAX_ERROR = 0.05
 const DEFAULT_FLAT_EPS = 1e-6
 const S_EPS = 1e-9
 
+/** One reference-line station whose height may or may not be known. */
+export interface GapSample {
+  /** Station along the reference line (m), ascending. */
+  s: number
+  /** Height (m), or `undefined` when this vertex carries no height. */
+  z: number | undefined
+}
+
+export interface ResolveElevationGapsOptions {
+  /**
+   * How far (m) a station may sit from the nearest annotated vertex and
+   * still be considered described by the data.
+   *
+   * Imported boundaries are sampled at most every 5 m
+   * (`sampleReferenceLine`'s `maxStepMeters`), so this budget spans a couple
+   * of dropped vertices while rejecting anything the length of a stretch of
+   * road. It bounds both directions: an interior hole is measured to its
+   * nearer bracket, an end stub to the nearest annotated vertex.
+   */
+  maxUnsupportedMeters?: number
+  /**
+   * Longest run of consecutive unannotated vertices still treated as a hole
+   * rather than an unannotated stretch. Bounds the gap by vertex count as
+   * well as distance, so a densely sampled road cannot lose an arbitrarily
+   * long run of detail inside the distance budget.
+   */
+  maxGapPoints?: number
+}
+
+const DEFAULT_MAX_UNSUPPORTED_METERS = 15
+const DEFAULT_MAX_GAP_POINTS = 2
+
+/**
+ * Turn a partially annotated height series into samples that cover the whole
+ * road, or report that it cannot be done.
+ *
+ * A vertex can lose its height for reasons unrelated to the road's elevation
+ * (a point shared with another linestring, a boundary aligner weld, a
+ * hand-drawn extension of an imported road). Because `fitElevationProfile`
+ * always produces a profile that governs the road from s = 0 to its end,
+ * two cases have to be told apart:
+ *
+ *   * a **hole** — a short run of unannotated vertices bracketed by known
+ *     heights nearby. The height there is recoverable, so it is
+ *     reconstructed by interpolating **in station space**. Interpolating by
+ *     array index instead puts the reconstructed height at the wrong place
+ *     whenever the stations are unevenly spaced (stations 0 / 1 / 100 with
+ *     heights 0 / ? / 100 reported 50 m at s = 1 instead of 1 m, and the
+ *     fitted profile followed the fabricated point).
+ *   * an **unannotated stretch** — a run too long or too far from any known
+ *     height for that. Nothing in the input supports a height there, so the
+ *     whole profile is rejected (`null`) and the road emits the existing
+ *     empty `<elevationProfile/>` rather than a confident invented one.
+ *
+ * An unknown stub at either road end is covered by *holding* the nearest
+ * known height, never by extending a grade. Holding stays inside the
+ * observed band; extrapolating invents a datum — two samples 20 m apart on a
+ * 100 m road produced 10 m at s = 0 and -130 m at s = 100, a 150 m cliff out
+ * of a 10 m climb. Stubs beyond the budget are rejected like any other
+ * stretch.
+ *
+ * Returns samples with every station's height known, covering [0,
+ * `roadLength`], or `null` when the road has no defensible profile.
+ */
+export function resolveElevationGaps(
+  samples: readonly GapSample[],
+  roadLength: number,
+  options: ResolveElevationGapsOptions = {}
+): ElevationSample[] | null {
+  const maxUnsupported = options.maxUnsupportedMeters ?? DEFAULT_MAX_UNSUPPORTED_METERS
+  const maxGapPoints = options.maxGapPoints ?? DEFAULT_MAX_GAP_POINTS
+
+  const first = samples.findIndex(smp => smp.z !== undefined)
+  if (first === -1) return null
+  let last = samples.length - 1
+  while (last > first && samples[last].z === undefined) last--
+
+  // End stubs: the road runs from s = 0 to `roadLength`, but the annotated
+  // vertices only cover [samples[first].s, samples[last].s].
+  if (samples[first].s > maxUnsupported + S_EPS) return null
+  if (roadLength - samples[last].s > maxUnsupported + S_EPS) return null
+
+  const out: ElevationSample[] = []
+  // Hold the first known height back over the head stub.
+  for (let i = 0; i < first; i++) out.push({ s: samples[i].s, z: samples[first].z as number })
+
+  let i = first
+  while (i <= last) {
+    const cur = samples[i]
+    if (cur.z !== undefined) {
+      out.push({ s: cur.s, z: cur.z })
+      i++
+      continue
+    }
+    // Interior hole: [i, j) unannotated, bracketed by known heights at
+    // i - 1 and j (both exist: `last` is annotated and the head stub is
+    // already behind us).
+    let j = i
+    while (j <= last && samples[j].z === undefined) j++
+    if (j - i > maxGapPoints) return null
+    const prev = out[out.length - 1]
+    const next = samples[j]
+    const span = next.s - prev.s
+    for (let k = i; k < j; k++) {
+      // Every reconstructed station must be close to one of its brackets.
+      const nearest = Math.min(samples[k].s - prev.s, next.s - samples[k].s)
+      if (nearest > maxUnsupported + S_EPS) return null
+      const t = span > S_EPS ? (samples[k].s - prev.s) / span : 0
+      out.push({ s: samples[k].s, z: prev.z + ((next.z as number) - prev.z) * t })
+    }
+    i = j
+  }
+
+  // Hold the last known height forward over the tail stub. The road end gets
+  // an explicit sample even when no vertex sits exactly on it, so the final
+  // fitted record ends on the held height instead of carrying a slope past
+  // its last datum.
+  for (let k = last + 1; k < samples.length; k++) {
+    out.push({ s: samples[k].s, z: samples[last].z as number })
+  }
+  const end = out[out.length - 1]
+  if (roadLength - end.s > S_EPS) out.push({ s: roadLength, z: end.z })
+  return out
+}
+
 /**
  * Evaluate a fitted profile at station `s` (same rule as the parser: the last
  * record with `record.s <= s` applies; before the first record the height is

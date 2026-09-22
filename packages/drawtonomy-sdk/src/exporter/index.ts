@@ -107,9 +107,12 @@ export {
 export {
   evalElevationRecords,
   fitElevationProfile,
+  resolveElevationGaps,
   type ElevationRecord,
   type ElevationSample,
   type FitElevationOptions,
+  type GapSample,
+  type ResolveElevationGapsOptions,
 } from './odrElevationFit.js'
 export {
   odrToShapes,

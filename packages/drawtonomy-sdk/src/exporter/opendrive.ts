@@ -36,7 +36,12 @@ import type {
 import { sampleAtParam, type Point2D } from './laneCenterline.js'
 import { evalGeometry } from './odrGeometry.js'
 import { fitPlanView, type FittedSamplePose } from './odrGeometryFit.js'
-import { fitElevationProfile, type ElevationSample } from './odrElevationFit.js'
+import {
+  fitElevationProfile,
+  resolveElevationGaps,
+  type ElevationSample,
+  type GapSample,
+} from './odrElevationFit.js'
 import { parseOpenDriveXml, type OdrGeometry, type OdrRoad } from './opendriveParser.js'
 import {
   buildSurgicalRoad,
@@ -94,8 +99,10 @@ interface BundleGeometry {
   length: number
   /**
    * Reference-line height samples (m) at the fitted stations of the reference
-   * boundary's own vertices. Empty when the drawn points carry no height, in
-   * which case the road emits `<elevationProfile/>` as before.
+   * boundary's own vertices, covering the whole road. Empty when the drawn
+   * points carry no height, or when what they carry does not describe the
+   * whole road (see `resolveElevationGaps`), in which case the road emits
+   * `<elevationProfile/>` as before.
    */
   elevationSamples: ElevationSample[]
 }
@@ -461,21 +468,27 @@ function buildBundleGeometry(
   // height rides along without resampling. Boundaries other than the
   // reference share the station's height (no superelevation support yet), so
   // taking the reference boundary alone is exact for imported roads.
-  const elevationSamples: ElevationSample[] = []
+  //
+  // A vertex can be missing z for reasons unrelated to elevation data (a
+  // point shared with another linestring, a boundary aligner weld, a
+  // hand-drawn extension of an imported road). `resolveElevationGaps`
+  // decides whether the remaining annotation still describes the road: a
+  // short hole is reconstructed by station-space interpolation, an
+  // unannotated end stub is held at the nearest known height, and anything
+  // longer rejects the profile rather than let the fitter run a cubic
+  // through stations it has no data for.
+  const gapSamples: GapSample[] = []
   for (let i = 0; i < ref.length && i < fit.samplePoses.length; i++) {
-    const z = boundaries[0][i]?.z
-    if (z === undefined) continue
-    elevationSamples.push({ s: fit.samplePoses[i].s, z })
+    gapSamples.push({ s: fit.samplePoses[i].s, z: boundaries[0][i]?.z })
   }
+  const elevationSamples = resolveElevationGaps(gapSamples, fit.length) ?? []
 
   return {
     planView: fit.geometries,
     samplePoses,
     laneWidths,
     length: fit.length,
-    // All-or-nothing: a partially annotated boundary would fabricate a datum
-    // of 0 for the un-annotated stretch and invent a cliff.
-    elevationSamples: elevationSamples.length === ref.length ? elevationSamples : [],
+    elevationSamples,
   }
 }
 
