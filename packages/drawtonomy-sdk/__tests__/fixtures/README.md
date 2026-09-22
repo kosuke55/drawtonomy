@@ -33,3 +33,15 @@ A regression fixture for degenerate junction sliver-lane pruning:
   (© Computer Vision Center, CARLA Simulator project). This file is a modified
   excerpt of Town04 (a subset of roads, with elevation / lateral profiles and
   `userData` removed); changes were made for this test fixture.
+
+Golden outputs, not inputs:
+
+- `preR4Chain/chain8-split{1,4,8}.xodr` — what the exporter produced for
+  `helpers/junctionChain.ts`'s 8-junction chain when the plan / build fixpoint
+  still advanced one junction per round, for three edit extents: only the head
+  connecting road's boundary re-identified, the first four, and all eight.
+  Following a rejection's consequences inside the round has to reach the SAME
+  fixpoint, only sooner, so `odrReplanCost.test.ts` compares against these
+  byte for byte. Dates are masked. Regenerate only against a build that
+  predates that change, never from the current exporter — a golden refreshed
+  from the code it is meant to check proves nothing.

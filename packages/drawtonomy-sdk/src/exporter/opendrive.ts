@@ -3833,6 +3833,13 @@ function planBundlesAndJunctions(
    */
   const splitRetargetOf = new Map<string, Map<string, string>>()
   if (carry) {
+    /**
+     * Roads the junction work queue below dirties. They were clean when the
+     * bundles were built, so no bundle exists for them this round and their
+     * emitted id is not yet decided; see the queue's comment and
+     * `newlyDirtyRoadKeepsItsLanes`.
+     */
+    const newlyDirtyRoads = new Set<string>()
     const bundleRoadOfLane = new Map<string, number>()
     for (const bundle of exportBundles) {
       const rid = roadIdByBundle.get(bundle)!
@@ -3851,9 +3858,63 @@ function planBundlesAndJunctions(
      * there to be counted. Checking only the road id let a table keep a
      * `to="-3"` that the emitted road had renumbered to `-2`.
      */
+    /**
+     * Will a road the queue has just dirtied come back under its own id, with
+     * its lanes numbered as they are now?
+     *
+     * Its bundle does not exist: it was clean when they were built, so its
+     * lanes were not in the regeneration set at all. Reading that silence as
+     * "it could not keep its id" rejects every junction downstream of the
+     * first rejection, which is not what the one-junction-per-round loop
+     * concluded and costs unedited data (see the queue's comment).
+     *
+     * The answer is computable without the bundles, because id reuse is exact:
+     * a regenerated bundle inherits a road's id when it covers exactly that
+     * road's recorded lane set. Bundling groups laterally adjacent lanes by
+     * shared boundary, so running that same grouping over the road's own lanes
+     * says whether they still form one bundle with nothing else in it — and,
+     * from the resulting order, which lane number each would come back under.
+     *
+     * Conservative on purpose: anything this cannot establish (a lane shape
+     * that is gone, lanes that no longer group as one, an id that is not
+     * numeric) is a "no", the same verdict the bundles would give next round.
+     */
+    const newlyDirtyBundleCache = new Map<string, Map<string, number> | null>()
+    const newlyDirtyLaneNumbers = (rid: string): Map<string, number> | null => {
+      const cached = newlyDirtyBundleCache.get(rid)
+      if (cached !== undefined) return cached
+      const compute = (): Map<string, number> | null => {
+        const recorded = carry.records[rid]?.laneShapeIds ?? []
+        if (recorded.length === 0) return null
+        const laneShapes: LaneShape[] = []
+        for (const lid of recorded) {
+          const shape = shapeMap.get(lid)
+          if (!shape || shape.type !== 'lane') return null
+          laneShapes.push(shape as unknown as LaneShape)
+        }
+        // One bundle holding exactly these lanes, or the road's id moves.
+        const bundles = detectBundles(laneShapes)
+        if (bundles.length !== 1 || bundles[0].length !== laneShapes.length) return null
+        const bundle = bundles[0]
+        const leftSide = isLeftSideBundle(bundle)
+        const numbers = new Map<string, number>()
+        bundle.forEach((lane, i) => numbers.set(lane.id, leftSide ? i + 1 : -(i + 1)))
+        return numbers
+      }
+      const result = compute()
+      newlyDirtyBundleCache.set(rid, result)
+      return result
+    }
+
     const laneKeptItsRoadId = (rid: string, laneId: number, atEnd: 'start' | 'end'): boolean => {
       if (!carry.records[rid] || !/^\d+$/.test(rid)) return false
       if (carry.cleanRoadIds.has(rid)) return true
+      if (newlyDirtyRoads.has(rid)) {
+        const numbers = newlyDirtyLaneNumbers(rid)
+        if (numbers === null) return false
+        const lid = laneShapeWithOdrIdOnRoad(carry, shapeMap, rid, laneId, atEnd)
+        return lid !== undefined && numbers.get(lid) === laneId
+      }
       const lid = laneShapeWithOdrIdOnRoad(carry, shapeMap, rid, laneId, atEnd)
       if (lid === undefined) return false
       return bundleRoadOfLane.get(lid) === parseInt(rid, 10) && bundleLaneIdOfLane.get(lid) === laneId
@@ -3924,6 +3985,15 @@ function planBundlesAndJunctions(
     //
     // This is not a round cap: nothing is emitted with an unsettled plan. The
     // fixpoint is the same one the outer loop reached, found sooner.
+    //
+    // Following the consequences early means asking about roads this round's
+    // bundles say nothing about: a road the queue has just dirtied was clean
+    // when the bundles were built, so it has no bundle, and it is the NEXT
+    // round that builds one and settles which id it comes back under. Reading
+    // that silence as "it could not keep its id" rejects every junction
+    // downstream of the first rejection, and once rejected a junction is never
+    // reconsidered — the answer differs from the one-junction-per-round loop's
+    // and takes unedited data with it. `newlyDirtyRoads` keeps the two apart.
 
     /** Junctions whose table names this road, for re-checking on a change. */
     const junctionsTouchingRoad = new Map<string, Set<string>>()
@@ -4017,7 +4087,12 @@ function planBundlesAndJunctions(
         if (owner === jid) touched.add(rid)
       }
       for (const rid of touched) {
-        if (carry.cleanRoadIds.has(rid)) carry.cleanRoadIds.delete(rid)
+        if (carry.cleanRoadIds.has(rid)) {
+          carry.cleanRoadIds.delete(rid)
+          // It regenerates from the next round on, and only that round can
+          // say under which id. Until then it is unanswered, not failed.
+          newlyDirtyRoads.add(rid)
+        }
         for (const other of junctionsTouchingRoad.get(rid) ?? []) {
           if (other === jid || queued.has(other) || !isLive(other)) continue
           queue.push(other)

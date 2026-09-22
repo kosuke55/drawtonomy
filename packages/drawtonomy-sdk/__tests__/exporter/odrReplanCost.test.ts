@@ -16,15 +16,26 @@
 // shape of the growth, not a wall-clock time.
 
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { parseOpenDriveXml } from '../../src/exporter/opendriveParser'
 import { odrToShapes } from '../../src/exporter/odrToShapes'
 import { exportToOpenDrive, __replanCounters } from '../../src/exporter/opendrive'
 import { snapshotFrom } from './helpers/snapshotFrom'
 import { chainXodr, reidentifyConnectingBoundaries } from './helpers/junctionChain'
 
-const exportChain = (junctionCount: number): { rounds: number; out: string } => {
+/**
+ * Export the chain with the first `splitCount` connecting roads' boundaries
+ * re-identified. `splitCount` defaults to the whole chain; a SMALLER one is
+ * the interesting case, because then the roads the cascade drags in are ones
+ * this round built no bundle for.
+ */
+const exportChain = (
+  junctionCount: number,
+  splitCount: number = junctionCount
+): { rounds: number; out: string } => {
   const imported = odrToShapes(parseOpenDriveXml(chainXodr(junctionCount)))
-  reidentifyConnectingBoundaries(imported, junctionCount)
+  reidentifyConnectingBoundaries(imported, splitCount)
   // One real edit, on the first connecting road only. Everything after it is
   // dragged in by the chain, not by the user.
   const firstRec = imported.sidecar.roadRecords!['1000']
@@ -35,6 +46,16 @@ const exportChain = (junctionCount: number): { rounds: number; out: string } => 
   const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
   return { rounds: __replanCounters.planRounds, out }
 }
+
+/** Generated dates differ per run and say nothing about the plan. */
+const maskDate = (xml: string): string => xml.replace(/date="[^"]*"/g, 'date="MASKED"')
+
+/** What the one-junction-per-round loop emitted; see fixtures/README.md. */
+const preR4Golden = (splitCount: number): string =>
+  readFileSync(
+    join(__dirname, '..', 'fixtures', 'preR4Chain', `chain8-split${splitCount}.xodr`),
+    'utf-8'
+  )
 
 describe('re-planning cost on a chain of junctions', () => {
   it('does not spend a planning round per junction', () => {
@@ -52,23 +73,45 @@ describe('re-planning cost on a chain of junctions', () => {
     expect(__replanCounters.rejectedPerRound[0]).toBeGreaterThanOrEqual(50)
   })
 
-  it('reaches the same plan the one-junction-per-round loop reached', () => {
-    // Converging sooner must not change WHAT is emitted: every junction that
-    // cannot keep its table is still rebuilt, and no road is invented or lost.
-    const { out } = exportChain(12)
-    // head + 12 connecting + tail, plus the connecting roads the rebuilt
-    // intersections synthesize.
-    expect((out.match(/<road\b/g) ?? []).length).toBe(30)
+  // The same fixpoint, not merely a plausible one. Comparing road counts and
+  // "every junction named is defined" passes for many DIFFERENT plans, and it
+  // did: converging early made the queue ask about roads it had just dirtied,
+  // whose bundles this round had not built, and reading that silence as "the
+  // id could not be kept" rejected the whole chain downstream of the first
+  // rejection — a different plan, carrying different data, that those checks
+  // could not see. These compare the bytes.
+  //
+  // Three extents, because the failure only appeared when the edit stopped
+  // short of the whole chain: with everything already dirty there are no
+  // unbuilt roads left to misjudge.
+  for (const splitCount of [1, 4, 8]) {
+    it(`reaches the same plan the one-junction-per-round loop reached (split ${splitCount})`, () => {
+      const { out, rounds } = exportChain(8, splitCount)
+      expect(maskDate(out)).toBe(preR4Golden(splitCount))
+      // And still without a round per junction.
+      expect(rounds).toBeLessThanOrEqual(3)
+    })
+  }
 
-    // No road is left claiming a junction the document does not define.
-    const defined = new Set(
-      (out.match(/<junction\b[^>]*?\bid="([^"]*)"/g) ?? []).map(
-        t => t.match(/\bid="([^"]*)"/)![1]
-      )
+  it('keeps the unedited data the old loop kept', () => {
+    // A <signal> the importer never shapes (unknown type) on a connecting road
+    // the user did not touch. It survives only if that road's junction is
+    // still carried, so it fails loudly when the chain is over-rejected.
+    const xml = chainXodr(8).replace(
+      '<road name="conn4" length="40" id="1004" junction="2004">',
+      '<road name="conn4" length="40" id="1004" junction="2004">\n' +
+        '    <signals><signal s="10" t="-1" id="500" type="999999" dynamic="yes" orientation="+"/></signals>'
     )
-    for (const tag of out.match(/<road\b[^>]*>/g) ?? []) {
-      const j = tag.match(/\bjunction="([^"]*)"/)?.[1]
-      if (j !== undefined && j !== '-1') expect(defined.has(j)).toBe(true)
-    }
+    const imported = odrToShapes(parseOpenDriveXml(xml))
+    reidentifyConnectingBoundaries(imported, 1)
+    const rec = imported.sidecar.roadRecords!['1000']
+    const lane = imported.lanes.find(l => l.id === rec.laneShapeIds[0])!
+    lane.attributes = { ...(lane.attributes ?? {}), speed_limit: '37' }
+
+    const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
+    expect(out).toMatch(/<signal\b[^>]*\bid="500"/)
+    // And road 1004 still says which junction it belongs to.
+    const road = out.match(/<road\b[^>]*\bid="1004"[^>]*>/)![0]
+    expect(road).not.toMatch(/\bjunction="-1"/)
   })
 })
