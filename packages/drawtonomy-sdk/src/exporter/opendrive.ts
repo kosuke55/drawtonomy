@@ -1110,6 +1110,20 @@ function planConnectivity(
    * junction, exactly as the source did.
    */
   const carriedJunctionLink: { roadId: number; junctionId: number; atStart: boolean }[] = []
+  /**
+   * Both ends of each regenerated connecting road of a carried junction.
+   * The <connection> table only records the incoming -> connecting edge, so
+   * skipping these lane edges wholesale left the connecting road itself with
+   * an empty <link>: the source said predecessor road 0 and successor road 1,
+   * and the export said nothing. These are applied after the synthesized
+   * junctions are planned, so a real edge always wins the slot.
+   */
+  const carriedConnectingLink: {
+    connectingRoad: number
+    connectingLane: string
+    otherRoad: number
+    otherLane: string
+  }[] = []
   for (const [laneId, nexts] of validNext) {
     const fromRoad = roadIdOf.get(laneId)!
     for (const to of nexts) {
@@ -1137,12 +1151,26 @@ function planConnectivity(
               junctionId,
               atStart: (odrIdOf.get(laneId) ?? -1) > 0,
             })
+          } else {
+            carriedConnectingLink.push({
+              connectingRoad: fromRoad,
+              connectingLane: laneId,
+              otherRoad: toRoad,
+              otherLane: to,
+            })
           }
           if (!carriedJunction.onConnectingRoad.has(to)) {
             carriedJunctionLink.push({
               roadId: toRoad,
               junctionId,
               atStart: (odrIdOf.get(to) ?? -1) < 0,
+            })
+          } else {
+            carriedConnectingLink.push({
+              connectingRoad: toRoad,
+              connectingLane: to,
+              otherRoad: fromRoad,
+              otherLane: laneId,
             })
           }
         }
@@ -1321,6 +1349,35 @@ function planConnectivity(
   for (const { roadId, junctionId, atStart } of carriedJunctionLink) {
     const slot = atStart ? plan.roadPredecessor : plan.roadSuccessor
     if (!slot.has(roadId)) slot.set(roadId, { kind: 'junction', id: junctionId })
+  }
+
+  // A regenerated connecting road of a carried junction links to the roads
+  // at both of its ends, the way the source did. The <connection> table only
+  // records the incoming edge, so without this the road came out inside the
+  // junction with an empty <link> and nothing to traverse. As above, a slot
+  // a real edge already claimed is left alone.
+  for (const { connectingRoad, connectingLane, otherRoad, otherLane } of carriedConnectingLink) {
+    // A travel edge leaves a right-side lane at its road's end and a
+    // left-side lane at its road's start, so both the slot and the contact
+    // point on the other road follow the lane-id signs — same rule as the
+    // ordinary road-to-road case above.
+    const ownId = odrIdOf.get(connectingLane) ?? -1
+    const otherId = odrIdOf.get(otherLane) ?? -1
+    const ownLeft = ownId > 0
+    const otherLeft = otherId > 0
+    // `connectingLane -> otherLane` is a travel edge when the connecting
+    // lane lists it as a next; the reverse pair is pushed separately.
+    const outgoing = (validNext.get(connectingLane) ?? []).includes(otherLane)
+    const slot = outgoing === ownLeft ? plan.roadPredecessor : plan.roadSuccessor
+    if (!slot.has(connectingRoad)) {
+      slot.set(connectingRoad, {
+        kind: 'road',
+        id: otherRoad,
+        contactPoint: outgoing === otherLeft ? 'end' : 'start',
+      })
+    }
+    const laneSlot = outgoing === ownLeft ? plan.lanePredecessor : plan.laneSuccessor
+    if (!laneSlot.has(connectingLane)) laneSlot.set(connectingLane, otherId)
   }
   return plan
 }

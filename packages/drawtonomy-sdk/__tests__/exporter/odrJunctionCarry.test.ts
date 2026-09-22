@@ -131,6 +131,28 @@ const junctionsById = (xml: string): Map<string, string> =>
 const firstLaneOf = (imported: ImportedShapes, roadId: string): string =>
   imported.sidecar.roadRecords![roadId].laneShapeIds[0]
 
+/**
+ * Slide one interior point of `laneId`'s given boundary sideways. A lateral
+ * drag of the inner boundary changes the lane's width profile, which is the
+ * edit that re-bundles a two-sided road.
+ */
+function nudgeSideways(
+  imported: ImportedShapes,
+  laneId: string,
+  side: 'left' | 'right',
+  px: number
+): void {
+  const lane = imported.lanes.find(l => l.id === laneId)!
+  const bid = side === 'left' ? lane.leftBoundaryId : lane.rightBoundaryId
+  const ls = imported.linestrings.find(l => l.id === bid)!
+  const pt = imported.points.find(p => p.id === ls.pointIds[Math.floor(ls.pointIds.length / 2)])!
+  pt.x += px
+}
+
+/** ODR lane ids declared by a <road> element, centre lane excluded. */
+const laneIdsOf = (roadText: string): string[] =>
+  [...roadText.matchAll(/<lane\b[^>]*\bid="(-?\d+)"/g)].map(m => m[1]).filter(v => v !== '0')
+
 describe('junction carry-through', () => {
   it('regenerates only the edited mainline, leaving the junction untouched', () => {
     const { xml, imported } = importFixture()
@@ -235,6 +257,37 @@ describe('junction carry-through', () => {
     const emitted = roadsById(exportWith(imported)).get('0')!.text
     expect(emitted).toMatch(/<\w+ elementType="junction" elementId="4"\/>/)
   })
+
+  it('gives a regenerated connecting road both of its links back', () => {
+    // The lane edges into a carried junction are left to the carried XML, so
+    // connectivity planning skips them — and used to skip the connecting
+    // road's own <link> with them. The road came out inside junction 4 with
+    // an empty <link>, losing predecessor road 0 and successor road 1.
+    const { xml, imported } = importFixture()
+    nudgeSideways(imported, firstLaneOf(imported, '8'), 'left', 30)
+    const out = exportWith(imported)
+    const emitted = roadsById(out)
+    const road8 = emitted.get('8')!
+    expect(road8.junction).toBe('4')
+    expect(road8.text).not.toBe(roadsById(xml).get('8')!.text)
+
+    // Both ends name the roads the source named, at the same contact points.
+    const link = road8.text.match(/<link>[\s\S]*?<\/link>/)![0]
+    expect(link).toMatch(/<predecessor elementType="road" elementId="0" contactPoint="start"\/>/)
+    expect(link).toMatch(/<successor elementType="road" elementId="1" contactPoint="start"\/>/)
+
+    // And every lane links to a lane the neighbour really has.
+    const lanes = [...road8.text.matchAll(/<lane\b[^>]*\bid="(-?\d+)"[\s\S]*?<\/lane>/g)]
+    const linked = lanes.filter(m => m[1] !== '0' && /<(?:predecessor|successor)\s+id=/.test(m[0]))
+    expect(linked.length).toBeGreaterThan(0)
+    for (const m of linked) {
+      const pred = m[0].match(/<predecessor\s+id="(-?\d+)"/)?.[1]
+      const succ = m[0].match(/<successor\s+id="(-?\d+)"/)?.[1]
+      if (pred !== undefined) expect(laneIdsOf(emitted.get('0')!.text)).toContain(pred)
+      if (succ !== undefined) expect(laneIdsOf(emitted.get('1')!.text)).toContain(succ)
+    }
+  })
+
 
   it('keeps an unedited round trip verbatim', () => {
     const { xml, imported } = importFixture()
