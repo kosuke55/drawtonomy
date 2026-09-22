@@ -56,6 +56,10 @@ import { PIXELS_PER_METER } from './units.js'
 import {
   hashRoadState,
   hashRoadSemantics,
+  hashRoadLaneSemantics,
+  hashRoadNonSignalRegulatory,
+  isSignalKind,
+  signalBaseline,
   type CarryLaneState,
   type CarryRegulatoryState,
   type OdrRoadRecord,
@@ -1715,10 +1719,26 @@ export function odrToShapes(map: OdrMap, options: OdrToShapesOptions = {}): OdrI
           yieldLaneIds: lane.yieldLaneIds ?? [],
         }
       })
+      const regStates = regStatesByRoad.get(road.id) ?? []
+      // Per-signal baselines for the surgical <signal> rewrite. Only shapes
+      // this road actually defines (odr_road_id) carry an id it can match on;
+      // shapes merely referenced from here keep their definition elsewhere.
+      const signalBaselines: Record<string, ReturnType<typeof signalBaseline>> = {}
+      for (const state of regStates) {
+        if (!isSignalKind(state.kind)) continue
+        if (state.attributes['odr_road_id'] !== road.id) continue
+        const sigId = state.attributes['odr_signal_id']
+        if (!sigId) continue
+        signalBaselines[sigId] = signalBaseline(state)
+      }
       roadRecords[road.id] = {
         laneShapeIds: regLanes.map(r => r.shapeId),
-        stateHash: hashRoadState(laneStates, regStatesByRoad.get(road.id) ?? []),
-        semanticHash: hashRoadSemantics(laneStates, regStatesByRoad.get(road.id) ?? []),
+        stateHash: hashRoadState(laneStates, regStates),
+        semanticHash: hashRoadSemantics(laneStates, regStates),
+        laneSemanticHash: hashRoadLaneSemantics(laneStates),
+        laneGeometryHash: hashRoadState(laneStates, []),
+        nonSignalRegulatoryHash: hashRoadNonSignalRegulatory(regStates),
+        signalBaselines,
       }
     }
     result.sidecar.roadRecords = roadRecords

@@ -40,6 +40,51 @@ export interface OdrRoadRecord {
    * precondition for surgical (lateral-only) width regeneration.
    */
   semanticHash?: string
+  /**
+   * Hash of the road's state with BOTH the boundary geometry and the whole
+   * regulatory layer removed: only lane attributes / connectivity /
+   * right-of-way contribute. When this still matches at export but
+   * `semanticHash` does not, the edit stayed inside the two layers the
+   * surgical path can rewrite in place — lane `<width>` records and the
+   * road's `<signal>` elements. `semanticHash` alone cannot say that,
+   * because it folds a moved / added / deleted signal into the same value
+   * as a renamed lane.
+   */
+  laneSemanticHash?: string
+  /**
+   * Hash of the lane side alone, boundary geometry included (the regulatory
+   * layer dropped). Equality means the lanes are completely untouched, so a
+   * road whose only edit was to its signals keeps its `<lanes>` subtree
+   * byte-verbatim instead of going through the width rewrite.
+   */
+  laneGeometryHash?: string
+  /**
+   * Hash of the regulatory shapes the road does NOT emit as `<signal>`
+   * elements (crosswalks, emitted as `<object>`s). Equality here, together
+   * with `laneSemanticHash` equality, is the precondition for the surgical
+   * `<signal>` rewrite: everything else that changed is confined to the
+   * traffic lights / signs, which `rewriteSignals` checks element by element
+   * against the road's original `<signals>` block.
+   */
+  nonSignalRegulatoryHash?: string
+  /**
+   * Import-time baseline of each traffic light / sign this road emits as a
+   * `<signal>`, keyed by the source `<signal id>`. The surgical `<signal>`
+   * rewrite compares the live shape against it to be sure the signal was
+   * *moved* and not swapped for a different one (relabelled, re-aimed at other
+   * lanes, re-grouped under another controller, given a new stop line), and to
+   * tell a moved signal from an untouched one without a tolerance.
+   */
+  signalBaselines?: Record<string, SignalBaseline>
+}
+
+/** Import-time state of one `<signal>`-emitting shape. */
+export interface SignalBaseline {
+  /** Non-positional payload; see `serializeSignalPayload`. */
+  payload: string
+  /** Canvas-pixel position, compared by value equality. */
+  x: number
+  y: number
 }
 
 /** Editable state of one lane shape, as fed into the road state hash. */
@@ -136,6 +181,75 @@ export function hashRoadSemantics(
   const geomFreeLanes = lanes.map(l => ({ ...l, leftPts: null, rightPts: null }))
   const geomFreeReg = regulatory.map(r => ({ ...r, stopLinePts: null }))
   return hashRoadState(geomFreeLanes, geomFreeReg)
+}
+
+/**
+ * Hash of a road's lane semantics only: `hashRoadSemantics` with the whole
+ * regulatory layer dropped as well. Equality means the lanes' attributes,
+ * connectivity and right-of-way are untouched, whatever happened to the
+ * boundary geometry and to the signals — the precondition for combining
+ * surgical width rewriting with surgical `<signal>` rewriting.
+ */
+export function hashRoadLaneSemantics(lanes: readonly CarryLaneState[]): string {
+  const geomFreeLanes = lanes.map(l => ({ ...l, leftPts: null, rightPts: null }))
+  return hashRoadState(geomFreeLanes, [])
+}
+
+/**
+ * Kinds that a road emits as `<signal>` elements, and whose position the
+ * surgical path can therefore rewrite in place. Crosswalks become `<object>`
+ * elements instead, so they stay fully hashed.
+ */
+const SIGNAL_KINDS: ReadonlySet<CarryRegulatoryState['kind']> = new Set([
+  'traffic_light',
+  'traffic_sign',
+])
+
+/**
+ * Hash of the regulatory shapes a road does NOT emit as `<signal>` elements
+ * (crosswalks, which become `<object>`s). Their full state — membership,
+ * position, attributes, stop line — contributes, because nothing in the
+ * surgical path can rewrite them in place.
+ *
+ * The `<signal>` kinds are deliberately left out: the authority on what
+ * changed about them is the road's own original `<signals>` block, which
+ * `rewriteSignals` matches every live shape against element by element. A
+ * hash cannot tell "one signal moved" from "one signal was replaced by a
+ * different one", but that comparison can.
+ */
+export function hashRoadNonSignalRegulatory(regulatory: readonly CarryRegulatoryState[]): string {
+  return hashRoadState([], regulatory.filter(r => !SIGNAL_KINDS.has(r.kind)))
+}
+
+/** True for the regulatory kinds a road emits as `<signal>` elements. */
+export function isSignalKind(kind: CarryRegulatoryState['kind']): boolean {
+  return SIGNAL_KINDS.has(kind)
+}
+
+/**
+ * Everything about a traffic light / sign except where it sits: kind, size,
+ * attributes, affected lanes, stop line and controller. Two shapes with the
+ * same payload differ only by position, which is what the surgical `<signal>`
+ * rewrite can express; any other difference means the signal was replaced, not
+ * moved. `numbers[0]` / `numbers[1]` are the position and are excluded;
+ * the remaining entries (size, rotation) stay in.
+ */
+export function serializeSignalPayload(state: CarryRegulatoryState): string {
+  return (
+    `${state.kind}|#:${state.numbers.slice(2).join(',')}|A:${fmtAttrs(state.attributes)}` +
+    `|F:${fmtIds(state.affectedLaneIds)}|S:${fmtPts(state.stopLinePts)}|C:${state.controllerId}`
+  )
+}
+
+/**
+ * Import-time baseline of a signal-kind shape: its non-positional payload plus
+ * its canvas-pixel position. The position is compared by value equality at
+ * export, so "did this signal move?" is answered by the numbers being the same
+ * numbers — never by a tolerance, which would let a small drag rewrite nothing
+ * or a rounding difference rewrite an untouched element.
+ */
+export function signalBaseline(state: CarryRegulatoryState): SignalBaseline {
+  return { payload: serializeSignalPayload(state), x: state.numbers[0], y: state.numbers[1] }
 }
 
 // ---------------------------------------------------------------------------
