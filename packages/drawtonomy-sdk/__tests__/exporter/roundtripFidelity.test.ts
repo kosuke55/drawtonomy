@@ -2275,6 +2275,76 @@ describe('carry-through export (sidecar verbatim re-emission)', () => {
     const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
     const outDoc = extractOdrDocument(out)!
     expect(outDoc.roads.some(r => r.id === '32')).toBe(true)
+    // Surviving is not enough: the road says which junction it belongs to,
+    // and that junction has to exist and to name it back. The rebuild gives
+    // the intersection a new id, and road 32 contributes no lane edges for
+    // the synthesized table to pick up, so it used to be left saying
+    // junction="100" with no junction 100 in the document.
+    const micro = outDoc.roads.find(r => r.id === '32')!
+    const jid = micro.text.match(/<road\b[^>]*\bjunction="([^"]*)"/)![1]
+    expect(jid).not.toBe('-1')
+    const owner = outDoc.junctions.find(j => j.id === jid)
+    expect(owner).toBeDefined()
+    expect(owner!.text).toMatch(/connectingRoad="32"/)
+  })
+
+  // road 32 has no lane shapes, but the importer DOES shape a <signal> on it,
+  // so the user can delete that signal. "No lanes to regenerate from" was
+  // being read as "nothing about this road can be edited", and the whole road
+  // was skipped before its regulatory state was even compared — the deletion
+  // was silently discarded.
+  const MICRO_SIGNAL_XODR = DANGLING_JUNCTION_XODR.replace(
+    /(<road name="micro"[\s\S]*?)<\/road>/,
+    `$1  <signals>
+      <signal s="0.1" t="-1" id="500" name="L500" dynamic="yes" orientation="-" zOffset="5" country="OpenDRIVE" type="1000001" subtype="-1" hOffset="0" pitch="0" roll="0" height="1.2" width="0.6">
+        <validity fromLane="-1" toLane="-1"/>
+      </signal>
+    </signals>
+  </road>`
+  ).replace(
+    /(<road name="west_approach"[\s\S]*?)<\/road>/,
+    `$1  <signals>
+      <signalReference id="500" s="20" t="-1" orientation="-">
+        <validity fromLane="-1" toLane="-1"/>
+      </signalReference>
+    </signals>
+  </road>`
+  )
+
+  it('applies a signal deletion on a road that has no lane shapes', () => {
+    const imported = odrToShapesFull(parseOpenDriveXml(MICRO_SIGNAL_XODR))
+    expect(imported.sidecar.roadRecords!['32'].laneShapeIds).toEqual([])
+    // The signal really is shaped (otherwise there is no deletion to test).
+    const light = imported.trafficLights.find(t => t.attributes.odr_signal_id === '500')
+    expect(light).toBeDefined()
+
+    imported.trafficLights = imported.trafficLights.filter(t => t !== light)
+    const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
+    const outDoc = extractOdrDocument(out)!
+    // The definition and the reference to it are both gone, and the road
+    // itself still stands (it has nothing to regenerate from).
+    expect(out).not.toMatch(/<signal\b[^>]*\bid="500"/)
+    expect(out).not.toMatch(/<signalReference\b[^>]*\bid="500"/)
+    expect(outDoc.roads.some(r => r.id === '32')).toBe(true)
+  })
+
+  it('keeps a lane-less road when a regulatory edit propagates to it', () => {
+    // The signal on road 32 applies to a lane of road 31, so editing road 31
+    // makes the regulatory rule dirty every road the signal touches — road 32
+    // among them. Nothing can regenerate a road with no lane shapes, so
+    // dirtying it deleted it from the output. The junction rule had a guard
+    // for exactly this; the regulatory rule did not.
+    const imported = odrToShapesFull(parseOpenDriveXml(MICRO_SIGNAL_XODR))
+    const lane = imported.lanes.find(
+      l => l.id === imported.sidecar.roadRecords!['31'].laneShapeIds[0]
+    )!
+    lane.attributes = { ...(lane.attributes ?? {}), speed_limit: '37' }
+
+    const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
+    const outDoc = extractOdrDocument(out)!
+    expect(outDoc.roads.some(r => r.id === '32')).toBe(true)
+    // And the signal the user did NOT touch is still defined somewhere.
+    expect(out).toMatch(/<signal\b[^>]*\bid="500"/)
   })
 })
 

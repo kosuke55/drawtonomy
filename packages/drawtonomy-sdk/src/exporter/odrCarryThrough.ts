@@ -461,6 +461,22 @@ export function appendControlRecords(text: string, signalIds: readonly number[])
  * (elementType="junction"), each original id -> new id. Every byte outside
  * the rewritten attribute values is preserved.
  */
+/**
+ * Re-point a carried `<road>`'s own `junction` attribute at `junctionId`,
+ * leaving every other byte alone.
+ *
+ * A connecting road the export keeps verbatim while its junction is rebuilt
+ * has to say which junction it belongs to now; the `<link>` rewrite above
+ * only reaches the predecessor / successor references.
+ */
+export function rewriteRoadJunctionAttribute(text: string, junctionId: string): string {
+  return text.replace(/<road\b[^>]*>/, tag =>
+    tag.replace(/(\bjunction=")([^"]*)(")/, (m, pre: string, _id: string, post: string) =>
+      pre + junctionId + post
+    )
+  )
+}
+
 export function rewriteRoadLinkTargets(
   text: string,
   roadMapping: Map<string, string>,
