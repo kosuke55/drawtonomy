@@ -572,8 +572,10 @@ function signalBlockId(block: string): string | null {
  * `shapes` are the live regulatory shapes currently attached to this road. A
  * shape carrying a source `odrSignalId` that the road defines keeps that id and
  * has its `s` / `t` attributes rewritten (all other attributes, children and
- * whitespace are preserved). A defined `<signal>` no live shape claims is
- * removed with its own line. A shape with no source id is appended just before
+ * whitespace are preserved). A defined `<signal>` that HAD a shape at import
+ * (it has a baseline) and has none now was deleted, and is removed with its
+ * own line; one that never had a shape is kept, since it was never editable.
+ * A shape with no source id is appended just before
  * `</signals>` using `renderNewSignal`, which the caller supplies so the new
  * element matches the full-regeneration exporter's formatting.
  *
@@ -643,9 +645,16 @@ export function rewriteSignals(
   let text = roadText.replace(SIGNAL_BLOCK_RE, block => {
     const id = signalBlockId(block)
     if (id === null) return block
-    // Nobody claims it any more: the shape was deleted, so drop the element
-    // together with its indentation and line break.
-    if (!kept.has(id)) return ''
+    if (!kept.has(id)) {
+      // A signal the importer never turned into a shape (an unsupported type,
+      // say) has no baseline, so no live shape can claim it. That is not the
+      // user deleting it — it was never editable — and this rewrite is the one
+      // path that can keep such an element. Only a signal that DID have a
+      // shape at import and has none now was deleted; drop that one together
+      // with its indentation and line break.
+      if (baselines[id] === undefined) return block
+      return ''
+    }
     const proj = moved.get(id)
     // Claimed but not moved: keep the source bytes exactly as they are, down
     // to the spelling of the numbers ("90" must not become "90.000000").
@@ -681,8 +690,16 @@ export function rewriteSignals(
       dbg('signals: road', road.id, 'no <signals> block to append to')
       return null
     }
-    const indent = text.slice(text.lastIndexOf('\n', closeIdx) + 1, closeIdx)
-    const childIndent = `${indent}  `
+    // Indent the appended elements like the `</signals>` they go before. Only
+    // the LEADING whitespace of that line is indentation: a document with no
+    // line breaks puts the whole `<road>` fragment in front of the close tag,
+    // and copying it onto every added line would duplicate real markup. When
+    // the line holds anything else, fall back to a fixed indent — the inserted
+    // block still starts on its own line, so the result stays well-formed.
+    const lineStart = text.lastIndexOf('\n', closeIdx) + 1
+    const beforeClose = text.slice(lineStart, closeIdx)
+    const ownLine = /^[^\S\n]*$/.test(beforeClose)
+    const childIndent = ownLine ? `${beforeClose}  ` : '        '
     const rendered: string[] = []
     for (const a of added) {
       const id = String(nextSignalId + allocatedIds)
@@ -699,7 +716,11 @@ export function rewriteSignals(
       signalIdByShape.set(a.shapeId, id)
       allocatedIds++
     }
-    text = `${text.slice(0, closeIdx)}${rendered.join('\n')}\n${text.slice(closeIdx)}`
+    // When `</signals>` shares its line with markup, the inserted block needs
+    // a newline in front of it too, so the first added element starts at the
+    // indent it was rendered with rather than after that markup.
+    const lead = ownLine ? '' : '\n'
+    text = `${text.slice(0, closeIdx)}${lead}${rendered.join('\n')}\n${text.slice(closeIdx)}`
   }
 
   return { text, signalIdByShape, allocatedIds }

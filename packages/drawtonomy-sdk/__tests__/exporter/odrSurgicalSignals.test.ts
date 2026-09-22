@@ -21,6 +21,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { JSDOM } from 'jsdom'
 import { parseOpenDriveXml } from '../../src/exporter/opendriveParser'
 import { odrToShapes, type ImportedShapes } from '../../src/exporter/odrToShapes'
 import { exportToOpenDrive } from '../../src/exporter/opendrive'
@@ -122,6 +123,14 @@ const signalTags = (text: string): Map<string, string> => {
 
 const attr = (tag: string, name: string): string | undefined =>
   tag.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1]
+
+/** Fail with the parser's own message when the emitted XML is not well-formed. */
+const expectWellFormed = (xml: string): void => {
+  const doc = new JSDOM(xml, { contentType: 'text/xml' }).window.document
+  const err = doc.querySelector('parsererror')
+  expect(err?.textContent ?? '').toBe('')
+  expect(doc.documentElement.nodeName).toBe('OpenDRIVE')
+}
 
 /**
  * Byte diff of a road element against its source, with the `<signal>` elements
@@ -328,5 +337,68 @@ describe('surgical <signal> rewriting', () => {
     const dstById = new Map(dst.roads.map(r => [r.id, r.text]))
     const changed = src.roads.filter(r => dstById.get(r.id) !== r.text).map(r => r.id)
     expect(changed).toEqual(['1'])
+  })
+  // (h) the source's whitespace is not part of the contract: a document with
+  // no line breaks between tags must still come out well-formed. The indent
+  // taken for an appended <signal> has to be whitespace, not whatever text
+  // happens to precede </signals> on the same line.
+  it('stays well-formed when the source XML has no line breaks', () => {
+    const minified = readFileSync(SIGNALS_TWO_ROADS, 'utf-8')
+      .replace(/>\s+</g, '><')
+      .trim()
+    const imported = odrToShapes(parseOpenDriveXml(minified))
+    const src = imported.trafficSigns![0]
+    imported.trafficSigns!.push({
+      ...src,
+      id: 'ts_added',
+      x: src.x + 10 * PIXELS_PER_METER,
+      attributes: { ...src.attributes, odr_signal_id: '' },
+    })
+
+    const out = exportWith(imported)
+    expectWellFormed(out)
+    // The added signal really is in the output (the road did not silently
+    // fall back to something that drops it).
+    const defined = new Set(extractOdrDocument(out)!.roads.flatMap(r => r.signalIds))
+    expect(defined.size).toBe(3)
+    // And the road element was not duplicated by a runaway indent.
+    expect((out.match(/<road\b/g) ?? []).length).toBe(2)
+  })
+
+  it('stays well-formed when the source XML is pretty-printed', () => {
+    const { imported } = importFixture()
+    const src = imported.trafficSigns![0]
+    imported.trafficSigns!.push({
+      ...src,
+      id: 'ts_added',
+      x: src.x + 10 * PIXELS_PER_METER,
+      attributes: { ...src.attributes, odr_signal_id: '' },
+    })
+    expectWellFormed(exportWith(imported))
+  })
+
+  // (l) a <signal> the importer does not turn into a shape (unknown dynamic
+  // type) lives only in the source text. Moving a DIFFERENT signal must not
+  // delete it: "no shape claims it" is not the same as "the user removed it".
+  it('keeps a sidecar-only <signal> the importer never shaped', () => {
+    const xml = readFileSync(SIGNALS_TWO_ROADS, 'utf-8').replace(
+      '    </signals>\n  </road>\n  <road name="curve"',
+      '      <signal s="20" t="1" id="102" type="999999" dynamic="yes" orientation="+"/>\n' +
+        '    </signals>\n  </road>\n  <road name="curve"'
+    )
+    expect(xml).toContain('id="102"')
+    const imported = odrToShapes(parseOpenDriveXml(xml))
+    // The importer really does not shape it (otherwise this test proves nothing).
+    const shaped = [...imported.trafficLights, ...(imported.trafficSigns ?? [])].map(
+      s => s.attributes.odr_signal_id
+    )
+    expect(shaped).not.toContain('102')
+
+    const tl = imported.trafficLights.find(t => t.attributes.odr_signal_id === '100')!
+    tl.x += 3 * PIXELS_PER_METER
+    const out = exportWith(imported)
+
+    const defined = new Set(extractOdrDocument(out)!.roads.flatMap(r => r.signalIds))
+    expect(defined.has('102')).toBe(true)
   })
 })
