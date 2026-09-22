@@ -1786,7 +1786,14 @@ function attachShapesToRoads(
   laneIdToRoadId: Map<string, number>,
   laneIdToOdrLaneId: Map<string, number>,
   maxAttachDistanceMeter: number = 50,
-  signalIdStart: number = 1
+  signalIdStart: number = 1,
+  /**
+   * Shapes the carried / surgical output already DEFINES, mapped to the id it
+   * defines them under. Such a shape must not be defined a second time here;
+   * the regenerated roads it also applies to get a `<signalReference>` to that
+   * id instead. See `carriedSignalDefinitionIdByShape`.
+   */
+  carriedDefinitionIdByShape: ReadonlyMap<string, string> = new Map()
 ): {
   roadSignals: Map<number, SignalEntry[]>
   roadObjects: Map<number, ObjectEntry[]>
@@ -1854,6 +1861,33 @@ function attachShapesToRoads(
       if (best && best.proj.distance > maxAttachDistanceMeter) best = null
     }
     if (!best) continue
+
+    // The carried / surgical output already defines this shape. Emitting a
+    // second <signal> here would put the same light in the document twice,
+    // under two ids, at two positions. Every regenerated road it applies to
+    // gets a reference to the definition that exists instead.
+    const carriedId = carriedDefinitionIdByShape.get(tl.id)
+    if (carriedId !== undefined) {
+      const numericId = parseInt(carriedId, 10)
+      if (Number.isFinite(numericId)) {
+        for (const r of roads) {
+          if (affectedByRoad.size > 0 && !affectedByRoad.has(r.roadId)) continue
+          const proj = r.roadId === best.roadId ? best.proj : projectToRoad(r.geom, xG, yG)
+          const refs = roadSignalRefs.get(r.roadId) ?? []
+          refs.push({
+            id: numericId,
+            s: proj.s,
+            t: proj.t,
+            orientation: proj.t >= 0 ? '+' : '-',
+            validity:
+              affectedByRoad.size > 0 ? laneIdRanges(affectedByRoad.get(r.roadId)!) : [],
+          })
+          roadSignalRefs.set(r.roadId, refs)
+        }
+      }
+      continue
+    }
+
     const list = roadSignals.get(best.roadId) ?? []
     const entry = buildSignalEntry(kind, tl, signalIdCounter++, best.proj.s, best.proj.t)
     if (affectedByRoad.size > 0) {
@@ -2459,6 +2493,12 @@ interface CarryPlan {
    * path's ids are known too.
    */
   carriedSignalIds: Set<string>
+  /**
+   * Signal shapes the carried text already DEFINES, mapped to the id it
+   * defines them under. The regeneration path applies these by reference
+   * rather than defining them again (see the map's construction).
+   */
+  carriedSignalDefinitionIdByShape: Map<string, string>
   /** Surviving controllers, keyed by original id so regenerated signals of the same group can merge in. */
   verbatimControllers: { id: string; text: string }[]
   /** First id for regenerated roads / junctions (above every original id). */
@@ -2588,6 +2628,8 @@ function planCarryThrough(
   const signalShapesByRoad = new Map<string, SurgicalSignalShape[]>()
   /** Road each signal shape is to be defined on, when one could be settled. */
   const signalDefiningRoad = new Map<string, string>()
+  /** Source `<signal id>` a signal shape was imported from, when it has one. */
+  const signalSourceIdByShape = new Map<string, string>()
   /**
    * Signal shapes the user drew whose defining road could not be settled,
    * because the lanes they apply to live on more than one recorded road.
@@ -2633,6 +2675,8 @@ function planCarryThrough(
       return
     }
     signalDefiningRoad.set(state.shapeId, definingRoad)
+    const odrSignalId = state.attributes['odr_signal_id']
+    if (odrSignalId) signalSourceIdByShape.set(state.shapeId, odrSignalId)
     const list = signalShapesByRoad.get(definingRoad) ?? []
     list.push({
       shapeId: state.shapeId,
@@ -3469,6 +3513,43 @@ function planCarryThrough(
       if (sid !== undefined) carriedSignalIds.add(sid)
     }
   }
+
+  // Definitions and applications are planned separately.
+  //
+  // A signal is DEFINED on one road and APPLIED to lanes, possibly of other
+  // roads. `consumedShapeIds` answers "does the carried output fully cover
+  // this shape", which needs every road it touches to be clean. But the
+  // DEFINITION only depends on the defining road: when that road is carried
+  // and an applied road regenerates, the shape is not consumed, goes back
+  // into regeneration, and is defined a second time beside the carried one —
+  // the same light under two ids, at two positions, with two orientations.
+  //
+  // So the regeneration path is told which shapes already have a definition
+  // in the output and under which id, and emits a <signalReference> to that
+  // id for the roads it rebuilds instead of a second <signal>. Consuming them
+  // instead would lose the application: nothing would then state that the
+  // regenerated road's lanes are governed by that signal at all.
+  const carriedSignalDefinitionIdByShape = new Map<string, string>()
+  for (const [shapeId, rid] of signalDefiningRoad) {
+    if (consumedShapeIds.has(shapeId)) continue
+    if (unplaceableSignalShapeIds.has(shapeId)) continue
+    // The defining road has to be carried for its <signal> to reach the
+    // output at all.
+    if (!cleanRoadIds.has(rid)) continue
+    // On a surgically rewritten road that rewrite decides the id; on an
+    // untouched road the verbatim text keeps the source id. A surgical road
+    // whose rewrite did NOT emit this shape defines nothing for it.
+    const surgicalId = surgicalSignalIdByShape.get(shapeId)
+    if (surgicalId !== undefined) {
+      carriedSignalDefinitionIdByShape.set(shapeId, String(surgicalId))
+      continue
+    }
+    if (surgicalRoadText.has(rid)) continue
+    const sourceId = signalSourceIdByShape.get(shapeId)
+    if (sourceId !== undefined && carriedSignalIds.has(sourceId)) {
+      carriedSignalDefinitionIdByShape.set(shapeId, sourceId)
+    }
+  }
   // A <signalReference> in carried text can only be resolved once the
   // regeneration path has run and its ids are known: a signal whose road was
   // edited is not in `carriedSignalIds`, but it is not gone either — it comes
@@ -3526,6 +3607,7 @@ function planCarryThrough(
     junctionLaneShapeIds,
     splitRetargets,
     carriedSignalIds,
+    carriedSignalDefinitionIdByShape,
     verbatimControllers,
     idBase: Math.max(doc.maxNumericElementId, 0) + 1,
     // Ids already handed to signals added on a surgically rewritten road are
@@ -4154,7 +4236,8 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
     laneIdToRoadId,
     laneIdToOdrLaneId,
     undefined,
-    carry?.signalIdBase
+    carry?.signalIdBase,
+    carry?.carriedSignalDefinitionIdByShape
   )
 
   // A <signalReference> living in carried text names a signal by id. Now that
