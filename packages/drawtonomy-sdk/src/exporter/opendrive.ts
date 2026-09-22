@@ -2568,6 +2568,17 @@ function planCarryThrough(
   const signalShapesByRoad = new Map<string, SurgicalSignalShape[]>()
   /** Road each signal shape is to be defined on, when one could be settled. */
   const signalDefiningRoad = new Map<string, string>()
+  /**
+   * Signal shapes the user drew whose defining road could not be settled,
+   * because the lanes they apply to live on more than one recorded road.
+   *
+   * Nothing in the carried text defines such a signal, and the surgical
+   * rewrite cannot place it either (it rewrites one road's element and would
+   * have to pick one). Only the regeneration path can emit it, and that path
+   * only sees shapes the carry did not consume — so these must not be
+   * consumed, and the roads they could belong to have to regenerate.
+   */
+  const unplaceableSignalShapeIds = new Set<string>()
   const addRegState = (
     state: CarryRegulatoryState,
     affected: readonly string[],
@@ -2597,7 +2608,10 @@ function planCarryThrough(
           !own && affectedRoads.size === 1
           ? [...affectedRoads][0]
           : undefined
-    if (definingRoad === undefined) return
+    if (definingRoad === undefined) {
+      if (!own) unplaceableSignalShapeIds.add(state.shapeId)
+      return
+    }
     signalDefiningRoad.set(state.shapeId, definingRoad)
     const list = signalShapesByRoad.get(definingRoad) ?? []
     list.push({
@@ -3233,11 +3247,17 @@ function planCarryThrough(
       }
     }
     for (const reg of regShapes) {
-      let bad = false
-      for (const rid of reg.touching) {
-        if (dirty.has(rid)) {
-          bad = true
-          break
+      // A signal the user drew across lanes of several roads has no road that
+      // can define it in carried text. The regeneration path is the only one
+      // that can emit it, so the roads it applies to go there — the same
+      // treatment a regulatory shape gets when one of its roads is dirty.
+      let bad = unplaceableSignalShapeIds.has(reg.shapeId)
+      if (!bad) {
+        for (const rid of reg.touching) {
+          if (dirty.has(rid)) {
+            bad = true
+            break
+          }
         }
       }
       if (!bad) continue
@@ -3280,6 +3300,9 @@ function planCarryThrough(
   const consumedShapeIds = new Set<string>()
   for (const reg of regShapes) {
     if (reg.touching.size === 0) continue
+    // No carried road defines this one (its lanes span several), so nothing
+    // in the verbatim / surgical output carries it whatever its roads did.
+    if (unplaceableSignalShapeIds.has(reg.shapeId)) continue
     let allClean = true
     for (const rid of reg.touching) {
       if (!cleanRoadIds.has(rid)) {

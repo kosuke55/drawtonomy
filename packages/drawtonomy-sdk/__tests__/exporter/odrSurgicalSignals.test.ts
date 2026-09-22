@@ -484,4 +484,51 @@ describe('surgical <signal> rewriting', () => {
     const defined = new Set(extractOdrDocument(out)!.roads.flatMap(r => r.signalIds))
     expect(defined.has('102')).toBe(true)
   })
+
+  // (m) a new signal whose affected lanes span TWO roads. No carried road can
+  // hold its definition — the surgical rewrite works on one road's element and
+  // would have to pick one — so only the regeneration path can emit it. The
+  // shape accounting used to mark it consumed anyway (every road it touches
+  // was clean), which took it out of the regeneration path too and it appeared
+  // in no output at all: the user's new signal was silently dropped.
+  it('emits a new signal whose affected lanes span several roads', () => {
+    const { imported } = importFixture()
+    const src = imported.trafficLights.find(t => t.attributes.odr_signal_id === '100')!
+    const before = imported.trafficLights.length + (imported.trafficSigns?.length ?? 0)
+    // The source signal already applies to lanes of both roads (road 2 holds a
+    // <signalReference> to it), so copying its affected lanes reproduces the
+    // ambiguity exactly.
+    const roadsTouched = new Set(
+      src.affectedLaneIds.map(
+        lid =>
+          Object.entries(imported.sidecar.roadRecords!).find(([, r]) =>
+            r.laneShapeIds.includes(lid)
+          )![0]
+      )
+    )
+    expect(roadsTouched.size).toBeGreaterThan(1)
+
+    imported.trafficLights.push({
+      ...src,
+      id: 'tl_new_multi',
+      x: src.x + 10 * PIXELS_PER_METER,
+      attributes: {},
+      affectedLaneIds: [...src.affectedLaneIds],
+    })
+
+    const out = exportWith(imported)
+    expectWellFormed(out)
+    const defined = extractOdrDocument(out)!.roads.flatMap(r => r.signalIds)
+    expect(defined.length).toBe(before + 1)
+    // And nothing points at a signal the document does not define.
+    const definedSet = new Set(defined)
+    for (const r of extractOdrDocument(out)!.roads) {
+      for (const tag of r.text.match(/<signalReference\b[^>]*>/g) ?? []) {
+        expect(definedSet.has(tag.match(/\bid="([^"]*)"/)![1])).toBe(true)
+      }
+    }
+    for (const m of out.matchAll(/<control\b[^>]*\bsignalId="([^"]*)"/g)) {
+      expect(definedSet.has(m[1])).toBe(true)
+    }
+  })
 })
