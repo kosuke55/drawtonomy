@@ -1,19 +1,23 @@
-// Cost of settling the carry plan against the bundles.
+// Settling the carry plan against the bundles: what it must produce, and what
+// it costs.
 //
 // Whether a junction can keep its <connection> table depends on where the
 // bundles put each lane, and the bundles depend on what the plan decided to
-// regenerate. The two are settled by re-planning until nothing new is
-// rejected. Each round moves at least one junction from carried to
-// rebuildable and never back, so the loop terminates — but rejecting a
-// junction dirties its connecting roads, and on a chain where each connecting
-// road is the next junction's incoming road, the next rejection only became
-// visible on the FOLLOWING round. That cost one full re-plan (whole carry
-// derivation, every dirty bundle re-fitted) per junction: measured at 3/8/20/
-// 50/100 junctions it was exactly 3/8/20/50/100 rounds, 100 taking ~5 s.
+// regenerate. The two are settled by re-planning the WHOLE document until a
+// round rejects nothing new. Each round moves at least one junction from
+// carried to rebuildable and never back, so the loop terminates, and the bound
+// is the one that structure gives: (junctions rejected) + 1 rounds.
 //
-// The consequences of a rejection are now followed to a fixpoint within the
-// round, so the caller re-plans a constant number of times. This pins the
-// shape of the growth, not a wall-clock time.
+// That bound is not tight. Rejecting a junction dirties its connecting roads,
+// and a road that goes dirty can break the NEXT junction's table — which only
+// becomes visible on the following round. On a chain where each connecting
+// road is the next junction's incoming road, the fixpoint therefore advances
+// one junction per round.
+//
+// Predicting a rejection's consequences inside the round was tried and
+// withdrawn; see `fixtures/README.md`. The expectations pinned here are the
+// ones that survive: the output, and the structural bound. Wall-clock numbers
+// are recorded in the README as a known limit, not asserted.
 
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -32,12 +36,12 @@ import {
  * Export the chain with the first `splitCount` connecting roads' boundaries
  * re-identified. `splitCount` defaults to the whole chain; a SMALLER one is
  * the interesting case, because then the roads the cascade drags in are ones
- * this round built no bundle for.
+ * the rejecting round built no bundle for.
  */
 const exportChain = (
   junctionCount: number,
   splitCount: number = junctionCount
-): { rounds: number; out: string } => {
+): { rounds: number; rejected: number[]; out: string } => {
   const imported = odrToShapes(parseOpenDriveXml(chainXodr(junctionCount)))
   reidentifyConnectingBoundaries(imported, splitCount)
   // One real edit, on the first connecting road only. Everything after it is
@@ -48,72 +52,56 @@ const exportChain = (
 
   __replanCounters.reset()
   const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
-  return { rounds: __replanCounters.planRounds, out }
+  return {
+    rounds: __replanCounters.planRounds,
+    rejected: [...__replanCounters.rejectedPerRound],
+    out,
+  }
 }
 
 /** Generated dates differ per run and say nothing about the plan. */
 const maskDate = (xml: string): string => xml.replace(/date="[^"]*"/g, 'date="MASKED"')
 
-/** What the one-junction-per-round loop emitted; see fixtures/README.md. */
-const preR4Golden = (splitCount: number): string =>
-  readFileSync(
-    join(__dirname, '..', 'fixtures', 'preR4Chain', `chain8-split${splitCount}.xodr`),
-    'utf-8'
-  )
+/** What the whole-plan loop emits; see fixtures/README.md. */
+const golden = (name: string): string =>
+  readFileSync(join(__dirname, '..', 'fixtures', 'preR4Chain', name), 'utf-8')
 
-describe('re-planning cost on a chain of junctions', () => {
-  it('does not spend a planning round per junction', () => {
-    const small = exportChain(5)
-    const large = exportChain(50)
-
-    // The point: rounds must not track the chain length. A ten-fold longer
-    // chain costs no more rounds than the short one.
-    expect(large.rounds).toBeLessThanOrEqual(small.rounds)
-    // And far below the J+1 worst case the loop structurally allows.
-    expect(large.rounds).toBeLessThan(10)
-
-    // The whole chain really was rejected — otherwise the round count is low
-    // only because the cascade never happened and the test proves nothing.
-    expect(__replanCounters.rejectedPerRound[0]).toBeGreaterThanOrEqual(50)
-  })
-
-  // Two rounds at every length and extent, including the one that used to be
-  // the expensive corner: every connecting road split, so the cascade runs the
-  // whole chain. Rejecting a junction now re-runs the road-id assignment, and
-  // on a chain that means once per junction — so this also pins that the
-  // re-running did not put the cost back. Measured here at 0.1 s (J = 50) and
-  // 0.25 s (J = 200); one junction per round took about 54 s at J = 200.
-  for (const junctionCount of [50, 200]) {
-    for (const splitCount of [1, junctionCount]) {
-      it(`settles in two rounds at J=${junctionCount}, split ${splitCount}`, () => {
-        const started = Date.now()
-        const { rounds } = exportChain(junctionCount, splitCount)
-        const elapsed = Date.now() - started
-        expect(rounds).toBe(2)
-        // Generous against a slow machine, and still an order of magnitude
-        // below the one-junction-per-round cost this replaced.
-        expect(elapsed).toBeLessThan(10_000)
-      }, 60_000)
-    }
+describe('settling the carry plan against the bundles', () => {
+  // The bound the loop's structure gives, and the only one it gives. A round
+  // that rejects nothing is the last, so the rounds are the rejecting ones
+  // plus the settled one — and no junction is ever reconsidered, so they
+  // cannot exceed the junctions that were rejected at all.
+  for (const [junctionCount, splitCount] of [
+    [8, 1],
+    [8, 4],
+    [8, 8],
+    [50, 1],
+    [50, 50],
+  ] as const) {
+    it(`stops within (rejections + 1) rounds at J=${junctionCount}, split ${splitCount}`, () => {
+      const { rounds, rejected } = exportChain(junctionCount, splitCount)
+      const totalRejected = rejected.reduce((n, k) => n + k, 0)
+      expect(rounds).toBe(rejected.length + 1)
+      expect(rounds).toBeLessThanOrEqual(totalRejected + 1)
+      expect(rounds).toBeLessThanOrEqual(junctionCount + 1)
+      // Not vacuous: the chain really was rejected, so the loop really did
+      // have to iterate.
+      expect(totalRejected).toBeGreaterThan(0)
+    }, 120_000)
   }
 
-  // The same fixpoint, not merely a plausible one. Comparing road counts and
-  // "every junction named is defined" passes for many DIFFERENT plans, and it
-  // did: converging early made the queue ask about roads it had just dirtied,
-  // whose bundles this round had not built, and reading that silence as "the
-  // id could not be kept" rejected the whole chain downstream of the first
-  // rejection — a different plan, carrying different data, that those checks
-  // could not see. These compare the bytes.
+  // The same fixpoint, byte for byte. Comparing road counts and "every
+  // junction named is defined" passes for many DIFFERENT plans, and it did:
+  // a plan that over-rejected the chain carried different data and those
+  // checks could not see it. These compare the bytes.
   //
   // Three extents, because the failure only appeared when the edit stopped
   // short of the whole chain: with everything already dirty there are no
   // unbuilt roads left to misjudge.
   for (const splitCount of [1, 4, 8]) {
-    it(`reaches the same plan the one-junction-per-round loop reached (split ${splitCount})`, () => {
-      const { out, rounds } = exportChain(8, splitCount)
-      expect(maskDate(out)).toBe(preR4Golden(splitCount))
-      // And still without a round per junction.
-      expect(rounds).toBeLessThanOrEqual(3)
+    it(`emits the settled plan's bytes (split ${splitCount})`, () => {
+      const { out } = exportChain(8, splitCount)
+      expect(maskDate(out)).toBe(golden(`chain8-split${splitCount}.xodr`))
     })
   }
 
@@ -134,23 +122,17 @@ describe('re-planning cost on a chain of junctions', () => {
     const lane = imported.lanes.find(l => l.id === rec.laneShapeIds[0])!
     lane.attributes = { ...(lane.attributes ?? {}), speed_limit: '37' }
 
-    __replanCounters.reset()
     const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
 
-    // The bytes, against what the one-junction-per-round loop emitted.
-    expect(maskDate(out)).toBe(
-      readFileSync(join(__dirname, '..', 'fixtures', 'preR4Chain', 'chain8-partial-lanelink.xodr'), 'utf-8')
-    )
+    expect(maskDate(out)).toBe(golden('chain8-partial-lanelink.xodr'))
     // Which is to say: the junction, the road's membership in it, and the
     // signal on that road are all still there.
     expect(out).toMatch(/<junction\b[^>]*\bid="2002"/)
     expect(out.match(/<road\b[^>]*\bid="1002"[^>]*>/)![0]).toMatch(/\bjunction="2002"/)
     expect(out).toMatch(/<signal\b[^>]*\bid="500"/)
-    // And still without a round per junction.
-    expect(__replanCounters.planRounds).toBeLessThanOrEqual(3)
   })
 
-  it('keeps the unedited data the old loop kept', () => {
+  it('keeps the unedited data a whole re-plan keeps', () => {
     // A <signal> the importer never shapes (unknown type) on a connecting road
     // the user did not touch. It survives only if that road's junction is
     // still carried, so it fails loudly when the chain is over-rejected.
