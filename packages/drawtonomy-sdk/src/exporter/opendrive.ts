@@ -2394,6 +2394,26 @@ function laneShapeWithOdrIdOnRoad(
   return best?.id
 }
 
+/**
+ * The lane shapes of road `rid` that a junction STILL BEING CARRIED names.
+ *
+ * The demand belongs to the junction, not to the road: once a junction is
+ * rejected its <connection> table is not emitted, so it no longer needs the
+ * road's id to land on any particular side. Reading a set merged over all
+ * junctions kept the rejected ones' demands alive, and a road whose live
+ * junction names one side could be handed to the other — dropping that live
+ * junction and the unedited roads it stamps. Rebuilt on each call because the
+ * caller is in the middle of deciding which junctions are live.
+ */
+function liveJunctionLaneShapeIds(carry: CarryPlan, rid: string): Set<string> {
+  const out = new Set<string>()
+  for (const [jid, byRoad] of carry.junctionLaneShapeIdsByJunction) {
+    if (carry.dirtyJunctionIds.has(jid) || !carry.carriedJunctionIds.has(jid)) continue
+    for (const lid of byRoad.get(rid) ?? []) out.add(lid)
+  }
+  return out
+}
+
 /** Carry-through plan: which original elements stay verbatim. */
 interface CarryPlan {
   doc: OdrDocument
@@ -2442,10 +2462,19 @@ interface CarryPlan {
   carriedJunctionConnectingRoadIds: Set<string>
   /**
    * Per original road id, the lane shapes whose ODR lane id a carried
-   * <connection> names. A road that splits into two bundles must give its id
-   * to the bundle holding these, or the carried table stops resolving.
+   * <connection> names, kept apart PER JUNCTION. A road that splits into two
+   * bundles must give its id to the bundle holding these, or the carried table
+   * stops resolving.
+   *
+   * Why per junction and not one set per road: a junction can be rejected
+   * after this is built (the emit-side queue drops the ones whose table no
+   * longer resolves), and a rejected junction's demand must stop counting at
+   * once. A single merged set keeps demanding lanes for a junction that is
+   * already gone, which hands the road's id to the wrong side and drops a
+   * junction that is still live — losing the unedited data it stamps. Read it
+   * through `liveJunctionLaneShapeIds`, never directly.
    */
-  junctionLaneShapeIds: Map<string, Set<string>>
+  junctionLaneShapeIdsByJunction: Map<string, Map<string, Set<string>>>
   /**
    * References from a carried junction's members into the half of a split
    * road that lost the road id. The member's own text is re-pointed at the
@@ -3370,7 +3399,7 @@ function planCarryThrough(
   const junctionOfRegeneratedRoad = new Map<string, string>()
   const carriedJunctionOfRoad = new Map<string, string>()
   const carriedJunctionConnectingRoadIds = new Set<string>()
-  const junctionLaneShapeIds = new Map<string, Set<string>>()
+  const junctionLaneShapeIdsByJunction = new Map<string, Map<string, Set<string>>>()
   /** The lane shape of `rid` whose ODR lane id is `laneId`, if any. */
   const laneShapeWithOdrId = (rid: string, laneId: number): string | undefined => {
     for (const lid of records[rid]?.laneShapeIds ?? []) {
@@ -3398,9 +3427,11 @@ function planCarryThrough(
         ] as const) {
           const lid = laneShapeWithOdrId(rid, laneId)
           if (lid === undefined) continue
-          const set = junctionLaneShapeIds.get(rid) ?? new Set<string>()
+          const byRoad = junctionLaneShapeIdsByJunction.get(j.id) ?? new Map<string, Set<string>>()
+          const set = byRoad.get(rid) ?? new Set<string>()
           set.add(lid)
-          junctionLaneShapeIds.set(rid, set)
+          byRoad.set(rid, set)
+          junctionLaneShapeIdsByJunction.set(j.id, byRoad)
         }
       }
     }
@@ -3492,7 +3523,7 @@ function planCarryThrough(
     junctionOfRegeneratedRoad,
     carriedJunctionOfRoad,
     carriedJunctionConnectingRoadIds,
-    junctionLaneShapeIds,
+    junctionLaneShapeIdsByJunction,
     splitRetargets,
     carriedSignalIds,
     verbatimControllers,
@@ -3601,89 +3632,115 @@ function planBundlesAndJunctions(
       for (const lid of rec.laneShapeIds) originRoadOfLane.set(lid, numeric)
     }
   }
+  // Lane shape -> its bundle, built once. Scanning every bundle for every
+  // carried road is quadratic in the number of edited roads, which on a
+  // few-thousand-road map is the difference between seconds and minutes.
+  const bundleOfLaneShape = new Map<string, ExportBundle>()
+  const bundleOrder = new Map<ExportBundle, number>()
+  exportBundles.forEach((b, i) => {
+    bundleOrder.set(b, i)
+    for (const l of b.lanes) bundleOfLaneShape.set(l.id, b)
+  })
+  /**
+   * Which original road id each bundle comes back under.
+   *
+   * Three rules in order, then a fresh id:
+   *
+   * 1. Exact lane-set reuse: a bundle covering exactly a dirty road's recorded
+   *    lanes keeps that road's id, so links in verbatim neighbours stay valid.
+   * 2. A junction's demand: a road with lanes on both sides splits into two
+   *    bundles and only one can inherit the id. When a <junction> the export
+   *    means to carry names one of the two sides, that side has to be the one
+   *    that gets the id — otherwise the carried <connection> would point at a
+   *    road that no longer has the lanes it names, and the whole intersection
+   *    falls back to being synthesized. Majority voting alone picks by bundle
+   *    order, which has nothing to do with which side the intersection uses.
+   * 3. Majority origin: the road that contributed most of the bundle's lanes,
+   *    provided it is not still available for an exact match elsewhere.
+   *    Without this a re-bundled road's whole group takes fresh ids and breaks
+   *    every id-based cross-reference an external tool holds.
+   *
+   * A pure function of the CURRENTLY LIVE junctions, because rule 2 reads
+   * them: the emit-side queue rejects junctions after this has first run, and
+   * a rejected junction's demand must stop counting the moment it goes — the
+   * very next round assigns the road's id to whichever side the survivors
+   * name. Judging a junction against ids a junction already on its way out had
+   * a say in rejects it for a reason the next round does not reproduce, and a
+   * junction is never reconsidered once rejected, so the unedited data its
+   * roads carry is lost for good. Rule 2 is the only one that moves; rules 1
+   * and 3 are rerun with it because dropping a demand frees an id for them.
+   */
+  const assignRoadIds = (): { ofBundle: Map<ExportBundle, number>; ofLane: Map<string, number> } => {
+    const claimedOriginIds = new Set<number>()
+    const reuse = new Map<ExportBundle, number>()
+    const available = new Map(reusableRoadIds)
+    // Exact lane-set matches are resolved first, so a bundle can never claim
+    // an id by majority that another bundle would have inherited outright.
+    for (const bundle of exportBundles) {
+      const key = reuseKey(bundle.lanes.map(l => l.id))
+      const reused = available.get(key)
+      if (reused === undefined) continue
+      available.delete(key)
+      reuse.set(bundle, reused)
+      claimedOriginIds.add(reused)
+    }
+    if (carry) {
+      for (const [rid, jid] of carry.carriedJunctionOfRoad) {
+        if (carry.dirtyJunctionIds.has(jid) || !/^\d+$/.test(rid)) continue
+        const origin = parseInt(rid, 10)
+        if (claimedOriginIds.has(origin)) continue
+        const wanted = liveJunctionLaneShapeIds(carry, rid)
+        if (wanted.size === 0) continue
+        // The earliest unclaimed bundle in bundle order holding a named lane.
+        let bundle: ExportBundle | undefined
+        for (const lid of wanted) {
+          const b = bundleOfLaneShape.get(lid)
+          if (!b || reuse.has(b)) continue
+          if (!bundle || bundleOrder.get(b)! < bundleOrder.get(bundle)!) bundle = b
+        }
+        if (!bundle) continue
+        reuse.set(bundle, origin)
+        claimedOriginIds.add(origin)
+      }
+    }
+    const dominantOriginId = (bundle: ExportBundle): number | undefined => {
+      const votes = new Map<number, number>()
+      for (const l of bundle.lanes) {
+        const origin = originRoadOfLane.get(l.id)
+        if (origin === undefined) continue
+        votes.set(origin, (votes.get(origin) ?? 0) + 1)
+      }
+      let best: number | undefined
+      let bestVotes = 0
+      for (const [origin, n] of votes) {
+        if (claimedOriginIds.has(origin)) continue
+        if (n > bestVotes) {
+          best = origin
+          bestVotes = n
+        }
+      }
+      return best
+    }
+    let next = carry ? carry.idBase : 1
+    const ofBundle = new Map<ExportBundle, number>()
+    const ofLane = new Map<string, number>()
+    for (const bundle of exportBundles) {
+      const reused = reuse.get(bundle) ?? dominantOriginId(bundle)
+      if (reused !== undefined) claimedOriginIds.add(reused)
+      const roadId = reused ?? next++
+      ofBundle.set(bundle, roadId)
+      for (const lane of bundle.lanes) ofLane.set(lane.id, roadId)
+    }
+    return { ofBundle, ofLane }
+  }
   const laneIdToRoadId = new Map<string, number>()
   const laneIdToOdrLaneId = new Map<string, number>()
   const roadIdByBundle = new Map<ExportBundle, number>()
+  const firstAssignment = assignRoadIds()
   let nextRoadId = carry ? carry.idBase : 1
-  /** Original road ids already claimed by a bundle (each is reusable once). */
-  const claimedOriginIds = new Set<number>()
-  /**
-   * Original id a bundle may inherit when its lane set does not match a road
-   * exactly: the road that contributed most of the bundle's lanes, provided
-   * that road is not still available for an exact match elsewhere. Editing can
-   * re-bundle a road's lanes (splitting one road into several, or merging
-   * neighbours), and without this the whole group would take fresh ids and
-   * break every id-based cross-reference an external tool holds.
-   */
-  const dominantOriginId = (bundle: ExportBundle): number | undefined => {
-    const votes = new Map<number, number>()
-    for (const l of bundle.lanes) {
-      const origin = originRoadOfLane.get(l.id)
-      if (origin === undefined) continue
-      votes.set(origin, (votes.get(origin) ?? 0) + 1)
-    }
-    let best: number | undefined
-    let bestVotes = 0
-    for (const [origin, n] of votes) {
-      if (claimedOriginIds.has(origin)) continue
-      if (n > bestVotes) {
-        best = origin
-        bestVotes = n
-      }
-    }
-    return best
-  }
-  // Exact lane-set matches are resolved first, so a bundle can never claim an
-  // id by majority that another bundle would have inherited outright.
-  const exactReuse = new Map<ExportBundle, number>()
   for (const bundle of exportBundles) {
-    const key = reuseKey(bundle.lanes.map(l => l.id))
-    const reused = reusableRoadIds.get(key)
-    if (reused === undefined) continue
-    reusableRoadIds.delete(key)
-    exactReuse.set(bundle, reused)
-    claimedOriginIds.add(reused)
-  }
-  // A road with lanes on both sides splits into two bundles, and only one of
-  // them can inherit the road's id. When a <junction> the export means to
-  // carry names one of the two sides, that side has to be the one that gets
-  // the id — otherwise the carried <connection> would point at a road that no
-  // longer has the lanes it names, and the whole intersection falls back to
-  // being synthesized. Majority voting alone picks by bundle order, which has
-  // nothing to do with which side the intersection uses.
-  if (carry) {
-    // Lane shape -> its bundle, built once. Scanning every bundle for every
-    // carried road is quadratic in the number of edited roads, which on a
-    // few-thousand-road map is the difference between seconds and minutes.
-    const bundleOfLaneShape = new Map<string, ExportBundle>()
-    const bundleOrder = new Map<ExportBundle, number>()
-    exportBundles.forEach((b, i) => {
-      bundleOrder.set(b, i)
-      for (const l of b.lanes) bundleOfLaneShape.set(l.id, b)
-    })
-    for (const [rid, jid] of carry.carriedJunctionOfRoad) {
-      if (carry.dirtyJunctionIds.has(jid) || !/^\d+$/.test(rid)) continue
-      const origin = parseInt(rid, 10)
-      if (claimedOriginIds.has(origin)) continue
-      const wanted = carry.junctionLaneShapeIds.get(rid)
-      if (!wanted || wanted.size === 0) continue
-      // Same choice the old full scan made: the earliest unclaimed bundle
-      // in bundle order that holds one of the lanes the table names.
-      let bundle: ExportBundle | undefined
-      for (const lid of wanted) {
-        const b = bundleOfLaneShape.get(lid)
-        if (!b || exactReuse.has(b)) continue
-        if (!bundle || bundleOrder.get(b)! < bundleOrder.get(bundle)!) bundle = b
-      }
-      if (!bundle) continue
-      exactReuse.set(bundle, origin)
-      claimedOriginIds.add(origin)
-    }
-  }
-  for (const bundle of exportBundles) {
-    const reused = exactReuse.get(bundle) ?? dominantOriginId(bundle)
-    if (reused !== undefined) claimedOriginIds.add(reused)
-    const roadId = reused ?? nextRoadId++
+    const roadId = firstAssignment.ofBundle.get(bundle)!
+    if (roadId >= nextRoadId) nextRoadId = roadId + 1
     roadIdByBundle.set(bundle, roadId)
     bundle.lanes.forEach((lane, i) => {
       laneIdToRoadId.set(lane.id, roadId)
@@ -3848,12 +3905,27 @@ function planBundlesAndJunctions(
      * `newlyDirtyLaneNumbers`.
      */
     const newlyDirtyRoads = new Set<string>()
-    const bundleRoadOfLane = new Map<string, number>()
-    for (const bundle of exportBundles) {
-      const rid = roadIdByBundle.get(bundle)!
-      for (const l of bundle.lanes) bundleRoadOfLane.set(l.id, rid)
+    /**
+     * Which road id a lane comes back under, for the junctions live RIGHT NOW.
+     *
+     * `roadIdByBundle` was settled before the queue started rejecting, so the
+     * rule that follows a junction's demand was applied with junctions that
+     * are now gone still having a say. Re-running the assignment is what lets
+     * the queue answer as the next round would; see `assignRoadIds`.
+     *
+     * Recomputed lazily and only after a rejection, so a document where
+     * nothing is rejected pays for one assignment, as before.
+     */
+    let roadOfLane: Map<string, number> = firstAssignment.ofLane
+    const reassignRoadIds = (): void => {
+      roadOfLane = assignRoadIds().ofLane
     }
-    /** The lane id a lane shape is actually emitted under. */
+    const bundleRoadOfLane = { get: (lid: string): number | undefined => roadOfLane.get(lid) }
+    /**
+     * The lane id a lane shape is actually emitted under. Not affected by a
+     * rejection: a bundle counts from +/-1 outward whatever id it ends up
+     * with, and rejecting a junction does not re-bundle anything.
+     */
     const bundleLaneIdOfLane = laneIdToOdrLaneId
     /**
      * How a road the queue has just dirtied would re-bundle: its recorded
@@ -3924,32 +3996,33 @@ function planBundlesAndJunctions(
      *
      * A road whose lanes still form ONE group inherits outright. When editing
      * has broken it into several, exactly one of them still gets the id, and
-     * the plan picks it in a fixed order: the side a live carried junction's
-     * table names wins (`junctionLaneShapeIds`), because otherwise the
-     * <connection> would point at a road that no longer has the lanes it
-     * names; failing that, majority origin, which for groups made only of this
-     * road's lanes is simply the first in bundle order.
+     * the plan picks it in a fixed order: the side a still-carried junction's
+     * table names wins, because otherwise the <connection> would point at a
+     * road that no longer has the lanes it names; failing that, majority
+     * origin, which for groups made only of this road's lanes is simply the
+     * first in bundle order.
      *
      * Deciding here rather than calling every split road a loss is what keeps
      * this in step with the plan: the plan does hand the id to one of them,
      * and treating that as "the id could not be kept" rejects junctions the
      * plan would have carried — taking their unedited roads' data with them.
      *
-     * Read live, not cached: the junction preference is only available while
-     * that junction is still carried, and the queue is in the middle of
-     * deciding which ones are.
+     * Read live, not cached, and ASKED OF THE JUNCTIONS, not of the road: the
+     * queue is in the middle of rejecting junctions, and a rejected one's
+     * demand has to stop counting the moment it goes. `carriedJunctionOfRoad`
+     * records one junction per road, and the demands were merged across all of
+     * them; together that let a rejected junction's side win over the side the
+     * surviving junction actually names, differing from what a full re-plan
+     * concludes.
      */
     const localIdHeir = (rid: string): LocalBundle | null => {
       const groups = localBundlesOf(rid)
       if (groups === null) return null
       if (groups.length === 1) return groups[0]
-      const jid = carry.carriedJunctionOfRoad.get(rid)
-      if (jid !== undefined && !carry.dirtyJunctionIds.has(jid)) {
-        const wanted = carry.junctionLaneShapeIds.get(rid)
-        if (wanted && wanted.size > 0) {
-          for (const group of groups) {
-            if ([...wanted].some(lid => group.laneIds.has(lid))) return group
-          }
+      const wanted = liveJunctionLaneShapeIds(carry, rid)
+      if (wanted.size > 0) {
+        for (const group of groups) {
+          if ([...wanted].some(lid => group.laneIds.has(lid))) return group
         }
       }
       return groups[0]
@@ -4138,6 +4211,20 @@ function planBundlesAndJunctions(
       if (!forcedRebuildableJunctionIds.has(jid)) newlyRejected.add(jid)
       carry.dirtyJunctionIds.add(jid)
 
+      // The reference implementation this is checked against: stop at the
+      // FIRST rejection and hand it back to the caller's re-planning loop.
+      // That loop then rebuilds the whole plan and every bundle from the
+      // enlarged dirty set before anything else is judged, so the reference
+      // never has to reason about a road whose bundles do not exist yet — and
+      // never judges a junction against ids that were handed out while a
+      // junction it is about to reject still had a say. Slow (one junction per
+      // round), but obviously right; see odrReplanEquivalence.test.ts.
+      if (__planVariant.followConsequencesInRound === false) break
+
+      // Its demand no longer counts, so the road ids have to be worked out
+      // again before the next junction is judged.
+      reassignRoadIds()
+
       // Its connecting roads now regenerate, so any junction whose table
       // names one of them has to answer the question again.
       const touched = new Set<string>()
@@ -4198,6 +4285,20 @@ function planBundlesAndJunctions(
     contactWidth,
     newlyRejected,
   }
+}
+
+/**
+ * Which way the plan / build fixpoint is reached. Not part of the public API.
+ *
+ * Both settings must produce the SAME output; the difference is only how many
+ * re-planning rounds it takes. The default follows a rejection's consequences
+ * inside the round, which is what keeps a chain of J junctions at a constant
+ * number of rounds instead of J. Turning it off gives the simple reference
+ * loop — one junction per round, no reasoning about roads whose bundles this
+ * round did not build — which the differential tests compare against.
+ */
+export const __planVariant = {
+  followConsequencesInRound: true,
 }
 
 /**
