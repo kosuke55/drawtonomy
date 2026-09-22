@@ -2483,7 +2483,16 @@ function planCarryThrough(
   shapeMap: Map<string, BaseShape>,
   trafficLights: TrafficLightShape[],
   trafficSigns: TrafficSignShape[],
-  crosswalks: CrosswalkShape[]
+  crosswalks: CrosswalkShape[],
+  /**
+   * Junction ids a previous planning round found unusable once the bundles
+   * were actually built (see the re-plan loop in exportToOpenDrive). Seeding
+   * them as rebuildable here lets the SAME fixpoint that classifies every
+   * other junction take them into account, so the plan it settles on is
+   * internally consistent — the alternative, patching a settled plan from the
+   * emit side, left roads stamped with a junction the output no longer had.
+   */
+  forcedRebuildableJunctionIds: ReadonlySet<string> = new Set()
 ): CarryPlan | null {
   const records = sidecar?.roadRecords
   if (!sidecar || !records || Object.keys(records).length === 0) return null
@@ -3174,7 +3183,7 @@ function planCarryThrough(
   //
   // The loop only ever adds to `dirty` and only ever moves a junction from
   // carried to rebuildable, so it terminates.
-  const rebuildable = new Set<string>()
+  const rebuildable = new Set<string>(forcedRebuildableJunctionIds)
   const dirtyJunctionIds = new Set<string>()
   /**
    * References from carried members into the half of a split road that lost
@@ -3440,75 +3449,47 @@ function planCarryThrough(
 }
 
 /**
- * Build an OpenDRIVE 1.8 XML document from a snapshot.
+ * One round of "plan the carry-through, then build the bundles it assumed".
  *
- * With `options.sidecar` (captured by the OpenDRIVE importer), unedited
- * roads are re-emitted verbatim from the original XML; see planCarryThrough.
+ * Which junctions can keep their <connection> table depends on where the
+ * bundles put each lane, and which lanes there are to bundle depends on which
+ * roads the plan decided to regenerate. The two are settled together: this
+ * function plans, builds, then re-checks every carried junction against the
+ * bundles that came out, and reports in `newlyRejected` the junctions whose
+ * table did not survive the check. The caller re-runs it with those seeded as
+ * rebuildable until nothing new is rejected, so the plan that is finally used
+ * is the one the bundles actually agree with.
  */
-export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDriveExportOptions = {}): string {
-  const shapes = snapshot.shapes
-  const shapeMap = buildShapeMap(shapes)
-  const lanes: LaneShape[] = []
-  const trafficLights: TrafficLightShape[] = []
-  const trafficSigns: TrafficSignShape[] = []
-  const crosswalks: CrosswalkShape[] = []
-  const polygons: { shape: PolygonShape; vertices: { x: number; y: number }[] }[] = []
-  for (const s of shapes) {
-    if (s.type === 'lane') lanes.push(s as unknown as LaneShape)
-    else if (s.type === 'traffic_light') trafficLights.push(s as unknown as TrafficLightShape)
-    else if (s.type === 'traffic_sign') trafficSigns.push(s as unknown as TrafficSignShape)
-    else if (s.type === 'crosswalk') crosswalks.push(s as unknown as CrosswalkShape)
-    else if (s.type === 'polygon') {
-      const poly = s as unknown as PolygonShape
-      const vertices: { x: number; y: number }[] = []
-      for (const pid of poly.props.pointIds) {
-        const p = shapeMap.get(pid) as unknown as PointShape | undefined
-        if (p) vertices.push({ x: p.x, y: p.y })
-      }
-      if (vertices.length >= 3) polygons.push({ shape: poly, vertices })
-    }
-  }
-
-  // Carry-through: with an importer sidecar, unedited original roads are
-  // re-emitted verbatim and excluded from regeneration.
-  const carry = planCarryThrough(options.sidecar, shapeMap, trafficLights, trafficSigns, crosswalks)
+function planBundlesAndJunctions(
+  sidecar: OdrSidecar | null | undefined,
+  shapeMap: Map<string, BaseShape>,
+  lanes: LaneShape[],
+  trafficLights: TrafficLightShape[],
+  trafficSigns: TrafficSignShape[],
+  crosswalks: CrosswalkShape[],
+  pointOverrides: Map<string, Point2D>,
+  forcedRebuildableJunctionIds: ReadonlySet<string>
+): {
+  carry: CarryPlan | null
+  exportBundles: ExportBundle[]
+  roadIdByBundle: Map<ExportBundle, number>
+  laneIdToRoadId: Map<string, number>
+  laneIdToOdrLaneId: Map<string, number>
+  nextRoadId: number
+  junctionOfExportedRoad: Map<number, string>
+  carriedJunction: { ofLane: Map<string, string>; onConnectingRoad: Set<string> }
+  externalLanes: Map<string, LaneShape>
+  connectingSourceFor: (laneShapeId: string) => ConnectingSource | null
+  connectingTargetFor: (laneShapeId: string) => ConnectingTarget | null
+  contactWidth: (laneShapeId: string, contact: 'start' | 'end') => number | null
+  newlyRejected: Set<string>
+} {
+  const carry = planCarryThrough(
+    sidecar, shapeMap, trafficLights, trafficSigns, crosswalks, forcedRebuildableJunctionIds
+  )
   const regenLanes = carry ? lanes.filter(l => !carry.verbatimLaneIds.has(l.id)) : lanes
-  const regenTrafficLights = carry
-    ? trafficLights.filter(t => !carry.consumedShapeIds.has(t.id))
-    : trafficLights
-  const regenTrafficSigns = carry
-    ? trafficSigns.filter(t => !carry.consumedShapeIds.has(t.id))
-    : trafficSigns
-  const regenCrosswalks = carry
-    ? crosswalks.filter(c => !carry.consumedShapeIds.has(c.id))
-    : crosswalks
-
-  const dateStr = new Date().toISOString()
-  const bbox = computeEnuBoundingBox(shapeMap)
-  const geoRefProj = originToProjString(snapshot.origin)
-  const lines: string[] = []
-  lines.push(`<?xml version="1.0" encoding="UTF-8"?>`)
-  lines.push(`<OpenDRIVE>`)
-  if (carry?.headerText) {
-    // Carry-through keeps the original header (geoReference, bbox, vendor)
-    // so an unedited round trip preserves the source coordinate frame.
-    lines.push(carry.headerText)
-  } else {
-    // OpenDRIVE 1.8 expects <geoReference> inside <header>. We always emit one —
-    // tmerc-at-origin when snapshot.origin is set, WGS84 longlat as a fallback —
-    // so downstream tools (esmini, RoadRunner, asam-qc-opendrive) see a defined
-    // coordinate reference system rather than nothing. The N/S/E/W attributes
-    // are populated from the actual point cloud so the header bbox reflects the
-    // map extent in ENU metres.
-    lines.push(
-      `  <header revMajor="1" revMinor="8" name="drawtonomy" version="1.0" date="${dateStr}" ` +
-        `north="${fmt(bbox.north)}" south="${fmt(bbox.south)}" east="${fmt(bbox.east)}" west="${fmt(bbox.west)}" vendor="drawtonomy">`
-    )
-    lines.push(`    <geoReference><![CDATA[${escapeCdata(geoRefProj)}]]></geoReference>`)
-    lines.push(`  </header>`)
-  }
-
-  const pointOverrides = buildBoundaryAlignmentOverrides(shapeMap, lanes)
+  /** Junctions this round found unusable that the plan had still carried. */
+  const newlyRejected = new Set<string>()
 
   // Group laterally adjacent lanes into road bundles and build their
   // geometry. Degenerate bundles (zero-length reference lines) are dropped;
@@ -3867,33 +3848,16 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
         }
       }
       if (!membersKeptIds) {
-        // The table cannot be carried after all; let the generic path
-        // synthesize the intersection from the lane edges instead.
+        // The table cannot be carried after all. Record it and let the caller
+        // re-plan with this junction seeded as rebuildable, so the plan's own
+        // fixpoint decides what that costs (which roads regenerate, which
+        // shapes are consumed) rather than the emit side patching a plan that
+        // has already been used to decide everything else.
+        if (!forcedRebuildableJunctionIds.has(j.id)) newlyRejected.add(j.id)
         carry.dirtyJunctionIds.add(j.id)
         continue
       }
       for (const rid of stamped) junctionOfExportedRoad.set(parseInt(rid, 10), j.id)
-    }
-
-    // Dropping a junction here happens after the plan was settled, so every
-    // decision that named it has to be withdrawn in the same breath. Leaving
-    // them behind was how roads came out stamped with a junction the export
-    // no longer emitted, and how connectivity planning went on skipping the
-    // lane edges the dropped table was supposed to express.
-    if (carry.dirtyJunctionIds.size > 0) {
-      const junctionOfMember = new Map(carry.carriedJunctionOfRoad)
-      carry.splitRetargets = carry.splitRetargets.filter(
-        r => !carry.dirtyJunctionIds.has(junctionOfMember.get(r.from) ?? '')
-      )
-      for (const [rid, jid] of [...carry.junctionOfRegeneratedRoad]) {
-        if (carry.dirtyJunctionIds.has(jid)) {
-          carry.junctionOfRegeneratedRoad.delete(rid)
-          junctionOfExportedRoad.delete(parseInt(rid, 10))
-        }
-      }
-      for (const [rid, jid] of [...carry.carriedJunctionOfRoad]) {
-        if (carry.dirtyJunctionIds.has(jid)) carry.carriedJunctionOfRoad.delete(rid)
-      }
     }
 
     for (const [rid, jid] of carry.carriedJunctionOfRoad) {
@@ -3909,6 +3873,122 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
       .filter(j => !carry.dirtyJunctionIds.has(j.id))
       .map(j => j.text)
   }
+
+  return {
+    carry,
+    exportBundles,
+    roadIdByBundle,
+    laneIdToRoadId,
+    laneIdToOdrLaneId,
+    nextRoadId,
+    junctionOfExportedRoad,
+    carriedJunction,
+    externalLanes,
+    connectingSourceFor,
+    connectingTargetFor,
+    contactWidth,
+    newlyRejected,
+  }
+}
+
+/**
+ * Build an OpenDRIVE 1.8 XML document from a snapshot.
+ *
+ * With `options.sidecar` (captured by the OpenDRIVE importer), unedited
+ * roads are re-emitted verbatim from the original XML; see planCarryThrough.
+ */
+export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDriveExportOptions = {}): string {
+  const shapes = snapshot.shapes
+  const shapeMap = buildShapeMap(shapes)
+  const lanes: LaneShape[] = []
+  const trafficLights: TrafficLightShape[] = []
+  const trafficSigns: TrafficSignShape[] = []
+  const crosswalks: CrosswalkShape[] = []
+  const polygons: { shape: PolygonShape; vertices: { x: number; y: number }[] }[] = []
+  for (const s of shapes) {
+    if (s.type === 'lane') lanes.push(s as unknown as LaneShape)
+    else if (s.type === 'traffic_light') trafficLights.push(s as unknown as TrafficLightShape)
+    else if (s.type === 'traffic_sign') trafficSigns.push(s as unknown as TrafficSignShape)
+    else if (s.type === 'crosswalk') crosswalks.push(s as unknown as CrosswalkShape)
+    else if (s.type === 'polygon') {
+      const poly = s as unknown as PolygonShape
+      const vertices: { x: number; y: number }[] = []
+      for (const pid of poly.props.pointIds) {
+        const p = shapeMap.get(pid) as unknown as PointShape | undefined
+        if (p) vertices.push({ x: p.x, y: p.y })
+      }
+      if (vertices.length >= 3) polygons.push({ shape: poly, vertices })
+    }
+  }
+
+  const pointOverrides = buildBoundaryAlignmentOverrides(shapeMap, lanes)
+
+  // Carry-through: with an importer sidecar, unedited original roads are
+  // re-emitted verbatim and excluded from regeneration.
+  //
+  // Whether a junction's <connection> table can be carried depends on facts
+  // only the built bundles know (which road id each lane ends up on, and
+  // under which lane number). So planning and bundle building run as one
+  // loop: when the check below rejects a junction the plan had carried, the
+  // whole plan is recomputed with that junction seeded as rebuildable, and
+  // the bundles are rebuilt from the new plan. Patching the settled plan from
+  // here instead — withdrawing the maps the junction appeared in without
+  // redoing cleanRoadIds / verbatimRoads / the lane partition — left roads
+  // stamped with a junction the output no longer emitted, and neighbours
+  // linking to it.
+  //
+  // Each round moves at least one junction from carried to rebuildable and
+  // never back, so the loop runs at most (number of junctions) + 1 times.
+  const rejectedJunctionIds = new Set<string>()
+  let planned = planBundlesAndJunctions(
+    options.sidecar, shapeMap, lanes, trafficLights, trafficSigns, crosswalks,
+    pointOverrides, rejectedJunctionIds
+  )
+  while (planned.newlyRejected.size > 0) {
+    for (const jid of planned.newlyRejected) rejectedJunctionIds.add(jid)
+    planned = planBundlesAndJunctions(
+      options.sidecar, shapeMap, lanes, trafficLights, trafficSigns, crosswalks,
+      pointOverrides, rejectedJunctionIds
+    )
+  }
+  const { carry, exportBundles, roadIdByBundle, laneIdToRoadId, laneIdToOdrLaneId,
+    nextRoadId, junctionOfExportedRoad, carriedJunction, externalLanes,
+    connectingSourceFor, connectingTargetFor, contactWidth } = planned
+  const regenTrafficLights = carry
+    ? trafficLights.filter(t => !carry.consumedShapeIds.has(t.id))
+    : trafficLights
+  const regenTrafficSigns = carry
+    ? trafficSigns.filter(t => !carry.consumedShapeIds.has(t.id))
+    : trafficSigns
+  const regenCrosswalks = carry
+    ? crosswalks.filter(c => !carry.consumedShapeIds.has(c.id))
+    : crosswalks
+
+  const dateStr = new Date().toISOString()
+  const bbox = computeEnuBoundingBox(shapeMap)
+  const geoRefProj = originToProjString(snapshot.origin)
+  const lines: string[] = []
+  lines.push(`<?xml version="1.0" encoding="UTF-8"?>`)
+  lines.push(`<OpenDRIVE>`)
+  if (carry?.headerText) {
+    // Carry-through keeps the original header (geoReference, bbox, vendor)
+    // so an unedited round trip preserves the source coordinate frame.
+    lines.push(carry.headerText)
+  } else {
+    // OpenDRIVE 1.8 expects <geoReference> inside <header>. We always emit one —
+    // tmerc-at-origin when snapshot.origin is set, WGS84 longlat as a fallback —
+    // so downstream tools (esmini, RoadRunner, asam-qc-opendrive) see a defined
+    // coordinate reference system rather than nothing. The N/S/E/W attributes
+    // are populated from the actual point cloud so the header bbox reflects the
+    // map extent in ENU metres.
+    lines.push(
+      `  <header revMajor="1" revMinor="8" name="drawtonomy" version="1.0" date="${dateStr}" ` +
+        `north="${fmt(bbox.north)}" south="${fmt(bbox.south)}" east="${fmt(bbox.east)}" west="${fmt(bbox.west)}" vendor="drawtonomy">`
+    )
+    lines.push(`    <geoReference><![CDATA[${escapeCdata(geoRefProj)}]]></geoReference>`)
+    lines.push(`  </header>`)
+  }
+
 
   const plan = planConnectivity(
     exportBundles,

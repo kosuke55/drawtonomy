@@ -149,6 +149,32 @@ function nudgeSideways(
   pt.x += px
 }
 
+/**
+ * Replace one of `laneId`'s boundaries with a private copy holding the same
+ * points. Nothing moves, but the lane no longer SHARES a linestring with its
+ * neighbour, so bundling puts it in a road of its own — the edit that hands a
+ * road's lanes to more ids than the carried tables expect.
+ */
+function detachBoundary(
+  imported: ImportedShapes,
+  laneId: string,
+  side: 'left' | 'right'
+): void {
+  const lane = imported.lanes.find(l => l.id === laneId)!
+  const bid = side === 'left' ? lane.leftBoundaryId : lane.rightBoundaryId
+  const ls = imported.linestrings.find(l => l.id === bid)!
+  const copy = { ...ls, id: `${ls.id}__detached`, pointIds: [...ls.pointIds] }
+  imported.linestrings.push(copy)
+  if (side === 'left') lane.leftBoundaryId = copy.id
+  else lane.rightBoundaryId = copy.id
+}
+
+/** Give a lane an attribute edit, so its road cannot stay verbatim. */
+function setSpeedLimit(imported: ImportedShapes, laneId: string, value: string): void {
+  const lane = imported.lanes.find(l => l.id === laneId)!
+  lane.attributes = { ...(lane.attributes ?? {}), speed_limit: value }
+}
+
 /** ODR lane ids declared by a <road> element, centre lane excluded. */
 const laneIdsOf = (roadText: string): string[] =>
   [...roadText.matchAll(/<lane\b[^>]*\bid="(-?\d+)"/g)].map(m => m[1]).filter(v => v !== '0')
@@ -531,4 +557,21 @@ describe('junction invariants', () => {
     }
     invariants(exportWith(imported))
   })
+
+  it('holds when a connecting road stops sharing a boundary with its neighbour', () => {
+    // Road 8 is a connecting road of junction 4. Giving its first lane a
+    // private copy of its right boundary detaches that lane from the bundle,
+    // so the emitted roads no longer match what the carried <connection>
+    // table names. The plan only learns this once the bundles exist, and it
+    // used to answer by withdrawing the junction from the maps it appeared in
+    // while leaving the rest of the plan — road ids, which roads regenerate,
+    // which lanes stay verbatim — decided on the assumption it was carried.
+    // Eleven roads then came out stamped junction="4" with no junction 4 in
+    // the document, and two more linked to it.
+    const { imported } = importFixture()
+    detachBoundary(imported, firstLaneOf(imported, '8'), 'right')
+    setSpeedLimit(imported, firstLaneOf(imported, '8'), '37')
+    invariants(exportWith(imported))
+  })
+
 })
