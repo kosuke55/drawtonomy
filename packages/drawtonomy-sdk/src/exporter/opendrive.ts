@@ -2400,6 +2400,15 @@ function planCarryThrough(
     // (and by propagation its real junction, if it shares members with one)
     // to regenerate over a reference that was never resolvable only adds
     // blast radius without fixing anything.
+    //
+    // A record with zero materialized lane shapes (e.g. a micro road below
+    // the importer's minimum section length) has nothing to hash and nothing
+    // to regenerate from: it can never be edited (there is no shape for the
+    // user to touch) and forcing it dirty only drops it from the output with
+    // no replacement. It stays verbatim unconditionally; the link-rewrite
+    // pass below already repoints it if the road/junction it links to
+    // regenerates under a new id.
+    if (rec.laneShapeIds.length === 0) continue
     const laneStates = exportLaneStates(rec)
     const regStates = regStatesByRoad.get(rid) ?? []
     if (!laneStates || hashRoadState(laneStates, regStates) !== rec.stateHash) {
@@ -2469,7 +2478,10 @@ function planCarryThrough(
         changed = true
       }
       for (const m of junctionStamped.get(jid) ?? []) {
-        if (records[m] && !dirty.has(m)) {
+        // A member with zero materialized lane shapes has nothing to
+        // regenerate from (see the seed-dirty guard above) — it always
+        // stays verbatim, even as a connecting road of a dirty junction.
+        if (records[m] && records[m].laneShapeIds.length > 0 && !dirty.has(m)) {
           dirty.add(m)
           changed = true
         }
