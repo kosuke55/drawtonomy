@@ -430,6 +430,7 @@ describe('junction carry-through', () => {
       expect(text).not.toMatch(/connectingRoad="8"/)
     }
   })
+
 })
 
 describe('junction invariants', () => {
@@ -574,4 +575,21 @@ describe('junction invariants', () => {
     invariants(exportWith(imported))
   })
 
+  it('holds when one side of a split mainline itself splits in two', () => {
+    // Road 0 has lanes on both sides, and the lateral drag below splits it:
+    // one side keeps the id, the other moves to a fresh road, and the
+    // neighbours reaching the moved side are re-pointed at it. Detaching lane
+    // -1 first makes the moving side come apart into TWO bundles, so there is
+    // no single road to re-point at — the neighbour's lanes land on different
+    // roads. Following only the first lane's new road left road 11's lanes
+    // -2/-3 naming lanes that the road they were pointed at does not have.
+    const { imported } = importFixture()
+    const laneMinus1 = imported.sidecar.roadRecords!['0'].laneShapeIds.find(
+      id => imported.lanes.find(l => l.id === id)!.attributes?.odr_lane_id === '-1'
+    )!
+    detachBoundary(imported, laneMinus1, 'right')
+    setSpeedLimit(imported, laneMinus1, '37')
+    nudgeSideways(imported, firstLaneOf(imported, '0'), 'right', 30)
+    invariants(exportWith(imported))
+  })
 })

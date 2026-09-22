@@ -3478,6 +3478,7 @@ function planBundlesAndJunctions(
   nextRoadId: number
   junctionOfExportedRoad: Map<number, string>
   carriedJunction: { ofLane: Map<string, string>; onConnectingRoad: Set<string> }
+  splitRetargetOf: Map<string, Map<string, string>>
   externalLanes: Map<string, LaneShape>
   connectingSourceFor: (laneShapeId: string) => ConnectingSource | null
   connectingTargetFor: (laneShapeId: string) => ConnectingTarget | null
@@ -3767,6 +3768,13 @@ function planBundlesAndJunctions(
   // intersection for any junction where it did not hold.
   const junctionOfExportedRoad = new Map<number, string>()
   const carriedJunction = { ofLane: new Map<string, string>(), onConnectingRoad: new Set<string>() }
+  /**
+   * Per carried member road, the road ids its <link> has to be re-pointed to
+   * because the road it names gave those lanes to the other half of a split.
+   * Resolved here, where the bundles are known, so emission and the carry
+   * decision cannot disagree about where a reference ends up.
+   */
+  const splitRetargetOf = new Map<string, Map<string, string>>()
   if (carry) {
     const bundleRoadOfLane = new Map<string, number>()
     for (const bundle of exportBundles) {
@@ -3802,6 +3810,46 @@ function planBundlesAndJunctions(
       stampedByJunction.set(jid, list)
     }
     const docRoadTextById = new Map(carry.doc.roads.map(r => [r.id, r.text]))
+    /**
+     * Where a carried member's reference into a split road has to be
+     * re-pointed, or null when it cannot be.
+     *
+     * A road <link> names ONE road, so following the lanes that moved is only
+     * possible when they all moved to the same road AND kept the numbers the
+     * reference uses. The plan checks that each lane can be found; only the
+     * built bundles say where each one actually went, and an edit that breaks
+     * the moving side into two bundles scatters them. Answering with the first
+     * lane's new road (and applying it to the rest) pointed the other lanes at
+     * a road that does not have them.
+     */
+    const splitRetargetTarget = ({ to, toAt, laneIds }: MemberEnd): number | null => {
+      let target: number | null = null
+      for (const laneId of laneIds) {
+        const shapeId = laneShapeWithOdrIdOnRoad(carry, shapeMap, to, laneId, toAt)
+        if (shapeId === undefined) return null
+        const moved = bundleRoadOfLane.get(shapeId)
+        if (moved === undefined) return null
+        // The reference keeps its lane numbers, so the lane has to come back
+        // under the very number the carried text names.
+        if (bundleLaneIdOfLane.get(shapeId) !== laneId) return null
+        if (target === null) target = moved
+        else if (target !== moved) return null
+      }
+      return target
+    }
+    /** Members whose reference into a split road could not be re-pointed. */
+    const brokenRetargetFrom = new Set<string>()
+    for (const retarget of carry.splitRetargets) {
+      const target = splitRetargetTarget(retarget)
+      if (target === null) {
+        brokenRetargetFrom.add(retarget.from)
+        continue
+      }
+      if (String(target) === retarget.to) continue
+      const forRoad = splitRetargetOf.get(retarget.from) ?? new Map<string, string>()
+      forRoad.set(retarget.to, String(target))
+      splitRetargetOf.set(retarget.from, forRoad)
+    }
     for (const j of carry.doc.junctions) {
       // Only junctions the plan decided to carry are checked here. One it
       // never claimed — a <junction type="direct">, say, which has no
@@ -3809,7 +3857,12 @@ function planBundlesAndJunctions(
       // verbatim on its own terms.
       if (!carry.carriedJunctionIds.has(j.id) || carry.dirtyJunctionIds.has(j.id)) continue
       const stamped = stampedByJunction.get(j.id) ?? []
-      let membersKeptIds = true
+      // A member of this junction whose reference into a split road cannot
+      // follow the lanes (they scattered across bundles, or came back
+      // renumbered) has no road to point at, so the table goes.
+      let membersKeptIds = ![...brokenRetargetFrom].some(
+        from => carry.carriedJunctionOfRoad.get(from) === j.id
+      )
       for (const conn of j.text.match(/<connection\b[^>]*>[\s\S]*?<\/connection>/g) ?? []) {
         const incoming = conn.match(/\bincomingRoad="([^"]*)"/)?.[1] ?? ''
         const connecting = conn.match(/\bconnectingRoad="([^"]*)"/)?.[1] ?? ''
@@ -3883,6 +3936,7 @@ function planBundlesAndJunctions(
     nextRoadId,
     junctionOfExportedRoad,
     carriedJunction,
+    splitRetargetOf,
     externalLanes,
     connectingSourceFor,
     connectingTargetFor,
@@ -3952,8 +4006,8 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
     )
   }
   const { carry, exportBundles, roadIdByBundle, laneIdToRoadId, laneIdToOdrLaneId,
-    nextRoadId, junctionOfExportedRoad, carriedJunction, externalLanes,
-    connectingSourceFor, connectingTargetFor, contactWidth } = planned
+    nextRoadId, junctionOfExportedRoad, carriedJunction, splitRetargetOf,
+    externalLanes, connectingSourceFor, connectingTargetFor, contactWidth } = planned
   const regenTrafficLights = carry
     ? trafficLights.filter(t => !carry.consumedShapeIds.has(t.id))
     : trafficLights
@@ -4049,19 +4103,8 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
     }
     // A road the junction plan let split gave its id to one side; a carried
     // member reaching the other side is re-pointed at the road that took
-    // those lanes, so its <successor>/<predecessor> still resolves.
-    const splitRetargetOf = new Map<string, Map<string, string>>()
-    for (const { from, to, toAt, laneIds } of carry.splitRetargets) {
-      const lane = [...laneIds][0]
-      if (lane === undefined) continue
-      const shapeId = laneShapeWithOdrIdOnRoad(carry, shapeMap, to, lane, toAt)
-      if (shapeId === undefined) continue
-      const moved = bundleRoadOfLane.get(shapeId)
-      if (moved === undefined || String(moved) === to) continue
-      const forRoad = splitRetargetOf.get(from) ?? new Map<string, string>()
-      forRoad.set(to, String(moved))
-      splitRetargetOf.set(from, forRoad)
-    }
+    // those lanes (resolved with the bundles, in splitRetargetOf), so its
+    // <successor>/<predecessor> still resolves.
     for (const r of carry.verbatimRoads) {
       let junctionMap: Map<string, string> | undefined
       for (const jref of r.linkJunctionRefs) {
