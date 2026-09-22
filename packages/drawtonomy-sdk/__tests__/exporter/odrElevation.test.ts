@@ -36,6 +36,27 @@ const SLOPED_ROAD = `<?xml version="1.0"?>
 /** Same road with no <elevationProfile> at all. */
 const FLAT_ROAD = SLOPED_ROAD.replace(/<elevationProfile>[\s\S]*?<\/elevationProfile>/, '')
 
+/**
+ * A road whose elevation profile starts at height 0 (a = 0, b = 0 at s = 0)
+ * but is not flat further along — the pattern real vertical-curve maps use
+ * at a station-0 record (e.g. a sag starting level before climbing). This
+ * used to collide with the "z === 0 means no elevation" heuristic: the very
+ * first sample legitimately evaluates to exactly 0.
+ */
+const ZERO_START_ROAD = SLOPED_ROAD.replace(
+  /<elevationProfile>[\s\S]*?<\/elevationProfile>/,
+  '<elevationProfile>' +
+    '<elevation s="0" a="0" b="0" c="0.0006" d="0"/>' +
+    '<elevation s="50" a="1.5" b="0.04" c="0" d="0"/>' +
+    '</elevationProfile>'
+)
+
+/** All records present but numerically flat (a = b = c = d = 0 everywhere). */
+const ALL_ZERO_RECORD_ROAD = SLOPED_ROAD.replace(
+  /<elevationProfile>[\s\S]*?<\/elevationProfile>/,
+  '<elevationProfile><elevation s="0" a="0" b="0" c="0" d="0"/></elevationProfile>'
+)
+
 /** Build a snapshot from an odrToShapes result, carrying point heights. */
 function snapshotOf(xml: string): DrawtonomySnapshot {
   const imported = odrToShapes(parseOpenDriveXml(xml))
@@ -89,6 +110,19 @@ function snapshotOf(xml: string): DrawtonomySnapshot {
     timestamp: new Date().toISOString(),
     shapes: shapes as DrawtonomySnapshot['shapes'],
   }
+}
+
+/**
+ * Nudge one point sideways in a snapshot, simulating a user edit that
+ * disqualifies the road from the verbatim carry-through path (this test
+ * suite's snapshots have no sidecar, so exportToOpenDrive always goes
+ * through the fitting exporter — this just documents intent).
+ */
+function moveOnePoint(snapshot: DrawtonomySnapshot): DrawtonomySnapshot {
+  const shapes = snapshot.shapes.map(s => (s.type === 'point' ? { ...s, x: s.x + 1 } : s))
+  const idx = shapes.findIndex(s => s.type === 'point')
+  if (idx === -1) throw new Error('no point shape to move')
+  return { ...snapshot, shapes }
 }
 
 describe('elevation parsing', () => {
@@ -230,5 +264,128 @@ describe('elevation round-trip (import -> export)', () => {
     const xml = exportToOpenDrive(snapshotOf(FLAT_ROAD))
     expect(xml).toContain('<elevationProfile/>')
     expect(xml).not.toContain('<elevation ')
+  })
+})
+
+// Regression: issue #984. A regenerated road (its shapes were edited, so it
+// cannot be re-emitted verbatim) used to lose its <elevationProfile> even
+// though its source profile was not flat, because of two independent bugs:
+//
+//   1. odrToShapes stripped z = 0 off every point unconditionally, so a
+//      profile that legitimately evaluates to exactly 0 at some station
+//      (e.g. a = b = 0 at s = 0) came back looking height-free there.
+//   2. exportToOpenDrive discarded ALL elevation samples for a road if even
+//      one boundary point was missing z, instead of only the un-annotated
+//      stretch.
+describe('elevation survives regeneration after an edit (#984)', () => {
+  it('keeps the elevation record for a profile that starts at height 0', () => {
+    const source = parseOpenDriveXml(ZERO_START_ROAD).roads[0]
+    expect(source.hasElevation).toBe(true)
+    // Sanity: the source really does evaluate to exactly 0 at s = 0, the
+    // condition that used to be indistinguishable from "no elevation".
+    expect(evalElevation(source.elevations, 0)).toBe(0)
+
+    const edited = moveOnePoint(snapshotOf(ZERO_START_ROAD))
+    const xml = exportToOpenDrive(edited)
+    expect(xml).toContain('<elevationProfile>')
+    expect(xml).toContain('<elevation ')
+
+    const out = parseOpenDriveXml(xml).roads[0]
+    expect(out.hasElevation).toBe(true)
+    for (let f = 0; f <= 1.0001; f += 0.05) {
+      const srcZ = evalElevation(source.elevations, f * source.length)
+      const outZ = evalElevation(out.elevations, f * out.length)
+      expect(Math.abs(outZ - srcZ)).toBeLessThanOrEqual(0.05)
+    }
+  })
+
+  it('does not fabricate elevation for a genuinely flat road after an edit', () => {
+    // Regression guard for the fix above: a road whose profile really is
+    // flat (all-zero record, road.hasElevation === false) must still round
+    // trip to an empty <elevationProfile/> — the "no elevation" convention
+    // is a semantic call (a=b=c=d=0), not an artifact of dropping z = 0.
+    const edited = moveOnePoint(snapshotOf(ALL_ZERO_RECORD_ROAD))
+    const xml = exportToOpenDrive(edited)
+    expect(xml).toContain('<elevationProfile/>')
+    expect(xml).not.toContain('<elevation ')
+  })
+
+  it('does not fabricate elevation for a road with no profile at all after an edit', () => {
+    const edited = moveOnePoint(snapshotOf(FLAT_ROAD))
+    const xml = exportToOpenDrive(edited)
+    expect(xml).toContain('<elevationProfile/>')
+    expect(xml).not.toContain('<elevation ')
+  })
+
+  it('tolerates an isolated missing z sample without discarding the whole profile', () => {
+    // Simulates the e6mini pattern: 410 of 411 stations carry a fitted z,
+    // only the very first (s = 0, z = 0 exactly under the old heuristic)
+    // came back undefined. Build a snapshot directly (bypassing odrToShapes)
+    // so the gap is deliberate and isolated, then confirm the exporter fills
+    // it by interpolation instead of discarding every other sample.
+    const imported = odrToShapes(parseOpenDriveXml(SLOPED_ROAD))
+    const shapes: unknown[] = []
+    let firstPointSeen = false
+    for (const p of imported.points) {
+      const dropZ = !firstPointSeen
+      firstPointSeen = true
+      shapes.push({
+        id: p.id,
+        type: 'point',
+        x: p.x,
+        y: p.y,
+        rotation: 0,
+        zIndex: 0,
+        props: {
+          color: 'black',
+          visible: true,
+          osmId: p.osmId,
+          ...(dropZ || p.z === undefined ? {} : { z: p.z }),
+        },
+      })
+    }
+    for (const ls of imported.linestrings) {
+      shapes.push({
+        id: ls.id,
+        type: 'linestring',
+        x: ls.x,
+        y: ls.y,
+        rotation: 0,
+        zIndex: 0,
+        props: { pointIds: ls.pointIds, color: 'black', strokeWidth: 2, attributes: ls.attributes, osmId: ls.osmId },
+      })
+    }
+    for (const lane of imported.lanes) {
+      shapes.push({
+        id: lane.id,
+        type: 'lane',
+        x: lane.x,
+        y: lane.y,
+        rotation: 0,
+        zIndex: 0,
+        props: {
+          leftBoundaryId: lane.leftBoundaryId,
+          rightBoundaryId: lane.rightBoundaryId,
+          invertLeft: lane.invertLeft,
+          invertRight: lane.invertRight,
+          color: 'default',
+          size: 'm',
+          attributes: lane.attributes,
+          next: lane.next,
+          prev: lane.prev,
+          osmId: lane.osmId,
+        },
+      })
+    }
+    const snapshot: DrawtonomySnapshot = {
+      version: '1.1',
+      timestamp: new Date().toISOString(),
+      shapes: shapes as DrawtonomySnapshot['shapes'],
+    }
+    const xml = exportToOpenDrive(moveOnePoint(snapshot))
+    expect(xml).toContain('<elevationProfile>')
+    expect(xml).toContain('<elevation ')
+    const out = parseOpenDriveXml(xml).roads[0]
+    expect(out.hasElevation).toBe(true)
   })
 })
