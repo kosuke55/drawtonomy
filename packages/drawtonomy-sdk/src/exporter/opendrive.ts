@@ -2221,8 +2221,11 @@ interface CarryPlan {
  *   dirty road dirties every road it touches, so its signal + references are
  *   either all verbatim or all regenerated.
  *
- * Roads referencing unrecorded elements (e.g. a selective import) are never
- * carried verbatim, so verbatim output cannot dangle into missing roads.
+ * Roads referencing an unrecorded ROAD (e.g. a selective import) are never
+ * carried verbatim, so verbatim output cannot dangle into missing roads. A
+ * road referencing a JUNCTION id that has no matching <junction> element is
+ * different: that reference was already dangling in the source document, so
+ * carrying the road verbatim (dangling ref intact) creates no new loss.
  */
 function planCarryThrough(
   sidecar: OdrSidecar | null | undefined,
@@ -2386,13 +2389,17 @@ function planCarryThrough(
       dirty.add(rid)
       continue
     }
-    if (
-      docRoad.linkRoadRefs.some(ref => !records[ref]) ||
-      docRoad.linkJunctionRefs.some(ref => !docJunctionById.has(ref))
-    ) {
+    if (docRoad.linkRoadRefs.some(ref => !records[ref])) {
       dirty.add(rid)
       continue
     }
+    // A junction link naming an id with no matching <junction> element is
+    // already dangling in the source document (bad authoring, or a
+    // deliberately partial import) — it cannot regenerate into something
+    // valid, so it stays exactly as dangling in the output. Forcing the road
+    // (and by propagation its real junction, if it shares members with one)
+    // to regenerate over a reference that was never resolvable only adds
+    // blast radius without fixing anything.
     const laneStates = exportLaneStates(rec)
     const regStates = regStatesByRoad.get(rid) ?? []
     if (!laneStates || hashRoadState(laneStates, regStates) !== rec.stateHash) {
