@@ -3582,6 +3582,13 @@ function planBundlesAndJunctions(
   )
   const reuseKey = (ids: readonly string[]): string => [...ids].sort().join('\n')
   const reusableRoadIds = new Map<string, number>()
+  /**
+   * Lane set -> the original road it is the whole of. Same keys as
+   * `reusableRoadIds` starts with, but kept whole: that one is consumed as
+   * bundles claim their ids, and the emit side still has to ask who a lane set
+   * WOULD have belonged to.
+   */
+  const exactMatchRoadId = new Map<string, number>()
   /** Lane shape id -> the dirty original road that materialized it. */
   const originRoadOfLane = new Map<string, number>()
   if (carry) {
@@ -3590,6 +3597,7 @@ function planBundlesAndJunctions(
       if (!rec || rec.laneShapeIds.length === 0 || !/^\d+$/.test(rid)) continue
       const numeric = parseInt(rid, 10)
       reusableRoadIds.set(reuseKey(rec.laneShapeIds), numeric)
+      exactMatchRoadId.set(reuseKey(rec.laneShapeIds), numeric)
       for (const lid of rec.laneShapeIds) originRoadOfLane.set(lid, numeric)
     }
   }
@@ -3848,31 +3856,35 @@ function planBundlesAndJunctions(
     /** The lane id a lane shape is actually emitted under. */
     const bundleLaneIdOfLane = laneIdToOdrLaneId
     /**
-     * Will a road the queue has just dirtied come back under its own id, with
-     * its lanes numbered as they are now?
+     * How a road the queue has just dirtied would re-bundle: its recorded
+     * lanes, grouped the way the next round's bundles will group them, in the
+     * order the next round will visit them, each with the lane number it would
+     * come back under.
      *
-     * Its bundle does not exist: it was clean when they were built, so its
+     * Its bundle does not exist yet: it was clean when they were built, so its
      * lanes were not in the regeneration set at all. Reading that silence as
      * "it could not keep its id" rejects every junction downstream of the
      * first rejection, which is not what the one-junction-per-round loop
      * concluded and costs unedited data (see the queue's comment).
      *
-     * The answer is computable without the bundles, because id reuse is exact:
-     * a regenerated bundle inherits a road's id when it covers exactly that
-     * road's recorded lane set. Bundling groups laterally adjacent lanes by
-     * shared boundary, so running that same grouping over the road's own lanes
-     * says whether they still form one bundle with nothing else in it — and,
-     * from the resulting order, which lane number each would come back under.
+     * Bundling is a local relation — laterally adjacent lanes sharing a
+     * boundary — so running it over the road's own lanes reproduces the
+     * grouping the next round will reach, and numbering each group from +/-1
+     * outward reproduces the lane ids. Bundle order is the same key the plan
+     * sorts by (the first lane's position in the snapshot), so the groups come
+     * out in the order that decides who inherits the road's id.
      *
      * Conservative on purpose: anything this cannot establish (a lane shape
-     * that is gone, lanes that no longer group as one, an id that is not
-     * numeric) is a "no", the same verdict the bundles would give next round.
+     * that is gone, an id that is not numeric, a group that would also be an
+     * exact match for some OTHER road's recorded lane set and could claim that
+     * id first) is a null, the same verdict the bundles would give next round.
      */
-    const newlyDirtyBundleCache = new Map<string, Map<string, number> | null>()
-    const newlyDirtyLaneNumbers = (rid: string): Map<string, number> | null => {
-      const cached = newlyDirtyBundleCache.get(rid)
+    type LocalBundle = { laneIds: Set<string>; numbers: Map<string, number> }
+    const localBundleCache = new Map<string, LocalBundle[] | null>()
+    const localBundlesOf = (rid: string): LocalBundle[] | null => {
+      const cached = localBundleCache.get(rid)
       if (cached !== undefined) return cached
-      const compute = (): Map<string, number> | null => {
+      const compute = (): LocalBundle[] | null => {
         const recorded = carry.records[rid]?.laneShapeIds ?? []
         if (recorded.length === 0) return null
         const laneShapes: LaneShape[] = []
@@ -3881,18 +3893,66 @@ function planBundlesAndJunctions(
           if (!shape || shape.type !== 'lane') return null
           laneShapes.push(shape as unknown as LaneShape)
         }
-        // One bundle holding exactly these lanes, or the road's id moves.
-        const bundles = detectBundles(laneShapes)
-        if (bundles.length !== 1 || bundles[0].length !== laneShapes.length) return null
-        const bundle = bundles[0]
-        const leftSide = isLeftSideBundle(bundle)
-        const numbers = new Map<string, number>()
-        bundle.forEach((lane, i) => numbers.set(lane.id, leftSide ? i + 1 : -(i + 1)))
-        return numbers
+        const groups = detectBundles(laneShapes)
+        if (groups.reduce((n, g) => n + g.length, 0) !== laneShapes.length) return null
+        // Exact lane-set reuse is resolved before anything else, so a group
+        // that exactly matches another road's recorded set takes THAT id and
+        // is out of the running for this one. Rather than model the knock-on
+        // effects, give up on the road.
+        for (const group of groups) {
+          const owner = exactMatchRoadId.get(reuseKey(group.map(l => l.id)))
+          if (owner !== undefined && owner !== parseInt(rid, 10)) return null
+        }
+        const out = groups.map(group => {
+          const leftSide = isLeftSideBundle(group)
+          const numbers = new Map<string, number>()
+          group.forEach((lane, i) => numbers.set(lane.id, leftSide ? i + 1 : -(i + 1)))
+          return { laneIds: new Set(group.map(l => l.id)), numbers }
+        })
+        // Same sort key the plan uses for bundle order.
+        const rank = (b: LocalBundle): number =>
+          Math.min(...[...b.laneIds].map(lid => laneOrder.get(lid) ?? Number.MAX_SAFE_INTEGER))
+        out.sort((a, b) => rank(a) - rank(b))
+        return out
       }
       const result = compute()
-      newlyDirtyBundleCache.set(rid, result)
+      localBundleCache.set(rid, result)
       return result
+    }
+    /**
+     * Which of those groups inherits the road's id, by the plan's own rules?
+     *
+     * A road whose lanes still form ONE group inherits outright. When editing
+     * has broken it into several, exactly one of them still gets the id, and
+     * the plan picks it in a fixed order: the side a live carried junction's
+     * table names wins (`junctionLaneShapeIds`), because otherwise the
+     * <connection> would point at a road that no longer has the lanes it
+     * names; failing that, majority origin, which for groups made only of this
+     * road's lanes is simply the first in bundle order.
+     *
+     * Deciding here rather than calling every split road a loss is what keeps
+     * this in step with the plan: the plan does hand the id to one of them,
+     * and treating that as "the id could not be kept" rejects junctions the
+     * plan would have carried — taking their unedited roads' data with them.
+     *
+     * Read live, not cached: the junction preference is only available while
+     * that junction is still carried, and the queue is in the middle of
+     * deciding which ones are.
+     */
+    const localIdHeir = (rid: string): LocalBundle | null => {
+      const groups = localBundlesOf(rid)
+      if (groups === null) return null
+      if (groups.length === 1) return groups[0]
+      const jid = carry.carriedJunctionOfRoad.get(rid)
+      if (jid !== undefined && !carry.dirtyJunctionIds.has(jid)) {
+        const wanted = carry.junctionLaneShapeIds.get(rid)
+        if (wanted && wanted.size > 0) {
+          for (const group of groups) {
+            if ([...wanted].some(lid => group.laneIds.has(lid))) return group
+          }
+        }
+      }
+      return groups[0]
     }
 
     /**
@@ -3910,10 +3970,10 @@ function planBundlesAndJunctions(
       if (!carry.records[rid] || !/^\d+$/.test(rid)) return false
       if (carry.cleanRoadIds.has(rid)) return true
       if (newlyDirtyRoads.has(rid)) {
-        const numbers = newlyDirtyLaneNumbers(rid)
-        if (numbers === null) return false
+        const heir = localIdHeir(rid)
+        if (heir === null) return false
         const lid = laneShapeWithOdrIdOnRoad(carry, shapeMap, rid, laneId, atEnd)
-        return lid !== undefined && numbers.get(lid) === laneId
+        return lid !== undefined && heir.numbers.get(lid) === laneId
       }
       const lid = laneShapeWithOdrIdOnRoad(carry, shapeMap, rid, laneId, atEnd)
       if (lid === undefined) return false
