@@ -206,9 +206,50 @@ describe('un-annotated stretches at the road ends (#8)', () => {
     expect(Math.abs(at(10 / 40) - 5)).toBeLessThanOrEqual(0.1)
     expect(Math.abs(at(20 / 40) - 10)).toBeLessThanOrEqual(0.1)
     expect(Math.abs(at(1) - 20)).toBeLessThanOrEqual(0.1)
-    // The head is held at the first known height, never run backwards down
-    // the grade (which would reach 0 m at s = 0).
-    expect(at(0)).toBeGreaterThanOrEqual(5 - 0.1)
+    // Checking the stub's endpoints alone hid a 31 cm dip in between: the
+    // fitted cubic left the hold at s = 0 with slope 0 but had to arrive at
+    // s = 10 m on the grade's estimated slope, so it sagged to 4.6875 m at
+    // s = 5 m. Sweep the whole held span, not just its ends.
+    for (let s = 0; s <= 10 + 1e-9; s += 0.5) {
+      expect(Math.abs(at(s / 40) - 5)).toBeLessThanOrEqual(0.1)
+    }
+  })
+
+  it('holds a head and a tail stub flat across their whole span', () => {
+    // Review repro N6: 15 m unannotated at each end of a 45 m road. Both
+    // stubs are inside the budget, so both are held — and a hold has to be
+    // flat everywhere, not only where a sample happens to sit. Fitting
+    // straight through gave 9.259 m inside the head and 20.625 m inside the
+    // tail, outside the observed 10..20 m band on both sides.
+    const { road, at } = exportedProfile(
+      straightLane([0, 15, 30, 45], [undefined, 10, 20, undefined])
+    )
+    expect(road.hasElevation).toBe(true)
+    for (let s = 0; s <= 15 + 1e-9; s += 0.5) {
+      expect(Math.abs(at(s / 45) - 10)).toBeLessThanOrEqual(0.1)
+    }
+    for (let s = 30; s <= 45 + 1e-9; s += 0.5) {
+      expect(Math.abs(at(s / 45) - 20)).toBeLessThanOrEqual(0.1)
+    }
+  })
+
+  it('never leaves the observed height band inside a held stub', () => {
+    // The band check the endpoint assertions could not make: no station
+    // anywhere on the road may sit outside [min, max] of the heights the
+    // input actually carries, since a hold invents no new datum.
+    for (const [stations, zs, length] of [
+      [[0, 10, 20, 30, 40], [undefined, 5, 10, 15, 20], 40],
+      [[0, 15, 30, 45], [undefined, 10, 20, undefined], 45],
+    ] as const) {
+      const known = zs.filter((z): z is number => z !== undefined)
+      const lo = Math.min(...known)
+      const hi = Math.max(...known)
+      const { at } = exportedProfile(straightLane(stations, zs))
+      for (let s = 0; s <= length + 1e-9; s += 0.5) {
+        expect(at(s / length)).toBeGreaterThanOrEqual(lo - 0.1)
+        expect(at(s / length)).toBeLessThanOrEqual(hi + 0.1)
+      }
+    }
   })
 })
 
