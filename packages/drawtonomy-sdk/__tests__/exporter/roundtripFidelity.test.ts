@@ -2088,6 +2088,170 @@ describe('carry-through export (sidecar verbatim re-emission)', () => {
   it('keeps an unedited round trip fully verbatim on the micro fixture', () => {
     expectVerbatimRoundTrip(readFileSync(MICRO_FIXTURE, 'utf-8'))
   })
+
+  // -------------------------------------------------------------------------
+  // Dangling junction references (issue #985)
+  //
+  // A road's <predecessor>/<successor> may name elementType="junction" with an
+  // id that has no matching <junction> element anywhere in the document (a
+  // pre-existing authoring defect, or a deliberately partial/selective
+  // import). That reference was already dangling in the source file, so it
+  // stays exactly as dangling in the output — carrying the road verbatim
+  // creates no NEW loss. Treating it as "unrecorded" and forcing the road (and
+  // by propagation its real, well-defined junction) to regenerate is an
+  // unwarranted blast radius: real content gets rewritten to fix a reference
+  // that was never valid and cannot become valid either way.
+  //
+  // road 30 -> successor junction "999" (undefined anywhere: dangling).
+  // road 31 -> successor junction "100" (defined junction; its connecting
+  //            roads 40/41 are edited below to make it genuinely dirty).
+  // road 32 -> a 0.2 m micro road (no materialized lanes) that is itself a
+  //            member of junction "100", so it has nothing to regenerate from
+  //            if it is dropped into `dirty` by propagation.
+  // -------------------------------------------------------------------------
+  const DANGLING_JUNCTION_XODR = `<?xml version="1.0"?>
+<OpenDRIVE>
+  <header revMajor="1" revMinor="6" name="dangling">
+    <geoReference><![CDATA[+proj=tmerc +lat_0=35.0 +lon_0=139.0 +datum=WGS84]]></geoReference>
+  </header>
+  <road name="dangling_ref" length="40" id="30" junction="-1">
+    <link><successor elementType="junction" elementId="999"/></link>
+    <planView><geometry s="0" x="0" y="0" hdg="0" length="40"><line/></geometry></planView>
+    <lanes>
+      <laneSection s="0">
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+  <road name="west_approach" length="40" id="31" junction="-1">
+    <link><successor elementType="junction" elementId="100"/></link>
+    <planView><geometry s="0" x="100" y="0" hdg="0" length="40"><line/></geometry></planView>
+    <lanes>
+      <laneSection s="0">
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+  <road name="east_departure" length="40" id="33" junction="-1">
+    <link><predecessor elementType="junction" elementId="100"/></link>
+    <planView><geometry s="0" x="180" y="0" hdg="0" length="40"><line/></geometry></planView>
+    <lanes>
+      <laneSection s="0">
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+  <road name="micro" length="0.2" id="32" junction="-1">
+    <link>
+      <predecessor elementType="road" elementId="31" contactPoint="end"/>
+      <successor elementType="road" elementId="33" contactPoint="start"/>
+    </link>
+    <planView><geometry s="0" x="140" y="20" hdg="0" length="0.2"><line/></geometry></planView>
+    <lanes>
+      <laneSection s="0">
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link><predecessor id="-1"/><successor id="-1"/></link>
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+  <road name="conn_a" length="20" id="40" junction="100">
+    <link>
+      <predecessor elementType="road" elementId="31" contactPoint="end"/>
+      <successor elementType="road" elementId="33" contactPoint="start"/>
+    </link>
+    <planView><geometry s="0" x="140" y="0" hdg="0" length="20"><line/></geometry></planView>
+    <lanes>
+      <laneSection s="0">
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <link><predecessor id="-1"/><successor id="-1"/></link>
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+  <junction name="main_junction" id="100">
+    <connection id="0" incomingRoad="31" connectingRoad="40" contactPoint="start">
+      <laneLink from="-1" to="-1"/>
+    </connection>
+  </junction>
+</OpenDRIVE>`
+
+  it('carries a road unedited even when its junction link is dangling (undefined junction id)', () => {
+    // (a) Fully unedited round trip: every road, including the one whose
+    // successor names a junction ("999") that is never defined, stays
+    // verbatim and the road count is unchanged.
+    const imported = odrToShapesFull(parseOpenDriveXml(DANGLING_JUNCTION_XODR))
+    const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
+    const doc = extractOdrDocument(DANGLING_JUNCTION_XODR)!
+    const outDoc = extractOdrDocument(out)!
+    expect(outDoc.roads.length).toBe(doc.roads.length)
+    const road30 = doc.roads.find(r => r.id === '30')!
+    expect(out).toContain(road30.text)
+    // The dangling reference itself is untouched (still points at "999";
+    // there is nothing to repoint it to, and it was already broken).
+    expect(outDoc.roads.find(r => r.id === '30')!.linkJunctionRefs).toEqual(['999'])
+  })
+
+  it('still regenerates a road whose junction link points at a real, dirty junction (regression guard)', () => {
+    // (b) road 31 references junction "100", which IS defined. Editing its
+    // connecting road (40) must still dirty the junction and drag road 31's
+    // link the way it always has — the fix only changes handling of
+    // references to junctions that do not exist.
+    const imported = odrToShapesFull(parseOpenDriveXml(DANGLING_JUNCTION_XODR))
+    const laneId = imported.sidecar.roadRecords!['40'].laneShapeIds[0]
+    const lane = imported.lanes.find(l => l.id === laneId)!
+    const ls = imported.linestrings.find(l => l.id === lane.leftBoundaryId ?? lane.rightBoundaryId)!
+    const midPid = ls.pointIds[Math.floor(ls.pointIds.length / 2)]
+    // Longitudinal drag forces full regeneration (not the surgical path).
+    imported.points.find(p => p.id === midPid)!.x += 20
+
+    const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
+    const doc = extractOdrDocument(DANGLING_JUNCTION_XODR)!
+    // The connecting road and the junction it belongs to both regenerate.
+    expect(out).not.toContain(doc.roads.find(r => r.id === '40')!.text)
+    expect(out).not.toContain(doc.junctions.find(j => j.id === '100')!.text)
+    expect(out).toMatch(/<junction /)
+    // road 30's dangling ref to "999" is a completely separate junction id
+    // and must be unaffected by "100" regenerating.
+    expect(out).toContain(doc.roads.find(r => r.id === '30')!.text)
+  })
+
+  it('does not drop a micro road (no materialized lanes) when its real junction becomes dirty', () => {
+    // (c) road 32 has zero materialized lane shapes (below the importer's
+    // minimum section length). Its junction "100" is dirtied by editing
+    // road 40. road 32 itself was never edited (it cannot be, having no
+    // lane shapes) and must survive in the output either way.
+    const imported = odrToShapesFull(parseOpenDriveXml(DANGLING_JUNCTION_XODR))
+    expect(imported.sidecar.roadRecords!['32'].laneShapeIds).toEqual([])
+
+    const laneId = imported.sidecar.roadRecords!['40'].laneShapeIds[0]
+    const lane = imported.lanes.find(l => l.id === laneId)!
+    const ls = imported.linestrings.find(l => l.id === lane.leftBoundaryId ?? lane.rightBoundaryId)!
+    const midPid = ls.pointIds[Math.floor(ls.pointIds.length / 2)]
+    imported.points.find(p => p.id === midPid)!.x += 20
+
+    const out = exportToOpenDrive(snapshotFrom(imported), { sidecar: imported.sidecar })
+    const outDoc = extractOdrDocument(out)!
+    expect(outDoc.roads.some(r => r.id === '32')).toBe(true)
+  })
 })
 
 // ---------------------------------------------------------------------------
