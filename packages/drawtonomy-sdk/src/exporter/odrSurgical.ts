@@ -14,8 +14,19 @@
 // not lateral-only (a point dragged along the road, an end point moved, a lane
 // added / removed, or connectivity changed) makes the check fail and the road
 // falls back to full regeneration (handled by the caller).
+//
+// The same treatment covers the road's <signals>. A <signal> is a direct child
+// of <road> positioned by (s, t) on the road's own reference line, with no
+// coupling to the lanes or to any other signal, so moving / deleting / adding
+// one is a byte-local edit of that element: `rewriteSignals` re-projects the
+// live shape onto the *original* reference line and rewrites only s / t,
+// removes a deleted element (with its own line), and appends an added one just
+// before </signals>. A signal pushed outside [0, length] cannot be expressed on
+// this road at all, so it falls back to full regeneration like any other edit
+// the surgical path cannot absorb.
 
 import type { BaseShape, LaneProps, LinestringProps, PointProps } from '../types.js'
+import type { SignalBaseline } from './odrCarryThrough.js'
 import { evalPoly3, sampleReferenceLine, type ReferenceSample } from './odrGeometry.js'
 import type { OdrLane, OdrLaneSection, OdrRoad } from './opendriveParser.js'
 import { fmt, fmtPrecise, pxToEnuX, pxToEnuY } from './units.js'
@@ -58,6 +69,15 @@ const LATERAL_S_TOL_M = 0.1
 const INNER_DATUM_TOL_M = 0.02
 /** Width simplification tolerance (m), matching the full-regen exporter. */
 const WIDTH_SIMPLIFY_TOL_M = 0.01
+/**
+ * Maximum longitudinal residual (m) a signal may show against the station it
+ * projects onto. `projectStation` clamps to the road's ends, so a signal
+ * dragged past either end returns s = 0 / s = length with the whole overshoot
+ * as this residual; beyond the tolerance the signal is simply not on this road
+ * and the surgical path gives up. Also catches a signal on a road whose
+ * sampled reference line is too coarse to carry it.
+ */
+const OFF_ROAD_TOL_M = 0.05
 
 /**
  * Signed lateral offset of a boundary point from a reference pose, measured
@@ -459,4 +479,228 @@ function rewriteLaneWidths(
 
   if (failed) return null
   return before + rewrittenLanes + after
+}
+
+// ---------------------------------------------------------------------------
+// Surgical <signal> rewriting
+// ---------------------------------------------------------------------------
+
+/** A live regulatory shape attached to a road. */
+export interface SurgicalSignalShape {
+  /** Shape id (used for tracing and for the returned id mapping). */
+  shapeId: string
+  /** Source `<signal id>` this shape came from; '' for a shape added since import. */
+  odrSignalId: string
+  /** Current position in canvas pixels, compared against the baseline by value. */
+  canvasX: number
+  canvasY: number
+  /** Current position in ENU meters (the same point, converted). */
+  x: number
+  y: number
+  /**
+   * Everything about the shape except its position, serialized the same way on
+   * both sides of a round trip. A kept signal whose payload no longer matches
+   * the one recorded for its source id is not "the same signal moved", so the
+   * road falls back to full regeneration.
+   */
+  payload: string
+}
+
+/** Outcome of `rewriteSignals`, so the caller can keep its id bookkeeping. */
+export interface SurgicalSignalResult {
+  /** The road text with only the touched `<signal>` elements changed. */
+  text: string
+  /** Emitted `<signal id>` per shape id (source ids kept, added ones fresh). */
+  signalIdByShape: Map<string, string>
+  /** Number of `<signal id>` values allocated for added shapes. */
+  allocatedIds: number
+}
+
+/**
+ * Station / offset of an ENU point on a road's reference line, or null when the
+ * point lies beyond either end of the road.
+ *
+ * `t` is the signed offset along the reference line's +t normal, matching the
+ * importer's `pose.x - sin(h) * t`, `pose.y + cos(h) * t`.
+ *
+ * `projectStation` clamps to the polyline, so a point dragged past an end comes
+ * back as s = 0 / s = length with a *longitudinal* residual. Such a point is
+ * not on this road any more, so it is rejected rather than silently pinned to
+ * the end: the residual along the pose's tangent must be zero.
+ */
+function projectOntoReference(
+  p: Enu,
+  poses: readonly ReferenceSample[]
+): { s: number; t: number } | null {
+  const s = projectStation(p, poses)
+  if (s === null) return null
+  // Interpolate the pose at s the way the importer's poseAt does, then measure
+  // the residual in the pose's frame.
+  let pose = poses[poses.length - 1]
+  if (s <= poses[0].s) pose = poses[0]
+  else {
+    for (let i = 0; i < poses.length - 1; i++) {
+      const a = poses[i]
+      const b = poses[i + 1]
+      if (s > b.s) continue
+      const span = b.s - a.s
+      const f = span > S_EPS ? (s - a.s) / span : 0
+      pose = { s, x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, hdg: a.hdg, z: a.z }
+      break
+    }
+  }
+  const dx = p.x - pose.x
+  const dy = p.y - pose.y
+  const along = dx * Math.cos(pose.hdg) + dy * Math.sin(pose.hdg)
+  if (Math.abs(along) > OFF_ROAD_TOL_M) return null
+  return { s, t: -dx * Math.sin(pose.hdg) + dy * Math.cos(pose.hdg) }
+}
+
+/** `<signal ...>` or `<signal .../>` blocks of a road's <signals>, in document order. */
+const SIGNAL_BLOCK_RE = /[^\S\n]*<signal\b[^>]*(?:\/>|>[\s\S]*?<\/signal>)\n?/g
+
+/** The `id` attribute of a `<signal>` block, or null. */
+function signalBlockId(block: string): string | null {
+  const open = block.slice(0, block.indexOf('>') + 1)
+  return open.match(/\bid="([^"]*)"/)?.[1] ?? null
+}
+
+/**
+ * Rewrite only the `<signal>` elements of a road, keeping every other byte of
+ * the original `<road>` element.
+ *
+ * `shapes` are the live regulatory shapes currently attached to this road. A
+ * shape carrying a source `odrSignalId` that the road defines keeps that id and
+ * has its `s` / `t` attributes rewritten (all other attributes, children and
+ * whitespace are preserved). A defined `<signal>` no live shape claims is
+ * removed with its own line. A shape with no source id is appended just before
+ * `</signals>` using `renderNewSignal`, which the caller supplies so the new
+ * element matches the full-regeneration exporter's formatting.
+ *
+ * Returns null when the edit cannot be expressed this way: a signal that no
+ * longer projects inside [0, length], a road with no `<signals>` block to
+ * append to, or an id collision. The caller then falls back to regenerating
+ * the whole road.
+ */
+export function rewriteSignals(
+  roadText: string,
+  road: OdrRoad,
+  shapes: readonly SurgicalSignalShape[],
+  baselines: Readonly<Record<string, SignalBaseline>>,
+  nextSignalId: number,
+  renderNewSignal: (shapeId: string, id: string, s: number, t: number, indent: string) => string | null
+): SurgicalSignalResult | null {
+  const samples = sampleReferenceLine(road)
+  if (samples.length < 2) {
+    dbg('signals: road', road.id, 'too few reference samples')
+    return null
+  }
+
+  const definedIds = new Set(road.signals.map(sig => sig.id))
+  const signalIdByShape = new Map<string, string>()
+
+  // Shapes that keep a source id are either untouched (their `<signal>` keeps
+  // its source bytes) or moved (s / t recomputed against the ORIGINAL
+  // reference line). Shapes with no source id are appended with a fresh id.
+  const kept = new Set<string>()
+  const moved = new Map<string, { s: number; t: number }>()
+  const added: { shapeId: string; s: number; t: number }[] = []
+  for (const shape of shapes) {
+    const baseline = shape.odrSignalId ? baselines[shape.odrSignalId] : undefined
+    const isKnown = shape.odrSignalId !== '' && definedIds.has(shape.odrSignalId)
+    if (isKnown) {
+      if (kept.has(shape.odrSignalId)) {
+        dbg('signals: road', road.id, 'two shapes claim signal', shape.odrSignalId)
+        return null
+      }
+      // Same id, but is it still the same signal? Anything other than the
+      // position changing means the element would have to be rebuilt, which
+      // this rewrite does not do.
+      if (baseline === undefined || baseline.payload !== shape.payload) {
+        dbg('signals: road', road.id, 'signal', shape.odrSignalId, 'payload changed')
+        return null
+      }
+      kept.add(shape.odrSignalId)
+      signalIdByShape.set(shape.shapeId, shape.odrSignalId)
+      // Unmoved: identical position values, so the element is left alone and
+      // keeps the source's own number spelling.
+      if (baseline.x === shape.canvasX && baseline.y === shape.canvasY) continue
+    }
+    const proj = projectOntoReference({ x: shape.x, y: shape.y }, samples)
+    if (proj === null) {
+      dbg('signals: road', road.id, 'shape', shape.shapeId, 'is off the road (longitudinal overshoot)')
+      return null
+    }
+    if (proj.s < -S_EPS || proj.s > road.length + S_EPS) {
+      dbg('signals: road', road.id, 'shape', shape.shapeId, 's', proj.s, 'outside [0,', road.length, ']')
+      return null
+    }
+    if (isKnown) moved.set(shape.odrSignalId, proj)
+    else added.push({ shapeId: shape.shapeId, s: proj.s, t: proj.t })
+  }
+
+  let failed = false
+  let text = roadText.replace(SIGNAL_BLOCK_RE, block => {
+    const id = signalBlockId(block)
+    if (id === null) return block
+    // Nobody claims it any more: the shape was deleted, so drop the element
+    // together with its indentation and line break.
+    if (!kept.has(id)) return ''
+    const proj = moved.get(id)
+    // Claimed but not moved: keep the source bytes exactly as they are, down
+    // to the spelling of the numbers ("90" must not become "90.000000").
+    if (proj === undefined) return block
+    const end = block.indexOf('>') + 1
+    let rewritten = block.slice(0, end)
+    let ok = true
+    for (const [name, value] of [
+      ['s', proj.s],
+      ['t', proj.t],
+    ] as const) {
+      const re = new RegExp(`(\\b${name}=")([^"]*)(")`)
+      if (!re.test(rewritten)) {
+        ok = false
+        break
+      }
+      rewritten = rewritten.replace(re, (_x, pre: string, _old: string, post: string) => pre + fmt(value) + post)
+    }
+    if (!ok) {
+      dbg('signals: road', road.id, 'signal', id, 'has no s/t attribute to rewrite')
+      failed = true
+      return block
+    }
+    return rewritten + block.slice(end)
+  })
+  if (failed) return null
+
+  // Append the added signals as the last children of <signals>.
+  let allocatedIds = 0
+  if (added.length > 0) {
+    const closeIdx = text.indexOf('</signals>')
+    if (closeIdx < 0) {
+      dbg('signals: road', road.id, 'no <signals> block to append to')
+      return null
+    }
+    const indent = text.slice(text.lastIndexOf('\n', closeIdx) + 1, closeIdx)
+    const childIndent = `${indent}  `
+    const rendered: string[] = []
+    for (const a of added) {
+      const id = String(nextSignalId + allocatedIds)
+      if (definedIds.has(id)) {
+        dbg('signals: road', road.id, 'fresh signal id', id, 'collides')
+        return null
+      }
+      const xml = renderNewSignal(a.shapeId, id, a.s, a.t, childIndent)
+      if (xml === null) {
+        dbg('signals: road', road.id, 'cannot render added signal for shape', a.shapeId)
+        return null
+      }
+      rendered.push(xml)
+      signalIdByShape.set(a.shapeId, id)
+      allocatedIds++
+    }
+    text = `${text.slice(0, closeIdx)}${rendered.join('\n')}\n${text.slice(closeIdx)}`
+  }
+
+  return { text, signalIdByShape, allocatedIds }
 }
