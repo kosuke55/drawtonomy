@@ -22,7 +22,11 @@ import { parseOpenDriveXml } from '../../src/exporter/opendriveParser'
 import { odrToShapes } from '../../src/exporter/odrToShapes'
 import { exportToOpenDrive, __replanCounters } from '../../src/exporter/opendrive'
 import { snapshotFrom } from './helpers/snapshotFrom'
-import { chainXodr, reidentifyConnectingBoundaries } from './helpers/junctionChain'
+import {
+  chainXodr,
+  partialLaneLinkChainXodr,
+  reidentifyConnectingBoundaries,
+} from './helpers/junctionChain'
 
 /**
  * Export the chain with the first `splitCount` connecting roads' boundaries
@@ -73,6 +77,26 @@ describe('re-planning cost on a chain of junctions', () => {
     expect(__replanCounters.rejectedPerRound[0]).toBeGreaterThanOrEqual(50)
   })
 
+  // Two rounds at every length and extent, including the one that used to be
+  // the expensive corner: every connecting road split, so the cascade runs the
+  // whole chain. Rejecting a junction now re-runs the road-id assignment, and
+  // on a chain that means once per junction — so this also pins that the
+  // re-running did not put the cost back. Measured here at 0.1 s (J = 50) and
+  // 0.25 s (J = 200); one junction per round took about 54 s at J = 200.
+  for (const junctionCount of [50, 200]) {
+    for (const splitCount of [1, junctionCount]) {
+      it(`settles in two rounds at J=${junctionCount}, split ${splitCount}`, () => {
+        const started = Date.now()
+        const { rounds } = exportChain(junctionCount, splitCount)
+        const elapsed = Date.now() - started
+        expect(rounds).toBe(2)
+        // Generous against a slow machine, and still an order of magnitude
+        // below the one-junction-per-round cost this replaced.
+        expect(elapsed).toBeLessThan(10_000)
+      }, 60_000)
+    }
+  }
+
   // The same fixpoint, not merely a plausible one. Comparing road counts and
   // "every junction named is defined" passes for many DIFFERENT plans, and it
   // did: converging early made the queue ask about roads it had just dirtied,
@@ -99,32 +123,10 @@ describe('re-planning cost on a chain of junctions', () => {
   // names — and calling that "the id could not be kept" rejects the junction,
   // and with it the unedited road it stamps.
   it('keeps an id the plan hands to the side a junction names', () => {
-    // Junction 2002 names lane -1 of roads 1001 / 1002 only.
-    let xml = chainXodr(8).replace(
-      `    <connection id="0" incomingRoad="1001" connectingRoad="1002" contactPoint="start">
-      <laneLink from="-1" to="-1"/>
-      <laneLink from="-2" to="-2"/>
-    </connection>`,
-      `    <connection id="0" incomingRoad="1001" connectingRoad="1002" contactPoint="start">
-      <laneLink from="-1" to="-1"/>
-    </connection>`
-    )
-    // ... so road 1002's lane -2 must not claim a predecessor the table no
-    // longer links, or the input itself carries a dangling lane reference.
-    const road1002 = xml.match(/ {2}<road name="conn2"[\s\S]*?<\/road>/)![0]
-    xml = xml.replace(
-      road1002,
-      road1002.replace('<link><predecessor id="-2"/><successor id="-2"/></link>', '<link><successor id="-2"/></link>')
-    )
-    // A <signal> the importer never shapes, on a road nobody edited. It
-    // survives only while road 1002's junction is still carried.
-    xml = xml.replace(
-      '<road name="conn2" length="40" id="1002" junction="2002">',
-      '<road name="conn2" length="40" id="1002" junction="2002">\n' +
-        '    <signals><signal s="10" t="-1" id="500" type="999999" dynamic="yes" orientation="+"/></signals>'
-    )
-
-    const imported = odrToShapes(parseOpenDriveXml(xml))
+    // Junction 2002 names lane -1 of roads 1001 / 1002 only, and a <signal>
+    // the importer never shapes sits on the unedited road 1002: it survives
+    // only while that road's junction is still carried.
+    const imported = odrToShapes(parseOpenDriveXml(partialLaneLinkChainXodr()))
     // Roads 1000 / 1001 re-bundle into one group per lane; junction 2002 needs
     // road 1001 to come back under its own id for lane -1.
     reidentifyConnectingBoundaries(imported, 2)
