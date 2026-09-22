@@ -20,6 +20,16 @@ export interface ElevationSample {
   s: number
   /** Height above the map datum (m). */
   z: number
+  /**
+   * Set when the height was not measured here but *held* from the nearest
+   * known one over an unannotated road end (see `resolveElevationGaps`).
+   *
+   * A held run is a statement that the height is constant, not a datum the
+   * fitter may curve through: `fitElevationProfile` emits it as a flat
+   * record and keeps the measured fit from reaching across its boundary.
+   * Omitted on measured and on interpolated samples.
+   */
+  held?: true
 }
 
 /** One `<elevation>` record: `z(ds) = a + b*ds + c*ds^2 + d*ds^3`. */
@@ -129,7 +139,9 @@ export function resolveElevationGaps(
 
   const out: ElevationSample[] = []
   // Hold the first known height back over the head stub.
-  for (let i = 0; i < first; i++) out.push({ s: samples[i].s, z: samples[first].z as number })
+  for (let i = 0; i < first; i++) {
+    out.push({ s: samples[i].s, z: samples[first].z as number, held: true })
+  }
 
   let i = first
   while (i <= last) {
@@ -163,10 +175,12 @@ export function resolveElevationGaps(
   // fitted record ends on the held height instead of carrying a slope past
   // its last datum.
   for (let k = last + 1; k < samples.length; k++) {
-    out.push({ s: samples[k].s, z: samples[last].z as number })
+    out.push({ s: samples[k].s, z: samples[last].z as number, held: true })
   }
   const end = out[out.length - 1]
-  if (roadLength - end.s > S_EPS) out.push({ s: roadLength, z: end.z })
+  // The synthetic road-end sample repeats the last height rather than
+  // extending a grade, so it is held too, however the run before it arose.
+  if (roadLength - end.s > S_EPS) out.push({ s: roadLength, z: end.z, held: true })
   return out
 }
 
@@ -205,16 +219,24 @@ function hermiteRecord(s0: number, s1: number, z0: number, z1: number, m0: numbe
   return { s: s0, a: z0, b: m0, c: c2 / (h * h), d: c3 / (h * h * h) }
 }
 
-/** Finite-difference slopes at each sample (monotone-safe enough for roads). */
-function estimateSlopes(samples: readonly ElevationSample[]): number[] {
+/**
+ * Finite-difference slopes at each sample (monotone-safe enough for roads).
+ *
+ * `flat[i]` marks the interval [i, i+1] as held at a constant height. The
+ * difference never reaches across one: a hold asserts the height does not
+ * change there, so borrowing the neighbouring grade's rise would bend it.
+ * The central difference degrades to a one-sided one at a hold boundary,
+ * and to 0 inside a hold.
+ */
+function estimateSlopes(samples: readonly ElevationSample[], flat: readonly boolean[]): number[] {
   const n = samples.length
   const m = new Array<number>(n).fill(0)
   if (n < 2) return m
   for (let i = 0; i < n; i++) {
-    const prev = samples[Math.max(0, i - 1)]
-    const next = samples[Math.min(n - 1, i + 1)]
-    const ds = next.s - prev.s
-    m[i] = ds > S_EPS ? (next.z - prev.z) / ds : 0
+    const lo = i > 0 && !flat[i - 1] ? i - 1 : i
+    const hi = i < n - 1 && !flat[i] ? i + 1 : i
+    const ds = samples[hi].s - samples[lo].s
+    m[i] = ds > S_EPS ? (samples[hi].z - samples[lo].z) / ds : 0
   }
   return m
 }
@@ -228,6 +250,11 @@ function estimateSlopes(samples: readonly ElevationSample[]): number[] {
  *
  * The returned records always start at s = 0 so the profile covers the whole
  * road, and every input sample is reproduced within `maxErrorMeters`.
+ *
+ * Samples marked `held` (see `ElevationSample.held`) are not data to curve
+ * through but an assertion that the height is constant there. Each run of
+ * them is emitted as its own flat record, and the fit of the measured part
+ * never reaches across the run's boundary.
  */
 export function fitElevationProfile(
   samples: readonly ElevationSample[],
@@ -243,11 +270,16 @@ export function fitElevationProfile(
     const last = clean[clean.length - 1]
     if (last && smp.s - last.s <= S_EPS) {
       // Same station twice: keep the later height (endpoints welded by the
-      // boundary aligner can repeat a station).
-      last.z = smp.z
+      // boundary aligner can repeat a station). A measured height at the
+      // station outranks a held one, which only ever repeats a neighbour.
+      if (!smp.held || last.held) {
+        last.z = smp.z
+        if (smp.held) last.held = true
+        else delete last.held
+      }
       continue
     }
-    clean.push({ s: smp.s, z: smp.z })
+    clean.push({ s: smp.s, z: smp.z, ...(smp.held ? { held: true as const } : {}) })
   }
   if (clean.length === 0) return []
   if (clean.every(smp => Math.abs(smp.z) <= flatEps)) return []
@@ -255,10 +287,22 @@ export function fitElevationProfile(
   // A single usable sample means a constant height over the whole road.
   if (clean.length === 1) return [{ s: 0, a: clean[0].z, b: 0, c: 0, d: 0 }]
 
-  // Extend to s = 0 so the profile is defined from the road start.
-  if (clean[0].s > S_EPS) clean.unshift({ s: 0, z: clean[0].z })
+  // Extend to s = 0 so the profile is defined from the road start. The added
+  // sample repeats a height rather than measuring one, so it is held — like
+  // the road-end sample `resolveElevationGaps` appends.
+  if (clean[0].s > S_EPS) clean.unshift({ s: 0, z: clean[0].z, held: true })
 
-  const slopes = estimateSlopes(clean)
+  // Intervals that must stay flat: both ends held, or one end held and the
+  // other the measured sample that closes the run. A run of held samples
+  // carries one height, so every interval it touches is constant — the
+  // interval from the last held sample to the first measured one included,
+  // since that measured height is the very value being held.
+  const flat: boolean[] = []
+  for (let k = 0; k + 1 < clean.length; k++) {
+    flat.push(Boolean(clean[k].held) || Boolean(clean[k + 1].held))
+  }
+
+  const slopes = estimateSlopes(clean, flat)
 
   // Greedy segment growth: extend a record as far as a single cubic through
   // (start, end) with the estimated end slopes stays within tolerance at every
@@ -266,8 +310,19 @@ export function fitElevationProfile(
   const records: ElevationRecord[] = []
   let i = 0
   while (i < clean.length - 1) {
+    if (flat[i]) {
+      // Run the hold out as one constant record, so its interior cannot dip
+      // or overshoot and the measured fit restarts on its far side.
+      let j = i + 1
+      while (j < clean.length - 1 && flat[j]) j++
+      records.push({ s: clean[i].s, a: clean[i].z, b: 0, c: 0, d: 0 })
+      i = j
+      continue
+    }
     let best: { rec: ElevationRecord; end: number } | null = null
     for (let j = i + 1; j < clean.length; j++) {
+      // Never span a held interval: past it the height is asserted, not fitted.
+      if (flat[j - 1]) break
       const rec = hermiteRecord(clean[i].s, clean[j].s, clean[i].z, clean[j].z, slopes[i], slopes[j])
       let ok = true
       for (let k = i + 1; k < j; k++) {
