@@ -3837,7 +3837,7 @@ function planBundlesAndJunctions(
      * Roads the junction work queue below dirties. They were clean when the
      * bundles were built, so no bundle exists for them this round and their
      * emitted id is not yet decided; see the queue's comment and
-     * `newlyDirtyRoadKeepsItsLanes`.
+     * `newlyDirtyLaneNumbers`.
      */
     const newlyDirtyRoads = new Set<string>()
     const bundleRoadOfLane = new Map<string, number>()
@@ -3847,17 +3847,6 @@ function planBundlesAndJunctions(
     }
     /** The lane id a lane shape is actually emitted under. */
     const bundleLaneIdOfLane = laneIdToOdrLaneId
-    /**
-     * Is the lane a <connection> calls `laneId` of road `rid` really emitted
-     * as lane `laneId` of road `rid`?
-     *
-     * Both halves matter. The road id can move — a road with lanes on both
-     * sides splits into two bundles and only one inherits the id — and so
-     * can the lane number, because a regenerated bundle is renumbered from
-     * +/-1 outward and lanes the importer does not model are simply not
-     * there to be counted. Checking only the road id let a table keep a
-     * `to="-3"` that the emitted road had renumbered to `-2`.
-     */
     /**
      * Will a road the queue has just dirtied come back under its own id, with
      * its lanes numbered as they are now?
@@ -3906,6 +3895,17 @@ function planBundlesAndJunctions(
       return result
     }
 
+    /**
+     * Is the lane a <connection> calls `laneId` of road `rid` really emitted
+     * as lane `laneId` of road `rid`?
+     *
+     * Both halves matter. The road id can move — a road with lanes on both
+     * sides splits into two bundles and only one inherits the id — and so
+     * can the lane number, because a regenerated bundle is renumbered from
+     * +/-1 outward and lanes the importer does not model are simply not
+     * there to be counted. Checking only the road id let a table keep a
+     * `to="-3"` that the emitted road had renumbered to `-2`.
+     */
     const laneKeptItsRoadId = (rid: string, laneId: number, atEnd: 'start' | 'end'): boolean => {
       if (!carry.records[rid] || !/^\d+$/.test(rid)) return false
       if (carry.cleanRoadIds.has(rid)) return true
