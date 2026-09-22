@@ -55,7 +55,7 @@ import { escapeXml, fmt, fmtPrecise, pxToEnuX, pxToEnuY, pxToMeter } from './uni
 import {
   appendControlRecords,
   dropControlRecords,
-  dropSignalReferences,
+  rewriteSignalReferences,
   extractOdrDocument,
   hashRoadLaneSemantics,
   hashRoadNonSignalRegulatory,
@@ -2441,6 +2441,12 @@ interface CarryPlan {
    * road that took those lanes when it is emitted.
    */
   splitRetargets: MemberEnd[]
+  /**
+   * Signal ids the carried (verbatim / surgical) text still defines. What a
+   * reference in that text has to be measured against, once the regeneration
+   * path's ids are known too.
+   */
+  carriedSignalIds: Set<string>
   /** Surviving controllers, keyed by original id so regenerated signals of the same group can merge in. */
   verbatimControllers: { id: string; text: string }[]
   /** First id for regenerated roads / junctions (above every original id). */
@@ -3451,14 +3457,14 @@ function planCarryThrough(
       if (sid !== undefined) carriedSignalIds.add(sid)
     }
   }
-  // Signals the regeneration path re-emits are not in `carriedSignalIds`, but
-  // they are not dangling either — they get fresh ids and fresh references.
-  // Only the references living in CARRIED text are pruned here.
-  for (const r of verbatimRoads) {
-    const base = surgicalRoadText.get(r.id) ?? r.text
-    const pruned = dropSignalReferences(base, carriedSignalIds)
-    if (pruned !== base) surgicalRoadText.set(r.id, pruned)
-  }
+  // A <signalReference> in carried text can only be resolved once the
+  // regeneration path has run and its ids are known: a signal whose road was
+  // edited is not in `carriedSignalIds`, but it is not gone either — it comes
+  // back under a fresh id, and the reference should follow it rather than be
+  // deleted. Pruning here, before that, threw away live references (a
+  // reference on a road with no lane shapes has no shape to re-emit it, so
+  // nothing replaced it). The decision is made in exportToOpenDrive instead;
+  // `carriedSignalIds` is what it starts from.
 
   const verbatimJunctionTexts: string[] = []
   for (const j of doc.junctions) {
@@ -3507,6 +3513,7 @@ function planCarryThrough(
     carriedJunctionConnectingRoadIds,
     junctionLaneShapeIds,
     splitRetargets,
+    carriedSignalIds,
     verbatimControllers,
     idBase: Math.max(doc.maxNumericElementId, 0) + 1,
     // Ids already handed to signals added on a surgically rewritten road are
@@ -4138,6 +4145,35 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
     carry?.signalIdBase
   )
 
+  // A <signalReference> living in carried text names a signal by id. Now that
+  // both paths have run, each named id is in exactly one of three states:
+  //
+  //   - still defined in carried text            -> leave the reference alone
+  //   - re-emitted by regeneration under a new id -> retarget to that id,
+  //     keeping the reference's own s / t / orientation / validity, which the
+  //     regeneration path does not know
+  //   - defined nowhere                           -> the user deleted it, so
+  //     the reference goes
+  //
+  // Deciding this while planning collapsed the middle case into the last one:
+  // a reference to a signal whose road was merely edited was deleted, and on a
+  // road with no lane shapes nothing re-emitted it.
+  const finalSignalIdBySourceId = new Map<string, string>()
+  if (carry) {
+    for (const [shapeId, id] of signalIdByShape) {
+      const shape = shapeMap.get(shapeId)
+      const sourceId = (shape as unknown as TrafficLightShape | undefined)?.props?.attributes
+        ?.odr_signal_id
+      if (sourceId) finalSignalIdBySourceId.set(sourceId, String(id))
+    }
+  }
+  const retargetSignalReferences = (text: string): string =>
+    carry === null
+      ? text
+      : rewriteSignalReferences(text, sid =>
+          carry.carriedSignalIds.has(sid) ? sid : (finalSignalIdBySourceId.get(sid) ?? null)
+        )
+
   // Verbatim road blocks first (original document order). Two minimal
   // rewrites keep their links valid; nothing else is touched:
   // - road links to a dirty road whose lanes regenerated into exactly one
@@ -4241,7 +4277,7 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
       }
       // Surgical roads reuse the verbatim emission path (same link rewriting)
       // but start from the width-rewritten text instead of the original.
-      let baseText = carry.surgicalRoadText.get(r.id) ?? r.text
+      let baseText = retargetSignalReferences(carry.surgicalRoadText.get(r.id) ?? r.text)
       if (adopted !== undefined && r.junction !== '-1' && r.junction !== adopted) {
         baseText = rewriteRoadJunctionAttribute(baseText, adopted)
       }

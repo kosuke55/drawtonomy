@@ -531,4 +531,62 @@ describe('surgical <signal> rewriting', () => {
       expect(definedSet.has(m[1])).toBe(true)
     }
   })
+
+  // (n) a <signalReference> on a road the importer makes no lane shapes for
+  // lives only in the carried text: no shape re-emits it, so whatever happens
+  // to it here is final. When the signal it names is re-emitted by the
+  // regeneration path under a fresh id, the reference has to follow — it
+  // carries its own s / t / orientation / validity for THIS road, which the
+  // regeneration path does not know. It used to be deleted instead, because
+  // "not defined in carried text" was read as "the user deleted the signal".
+  it('retargets a reference on a lane-less road when its signal is re-emitted', () => {
+    const micro = `  <road name="micro" length="0.2" id="3" junction="-1">
+    <planView><geometry s="0" x="300" y="300" hdg="0" length="0.2"><line/></geometry></planView>
+    <lanes>
+      <laneSection s="0">
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <width sOffset="0" a="3.5" b="0" c="0" d="0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+    <signals>
+      <signalReference id="100" s="0.1" t="-1" orientation="+">
+        <validity fromLane="-1" toLane="-1"/>
+      </signalReference>
+    </signals>
+  </road>
+`
+    const xml = readFileSync(SIGNALS_TWO_ROADS, 'utf-8').replace(
+      /(\s*<controller\b)/,
+      `\n${micro}$1`
+    )
+    const imported = odrToShapes(parseOpenDriveXml(xml))
+    expect(imported.sidecar.roadRecords!['3'].laneShapeIds).toEqual([])
+    // Unedited, the reference is kept exactly as written.
+    expect(roadText(exportWith(imported), '3')).toMatch(/<signalReference\b[^>]*\bid="100"/)
+
+    // Now force signal 100's road to regenerate, so it comes back with a new
+    // id. Editing road 2 (which references the signal) dirties every road the
+    // signal touches, road 1 — where it is defined — included.
+    const edited = odrToShapes(parseOpenDriveXml(xml))
+    const lane = edited.lanes.find(
+      l => l.id === edited.sidecar.roadRecords!['2'].laneShapeIds[0]
+    )!
+    lane.attributes = { ...(lane.attributes ?? {}), speed_limit: '37' }
+    const out = exportWith(edited)
+    expectWellFormed(out)
+
+    const defined = new Set(extractOdrDocument(out)!.roads.flatMap(r => r.signalIds))
+    const microOut = roadText(out, '3')
+    const ref = microOut.match(/<signalReference\b[^>]*\bid="([^"]*)"/)
+    // The reference is still there, names a signal the document defines, and
+    // kept its own placement on this road.
+    expect(ref).not.toBeNull()
+    expect(defined.has(ref![1])).toBe(true)
+    expect(microOut).toMatch(/<signalReference\b[^>]*\bs="0.1"/)
+    expect(microOut).toMatch(/<signalReference\b[^>]*\borientation="\+"/)
+    expect(microOut).toMatch(/<validity fromLane="-1" toLane="-1"\/>/)
+  })
 })
