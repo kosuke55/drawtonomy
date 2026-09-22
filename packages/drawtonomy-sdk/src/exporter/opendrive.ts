@@ -87,8 +87,10 @@ interface BundleGeometry {
   length: number
   /**
    * Reference-line height samples (m) at the fitted stations of the reference
-   * boundary's own vertices. Empty when the drawn points carry no height, in
-   * which case the road emits `<elevationProfile/>` as before.
+   * boundary's own vertices, covering the whole road. Empty when the drawn
+   * points carry no height, or when what they carry does not describe the
+   * whole road (see `resolveElevationGaps`), in which case the road emits
+   * `<elevationProfile/>` as before.
    */
   elevationSamples: ElevationSample[]
 }
@@ -458,18 +460,16 @@ function buildBundleGeometry(
   // A vertex can be missing z for reasons unrelated to elevation data (a
   // point shared with another linestring, a boundary aligner weld, a
   // hand-drawn extension of an imported road). `resolveElevationGaps`
-  // reconstructs a short hole between annotated neighbours by station-space
-  // interpolation, and rejects the profile outright when the unannotated
-  // run is too long or too far from any known height to reconstruct.
+  // decides whether the remaining annotation still describes the road: a
+  // short hole is reconstructed by station-space interpolation, an
+  // unannotated end stub is held at the nearest known height, and anything
+  // longer rejects the profile rather than let the fitter run a cubic
+  // through stations it has no data for.
   const gapSamples: GapSample[] = []
   for (let i = 0; i < ref.length && i < fit.samplePoses.length; i++) {
     gapSamples.push({ s: fit.samplePoses[i].s, z: boundaries[0][i]?.z })
   }
-  const elevationSamples: ElevationSample[] = []
-  for (const smp of resolveElevationGaps(gapSamples) ?? []) {
-    if (smp.z === undefined) continue
-    elevationSamples.push({ s: smp.s, z: smp.z })
-  }
+  const elevationSamples = resolveElevationGaps(gapSamples, fit.length) ?? []
 
   return {
     planView: fit.geometries,
