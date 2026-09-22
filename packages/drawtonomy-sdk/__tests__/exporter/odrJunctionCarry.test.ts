@@ -231,7 +231,6 @@ describe('junction carry-through', () => {
     }
   })
 
-
   it('keeps an edited connecting road inside its own junction', () => {
     const { xml, imported } = importFixture()
     const source = roadsById(xml)
@@ -298,6 +297,15 @@ describe('junction carry-through', () => {
     expect(emitted).toMatch(/<\w+ elementType="junction" elementId="4"\/>/)
   })
 
+  it('keeps an unedited round trip verbatim', () => {
+    const { xml, imported } = importFixture()
+    const out = exportWith(imported)
+    const source = roadsById(xml)
+    const emitted = roadsById(out)
+    for (const [id, r] of source) expect(emitted.get(id)!.text).toBe(r.text)
+    expect(junctionsById(out).get('4')).toBe(junctionsById(xml).get('4'))
+  })
+
   it('gives a regenerated connecting road both of its links back', () => {
     // The lane edges into a carried junction are left to the carried XML, so
     // connectivity planning skips them — and used to skip the connecting
@@ -328,15 +336,6 @@ describe('junction carry-through', () => {
     }
   })
 
-
-  it('keeps an unedited round trip verbatim', () => {
-    const { xml, imported } = importFixture()
-    const out = exportWith(imported)
-    const source = roadsById(xml)
-    const emitted = roadsById(out)
-    for (const [id, r] of source) expect(emitted.get(id)!.text).toBe(r.text)
-    expect(junctionsById(out).get('4')).toBe(junctionsById(xml).get('4'))
-  })
   it('keeps a lateral split resolving too', () => {
     // A lateral drag of road 0's inner boundary re-bundles it the same way a
     // longitudinal one does, through a different code path (the edit is a
@@ -408,24 +407,75 @@ describe('junction carry-through', () => {
 })
 
 describe('junction invariants', () => {
+  /**
+   * Structural checks every emitted document has to satisfy, whatever the
+   * edit was. They are deliberately about resolution, not about which plan
+   * the exporter chose: carrying a junction and rebuilding it are both fine,
+   * emitting a reference that does not resolve is not.
+   */
   const invariants = (xml: string): void => {
     const doc = extractOdrDocument(xml)!
-    const roadIds = new Set(doc.roads.map(r => r.id))
-    const named = new Set<string>()
+    const roadById = new Map(doc.roads.map(r => [r.id, r]))
+    const junctionById = new Map(doc.junctions.map(j => [j.id, j.text]))
+    const lanesOf = (id: string): Set<string> =>
+      new Set(laneIdsOf(roadById.get(id)?.text ?? ''))
+
     for (const j of doc.junctions) {
-      for (const m of j.text.matchAll(/connectingRoad="([^"]*)"/g)) {
-        // Every <connection connectingRoad> resolves to a real road.
-        expect(roadIds.has(m[1])).toBe(true)
-        named.add(m[1])
-      }
-      for (const m of j.text.matchAll(/incomingRoad="([^"]*)"/g)) {
-        expect(roadIds.has(m[1])).toBe(true)
+      for (const conn of j.text.match(/<connection\b[^>]*>[\s\S]*?<\/connection>/g) ??
+        j.text.match(/<connection\b[^>]*\/>/g) ??
+        []) {
+        const incoming = conn.match(/\bincomingRoad="([^"]*)"/)?.[1]
+        const connecting = conn.match(/\bconnectingRoad="([^"]*)"/)?.[1]
+        // Every road a <connection> names resolves to a real road.
+        if (incoming !== undefined) expect(roadById.has(incoming)).toBe(true)
+        if (connecting !== undefined) expect(roadById.has(connecting)).toBe(true)
+        // Every <laneLink> names lanes that the two roads really emit.
+        if (incoming === undefined || connecting === undefined) continue
+        const from = lanesOf(incoming)
+        const to = lanesOf(connecting)
+        for (const link of conn.match(/<laneLink\b[^>]*\/?>/g) ?? []) {
+          const f = link.match(/\bfrom="(-?\d+)"/)?.[1]
+          const t = link.match(/\bto="(-?\d+)"/)?.[1]
+          if (f !== undefined) expect(from.has(f)).toBe(true)
+          if (t !== undefined) expect(to.has(t)).toBe(true)
+        }
       }
     }
-    // Every junction-stamped road is named by some <connection>.
+
     for (const r of doc.roads) {
-      if (r.junction === '-1') continue
-      expect(named.has(r.id)).toBe(true)
+      // A road's junction attribute resolves, and that junction's own
+      // <connection> table names the road as a connecting road. Being listed
+      // by some OTHER junction is not enough.
+      if (r.junction !== '-1') {
+        const own = junctionById.get(r.junction)
+        expect(own).toBeDefined()
+        expect(new RegExp(`connectingRoad="${r.id}"`).test(own!)).toBe(true)
+      }
+      // Both ends of a road's own <link> resolve: a junction reference to an
+      // emitted <junction>, a road reference to an emitted <road> whose lane
+      // set contains every lane the lane-level links name.
+      const linkText = r.text.match(/<link>[\s\S]*?<\/link>/)?.[0] ?? ''
+      for (const tag of linkText.match(/<(?:predecessor|successor)\b[^>]*\/?>/g) ?? []) {
+        const kind = tag.match(/\belementType="([^"]*)"/)?.[1]
+        const id = tag.match(/\belementId="([^"]*)"/)?.[1]
+        if (id === undefined) continue
+        if (kind === 'junction') expect(junctionById.has(id)).toBe(true)
+        else if (kind === 'road') expect(roadById.has(id)).toBe(true)
+      }
+      const roadPred = linkText.match(
+        /<predecessor\s+elementType="road"\s+elementId="(\d+)"/
+      )?.[1]
+      const roadSucc = linkText.match(/<successor\s+elementType="road"\s+elementId="(\d+)"/)?.[1]
+      for (const laneM of r.text.matchAll(/<lane\b[^>]*\bid="(-?\d+)"[\s\S]*?<\/lane>/g)) {
+        for (const l of laneM[0].matchAll(/<(predecessor|successor)\s+id="(-?\d+)"\s*\/>/g)) {
+          const target = l[1] === 'predecessor' ? roadPred : roadSucc
+          // A lane link across a junction reference is resolved by the
+          // <junction> table, checked above; only road-to-road links name a
+          // lane on a specific neighbour.
+          if (target === undefined) continue
+          expect(lanesOf(target).has(l[2])).toBe(true)
+        }
+      }
     }
   }
 
@@ -450,6 +500,35 @@ describe('junction invariants', () => {
     const { imported } = importFixture()
     const doomed = imported.sidecar.roadRecords!['8'].laneShapeIds[2]
     imported.lanes = imported.lanes.filter(l => l.id !== doomed)
+    invariants(exportWith(imported))
+  })
+
+  it('holds after a mainline is re-bundled sideways', () => {
+    // Road 0 has lanes on both sides; a lateral drag of the inner boundary
+    // re-bundles it, so the two sides compete for the one road id.
+    const { imported } = importFixture()
+    nudgeSideways(imported, firstLaneOf(imported, '0'), 'right', 30)
+    invariants(exportWith(imported))
+  })
+
+  it('holds after a connecting road is re-bundled sideways', () => {
+    const { imported } = importFixture()
+    nudgeSideways(imported, firstLaneOf(imported, '8'), 'left', 30)
+    invariants(exportWith(imported))
+  })
+
+  it('holds after every connection of a connecting road is cut', () => {
+    const { imported } = importFixture()
+    const members = new Set(imported.sidecar.roadRecords!['8'].laneShapeIds)
+    for (const l of imported.lanes) {
+      if (members.has(l.id)) {
+        l.next = []
+        l.prev = []
+      } else {
+        l.next = (l.next ?? []).filter(id => !members.has(id))
+        l.prev = (l.prev ?? []).filter(id => !members.has(id))
+      }
+    }
     invariants(exportWith(imported))
   })
 })

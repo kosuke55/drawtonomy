@@ -3504,15 +3504,29 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
   // being synthesized. Majority voting alone picks by bundle order, which has
   // nothing to do with which side the intersection uses.
   if (carry) {
+    // Lane shape -> its bundle, built once. Scanning every bundle for every
+    // carried road is quadratic in the number of edited roads, which on a
+    // few-thousand-road map is the difference between seconds and minutes.
+    const bundleOfLaneShape = new Map<string, ExportBundle>()
+    const bundleOrder = new Map<ExportBundle, number>()
+    exportBundles.forEach((b, i) => {
+      bundleOrder.set(b, i)
+      for (const l of b.lanes) bundleOfLaneShape.set(l.id, b)
+    })
     for (const [rid, jid] of carry.carriedJunctionOfRoad) {
       if (carry.dirtyJunctionIds.has(jid) || !/^\d+$/.test(rid)) continue
       const origin = parseInt(rid, 10)
       if (claimedOriginIds.has(origin)) continue
       const wanted = carry.junctionLaneShapeIds.get(rid)
       if (!wanted || wanted.size === 0) continue
-      const bundle = exportBundles.find(
-        b => !exactReuse.has(b) && b.lanes.some(l => wanted.has(l.id))
-      )
+      // Same choice the old full scan made: the earliest unclaimed bundle
+      // in bundle order that holds one of the lanes the table names.
+      let bundle: ExportBundle | undefined
+      for (const lid of wanted) {
+        const b = bundleOfLaneShape.get(lid)
+        if (!b || exactReuse.has(b)) continue
+        if (!bundle || bundleOrder.get(b)! < bundleOrder.get(bundle)!) bundle = b
+      }
       if (!bundle) continue
       exactReuse.set(bundle, origin)
       claimedOriginIds.add(origin)
@@ -3677,46 +3691,60 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
       const rid = roadIdByBundle.get(bundle)!
       for (const l of bundle.lanes) bundleRoadOfLane.set(l.id, rid)
     }
+    /** The lane id a lane shape is actually emitted under. */
+    const bundleLaneIdOfLane = laneIdToOdrLaneId
     /**
-     * Is ODR lane `laneId` of recorded road `rid` still emitted on a road
-     * with that id? A road with lanes on both sides splits into two bundles
-     * and only one of them can inherit the id, so this asks per lane — which
-     * is all the <connection> table needs, since it names lanes, not roads.
+     * Is the lane a <connection> calls `laneId` of road `rid` really emitted
+     * as lane `laneId` of road `rid`?
+     *
+     * Both halves matter. The road id can move — a road with lanes on both
+     * sides splits into two bundles and only one inherits the id — and so
+     * can the lane number, because a regenerated bundle is renumbered from
+     * +/-1 outward and lanes the importer does not model are simply not
+     * there to be counted. Checking only the road id let a table keep a
+     * `to="-3"` that the emitted road had renumbered to `-2`.
      */
-    const laneKeptItsRoadId = (rid: string, laneId: number): boolean => {
-      const rec = carry.records[rid]
-      if (!rec || !/^\d+$/.test(rid)) return false
+    const laneKeptItsRoadId = (rid: string, laneId: number, atEnd: 'start' | 'end'): boolean => {
+      if (!carry.records[rid] || !/^\d+$/.test(rid)) return false
       if (carry.cleanRoadIds.has(rid)) return true
-      const want = parseInt(rid, 10)
-      for (const lid of rec.laneShapeIds) {
-        const shape = shapeMap.get(lid)
-        if (!shape || shape.type !== 'lane') continue
-        const odrLaneId = parseInt(
-          (shape as unknown as LaneShape).props.attributes?.odr_lane_id ?? '',
-          10
-        )
-        if (odrLaneId !== laneId) continue
-        return bundleRoadOfLane.get(lid) === want
-      }
-      return false
+      const lid = laneShapeWithOdrIdOnRoad(carry, shapeMap, rid, laneId, atEnd)
+      if (lid === undefined) return false
+      return bundleRoadOfLane.get(lid) === parseInt(rid, 10) && bundleLaneIdOfLane.get(lid) === laneId
     }
+    // Regenerated roads per junction, indexed once. Filtering the whole map
+    // for every junction is quadratic in the number of intersections.
+    const stampedByJunction = new Map<string, string[]>()
+    for (const [rid, jid] of carry.junctionOfRegeneratedRoad) {
+      const list = stampedByJunction.get(jid) ?? []
+      list.push(rid)
+      stampedByJunction.set(jid, list)
+    }
+    const docRoadTextById = new Map(carry.doc.roads.map(r => [r.id, r.text]))
     for (const j of carry.doc.junctions) {
       // Only junctions the plan decided to carry are checked here. One it
       // never claimed — a <junction type="direct">, say, which has no
       // connecting roads at all — is already outside this mechanism and stays
       // verbatim on its own terms.
       if (!carry.carriedJunctionIds.has(j.id) || carry.dirtyJunctionIds.has(j.id)) continue
-      const stamped = [...carry.junctionOfRegeneratedRoad]
-        .filter(([, jid]) => jid === j.id)
-        .map(([rid]) => rid)
+      const stamped = stampedByJunction.get(j.id) ?? []
       let membersKeptIds = true
       for (const conn of j.text.match(/<connection\b[^>]*>[\s\S]*?<\/connection>/g) ?? []) {
         const incoming = conn.match(/\bincomingRoad="([^"]*)"/)?.[1] ?? ''
         const connecting = conn.match(/\bconnectingRoad="([^"]*)"/)?.[1] ?? ''
+        const connectingAt =
+          (conn.match(/\bcontactPoint="([^"]*)"/)?.[1] as 'start' | 'end' | undefined) ?? 'start'
+        const incomingAt: 'start' | 'end' = new RegExp(
+          `<predecessor\\s+elementType="junction"\\s+elementId="${j.id}"`
+        ).test(docRoadTextById.get(incoming) ?? '')
+          ? 'start'
+          : 'end'
         for (const link of conn.match(/<laneLink\b[^>]*>/g) ?? []) {
           const from = parseInt(link.match(/\bfrom="([^"]*)"/)?.[1] ?? '', 10)
           const to = parseInt(link.match(/\bto="([^"]*)"/)?.[1] ?? '', 10)
-          if (!laneKeptItsRoadId(incoming, from) || !laneKeptItsRoadId(connecting, to)) {
+          if (
+            !laneKeptItsRoadId(incoming, from, incomingAt) ||
+            !laneKeptItsRoadId(connecting, to, connectingAt)
+          ) {
             membersKeptIds = false
             break
           }
@@ -3745,6 +3773,28 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
       }
       for (const rid of stamped) junctionOfExportedRoad.set(parseInt(rid, 10), j.id)
     }
+
+    // Dropping a junction here happens after the plan was settled, so every
+    // decision that named it has to be withdrawn in the same breath. Leaving
+    // them behind was how roads came out stamped with a junction the export
+    // no longer emitted, and how connectivity planning went on skipping the
+    // lane edges the dropped table was supposed to express.
+    if (carry.dirtyJunctionIds.size > 0) {
+      const junctionOfMember = new Map(carry.carriedJunctionOfRoad)
+      carry.splitRetargets = carry.splitRetargets.filter(
+        r => !carry.dirtyJunctionIds.has(junctionOfMember.get(r.from) ?? '')
+      )
+      for (const [rid, jid] of [...carry.junctionOfRegeneratedRoad]) {
+        if (carry.dirtyJunctionIds.has(jid)) {
+          carry.junctionOfRegeneratedRoad.delete(rid)
+          junctionOfExportedRoad.delete(parseInt(rid, 10))
+        }
+      }
+      for (const [rid, jid] of [...carry.carriedJunctionOfRoad]) {
+        if (carry.dirtyJunctionIds.has(jid)) carry.carriedJunctionOfRoad.delete(rid)
+      }
+    }
+
     for (const [rid, jid] of carry.carriedJunctionOfRoad) {
       if (carry.dirtyJunctionIds.has(jid)) continue
       const connecting = carry.carriedJunctionConnectingRoadIds.has(rid)
