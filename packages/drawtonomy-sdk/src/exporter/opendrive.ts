@@ -449,9 +449,23 @@ function buildBundleGeometry(
   // height rides along without resampling. Boundaries other than the
   // reference share the station's height (no superelevation support yet), so
   // taking the reference boundary alone is exact for imported roads.
-  const elevationSamples: ElevationSample[] = []
+  //
+  // A vertex can be missing z for reasons unrelated to elevation data (a
+  // point shared with another linestring, a boundary aligner weld, ...).
+  // Isolated gaps like that are filled by linear interpolation between their
+  // annotated neighbours rather than dropped, so one or two missing points
+  // out of hundreds don't discard the whole profile; only a genuinely
+  // unannotated *stretch* (no annotated neighbour on one side) falls back to
+  // "no data" for that stretch, since interpolating past the last known
+  // point would fabricate a datum and invent a cliff.
+  const rawZ: (number | undefined)[] = []
   for (let i = 0; i < ref.length && i < fit.samplePoses.length; i++) {
-    const z = boundaries[0][i]?.z
+    rawZ.push(boundaries[0][i]?.z)
+  }
+  const filledZ = fillIsolatedGaps(rawZ)
+  const elevationSamples: ElevationSample[] = []
+  for (let i = 0; i < filledZ.length; i++) {
+    const z = filledZ[i]
     if (z === undefined) continue
     elevationSamples.push({ s: fit.samplePoses[i].s, z })
   }
@@ -461,10 +475,39 @@ function buildBundleGeometry(
     samplePoses,
     laneWidths,
     length: fit.length,
-    // All-or-nothing: a partially annotated boundary would fabricate a datum
-    // of 0 for the un-annotated stretch and invent a cliff.
-    elevationSamples: elevationSamples.length === ref.length ? elevationSamples : [],
+    elevationSamples,
   }
+}
+
+/**
+ * Fill `undefined` runs in a z-per-station array by linear interpolation,
+ * but only when both a preceding and a following annotated value exist. A
+ * gap open at either end (no annotated neighbour on that side) is left
+ * `undefined`: extrapolating past the last known point would fabricate a
+ * height rather than reconstruct one.
+ */
+function fillIsolatedGaps(zs: readonly (number | undefined)[]): (number | undefined)[] {
+  const out = [...zs]
+  let i = 0
+  while (i < out.length) {
+    if (out[i] !== undefined) {
+      i++
+      continue
+    }
+    let j = i
+    while (j < out.length && out[j] === undefined) j++
+    const prev = i > 0 ? out[i - 1] : undefined
+    const next = j < out.length ? out[j] : undefined
+    if (prev !== undefined && next !== undefined) {
+      const span = j - i + 1
+      for (let k = i; k < j; k++) {
+        const t = (k - i + 1) / span
+        out[k] = prev + (next - prev) * t
+      }
+    }
+    i = j
+  }
+  return out
 }
 
 /**
