@@ -481,6 +481,35 @@ export function appendControlRecords(text: string, signalIds: readonly number[])
  * has to say which junction it belongs to now; the `<link>` rewrite above
  * only reaches the predecessor / successor references.
  */
+/**
+ * Re-point or drop the `<controller>` references inside a carried
+ * `<junction>` element, keeping every other byte untouched.
+ *
+ * A `<junction>` may list the controllers that run its signal groups, by id.
+ * Carrying the element verbatim keeps those ids, but a controller can be
+ * emitted under a different id (its group regenerated) or not at all (every
+ * signal it controlled was deleted). `mapping` says which, keyed by the
+ * ORIGINAL id; an id it does not mention is emitted nowhere, so the reference
+ * is removed rather than left dangling.
+ */
+export function rewriteJunctionControllerRefs(
+  text: string,
+  mapping: ReadonlyMap<string, string>
+): string {
+  return text.replace(
+    /[^\S\n]*<controller\b[^>]*(?:\/>|>[\s\S]*?<\/controller>)\n?/g,
+    match => {
+      const head = match.slice(0, match.indexOf('>') + 1)
+      const id = head.match(/\bid="([^"]*)"/)?.[1]
+      if (id === undefined) return match
+      const target = mapping.get(id)
+      if (target === undefined) return ''
+      if (target === id) return match
+      return match.replace(head, head.replace(/(\bid=")[^"]*(")/, `$1${target}$2`))
+    }
+  )
+}
+
 export function rewriteRoadJunctionAttribute(text: string, junctionId: string): string {
   return text.replace(/<road\b[^>]*>/, tag =>
     tag.replace(/(\bjunction=")([^"]*)(")/, (m, pre: string, _id: string, post: string) =>

@@ -593,3 +593,83 @@ describe('junction invariants', () => {
     invariants(exportWith(imported))
   })
 })
+
+// ---------------------------------------------------------------------------
+// <controller> references inside a carried <junction>
+//
+// A <junction> may list the controllers running its signal groups, by id.
+// Carrying the element verbatim keeps those ids, but the controllers
+// themselves are decided elsewhere: one whose signals were all deleted is not
+// emitted at all, and one whose group regenerated comes back under a fresh id
+// (the original id survives only as the controller's name). Neither was fed
+// back into the junction's text, so a carried junction went on naming a
+// controller the output did not have.
+// ---------------------------------------------------------------------------
+describe('junction controller references', () => {
+  /** fabriksgatan with a light on road 8, its controller, and a junction ref. */
+  const withController = (): string => {
+    const xml = readFileSync(FABRIKSGATAN, 'utf-8')
+    const road8 = xml.match(/<road\b[^>]*\bid="8"[\s\S]*?<\/road>/)![0]
+    const signals =
+      `<signals>\n` +
+      `            <signal s="5" t="-1" id="500" name="L500" dynamic="yes" orientation="-"` +
+      ` zOffset="5" country="OpenDRIVE" type="1000001" subtype="-1" hOffset="0" pitch="0"` +
+      ` roll="0" height="1.2" width="0.6">\n` +
+      `                <validity fromLane="-1" toLane="-1"/>\n` +
+      `            </signal>\n        </signals>`
+    const withSignal = road8.replace(/<signals>\s*<\/signals>/, signals)
+    expect(withSignal).not.toBe(road8)
+    return xml
+      .replace(road8, withSignal)
+      .replace(
+        /(<junction\b)/,
+        '  <controller id="900" name="ctrl900">\n' +
+          '    <control signalId="500" type="0"/>\n' +
+          '  </controller>\n$1'
+      )
+      .replace(/(<junction\b[^>]*\bid="4"[^>]*>)/, '$1\n    <controller id="900" type="0" sequence="0"/>')
+  }
+
+  /** Controller ids a junction element references. */
+  const junctionControllerRefs = (xml: string): string[] =>
+    extractOdrDocument(xml)!.junctions.flatMap(j =>
+      [...j.text.matchAll(/<controller\b[^>]*\bid="([^"]*)"/g)].map(m => m[1])
+    )
+
+  /** Ids of the top-level <controller> elements (those holding <control>s). */
+  const topLevelControllerIds = (xml: string): string[] =>
+    [...xml.matchAll(/<controller\b[^>]*\bid="([^"]*)"[^>]*>\s*<control\b/g)].map(m => m[1])
+
+  it('emits the reference intact without an edit (baseline)', () => {
+    const xml = withController()
+    const out = exportWith(odrToShapes(parseOpenDriveXml(xml)))
+    expect(topLevelControllerIds(out)).toEqual(['900'])
+    expect(junctionControllerRefs(out)).toEqual(['900'])
+  })
+
+  it('drops the reference when the controller loses every signal', () => {
+    const xml = withController()
+    const imported = odrToShapes(parseOpenDriveXml(xml))
+    imported.trafficLights = imported.trafficLights.filter(
+      t => t.attributes.odr_signal_id !== '500'
+    )
+
+    const out = exportWith(imported)
+    // Nothing defines signal 500 or controller 900 any more...
+    expect(topLevelControllerIds(out)).toEqual([])
+    // ...so the junction must not go on naming it.
+    expect(junctionControllerRefs(out)).toEqual([])
+  })
+
+  it('re-points the reference when the controller is re-emitted under a new id', () => {
+    const xml = withController()
+    const imported = odrToShapes(parseOpenDriveXml(xml))
+    nudgeSideways(imported, firstLaneOf(imported, '8'), 'left', 30)
+
+    const out = exportWith(imported)
+    const emitted = topLevelControllerIds(out)
+    expect(emitted.length).toBe(1)
+    // The junction names the id the controller really came out under.
+    expect(junctionControllerRefs(out)).toEqual(emitted)
+  })
+})

@@ -62,6 +62,7 @@ import {
   hashRoadSemantics,
   hashRoadState,
   isSignalKind,
+  rewriteJunctionControllerRefs,
   rewriteRoadJunctionAttribute,
   rewriteRoadLinkTargets,
   serializeSignalPayload,
@@ -4358,11 +4359,23 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
     }
   }
 
+  /**
+   * What became of each ORIGINAL `<controller id>`: the id it is emitted
+   * under now, or absent when no controller for that group is emitted at all.
+   * A `<junction>` may name a controller, and carrying the junction's text
+   * verbatim keeps that name — which has to still resolve.
+   *
+   * An imported traffic light carries its source controller id as its group
+   * id, so a group regenerating under a fresh id is exactly this mapping.
+   */
+  const finalControllerIdByOriginal = new Map<string, string>()
+
   // Verbatim controllers, with regenerated signals of the same group folded
   // back in as extra <control> records.
   if (carry) {
     for (const { id, text } of carry.verbatimControllers) {
       const regenerated = controllerGroups.get(id)
+      finalControllerIdByOriginal.set(id, id)
       if (regenerated === undefined) {
         lines.push(text)
         continue
@@ -4374,16 +4387,24 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
 
   let controllerIdCounter = carry ? carry.controllerIdBase : 1
   for (const [groupId, signalIds] of controllerGroups) {
-    lines.push(`  <controller id="${controllerIdCounter++}" name="${escapeXml(groupId)}" sequence="0">`)
+    const id = controllerIdCounter++
+    finalControllerIdByOriginal.set(groupId, String(id))
+    lines.push(`  <controller id="${id}" name="${escapeXml(groupId)}" sequence="0">`)
     for (const signalId of signalIds) {
       lines.push(`    <control signalId="${signalId}" type="0"/>`)
     }
     lines.push(`  </controller>`)
   }
 
-  // Verbatim junctions (all member roads verbatim).
+  // Verbatim junctions (all member roads verbatim), with their <controller>
+  // references re-pointed at the ids the controllers really came out under
+  // and references to controllers that are gone removed. Without this a
+  // carried junction went on naming a controller the deleted signal took with
+  // it, or the source id of one that regenerated.
   if (carry) {
-    for (const text of carry.verbatimJunctionTexts) lines.push(text)
+    for (const text of carry.verbatimJunctionTexts) {
+      lines.push(rewriteJunctionControllerRefs(text, finalControllerIdByOriginal))
+    }
   }
 
   // Synthesized junctions for branch / merge connectivity (see planConnectivity).
