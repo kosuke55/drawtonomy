@@ -256,6 +256,26 @@ export function signalBaseline(state: CarryRegulatoryState): SignalBaseline {
 // Raw document access
 // ---------------------------------------------------------------------------
 
+/** One road-level `<predecessor>`/`<successor>` with elementType="road". */
+export interface OdrDocRoadLink {
+  /** Which end of THIS road the link sits on. */
+  end: 'predecessor' | 'successor'
+  /** The road it reaches. */
+  elementId: string
+  /** Which end of the neighbour it touches, when stated. */
+  contactPoint: 'start' | 'end' | null
+}
+
+/** One `<connection>` record of a junction, kept structurally. */
+export interface OdrDocConnection {
+  id: string | null
+  incomingRoad: string
+  connectingRoad: string
+  /** The end of the connecting road the incoming road meets. */
+  contactPoint: 'start' | 'end' | null
+  laneLinks: { from: number; to: number }[]
+}
+
 export interface OdrDocRoad {
   id: string
   /** Junction this road belongs to ("-1" for normal roads). */
@@ -264,6 +284,8 @@ export interface OdrDocRoad {
   text: string
   /** elementIds of road-level <predecessor>/<successor> with elementType="road". */
   linkRoadRefs: string[]
+  /** The same links with the end and contact point they state. */
+  roadLinks: OdrDocRoadLink[]
   /** elementIds of road-level links with elementType="junction". */
   linkJunctionRefs: string[]
   /** ids of <signal> definitions inside this road. */
@@ -275,6 +297,8 @@ export interface OdrDocJunction {
   text: string
   /** incomingRoad / connectingRoad ids referenced by <connection> records. */
   memberRoadIds: string[]
+  /** The `<connection>` records themselves, in document order. */
+  connections: OdrDocConnection[]
 }
 
 export interface OdrDocController {
@@ -297,10 +321,31 @@ export interface OdrDocument {
   maxNumericControllerId: number
 }
 
-/** Match all `<tag .../>` or `<tag ...>...</tag>` blocks (tags do not nest). */
-function matchBlocks(xml: string, tag: string): string[] {
-  const re = new RegExp(`<${tag}\\b[^>]*(?:/>|>[\\s\\S]*?</${tag}>)`, 'g')
-  return xml.match(re) ?? []
+/**
+ * Match all `<tag .../>` or `<tag ...>...</tag>` elements (tags do not nest).
+ *
+ * The attribute run is `[^>]*?` and the two forms are anchored separately, so
+ * a self-closing element ends at its OWN `/>`. Written as `[^>]*(?:/>|>…)`,
+ * the greedy run walks past the slash of `<a/>` and the `>…</tag>` branch then
+ * matches to the NEXT element's closing tag, swallowing two siblings as one.
+ *
+ * `matchElementsWithIndent` keeps the leading whitespace of the line, for
+ * rewrites that delete whole lines.
+ */
+const elementRe = (tag: string, indent: boolean): RegExp =>
+  new RegExp(
+    `${indent ? '[^\\S\\n]*' : ''}<${tag}\\b[^>]*?(?:/>|>[\\s\\S]*?</${tag}>)${indent ? '\\n?' : ''}`,
+    'g'
+  )
+
+function matchElements(xml: string, tag: string): string[] {
+  return xml.match(elementRe(tag, false)) ?? []
+}
+
+/** Opening tag of an element block (`<tag ...>` or `<tag .../>`). */
+function openingTagOf(block: string): string {
+  const end = block.indexOf('>')
+  return end >= 0 ? block.slice(0, end + 1) : block
 }
 
 /** Attribute value from an element's opening tag, or null. */
@@ -323,17 +368,25 @@ export function extractOdrDocument(xml: string): OdrDocument | null {
   const headerMatch = xml.match(/<header\b[^>]*(?:\/>|>[\s\S]*?<\/header>)/)
 
   const roads: OdrDocRoad[] = []
-  for (const text of matchBlocks(xml, 'road')) {
+  for (const text of matchElements(xml, 'road')) {
     const id = attrOf(text, 'id')
     if (id === null) continue
     const linkRoadRefs: string[] = []
+    const roadLinks: OdrDocRoadLink[] = []
     const linkJunctionRefs: string[] = []
     for (const tag of text.match(/<(?:predecessor|successor)\b[^>]*\/?>/g) ?? []) {
       const elementType = tag.match(/\belementType="([^"]*)"/)?.[1]
       const elementId = tag.match(/\belementId="([^"]*)"/)?.[1]
       if (elementId === undefined) continue
-      if (elementType === 'road') linkRoadRefs.push(elementId)
-      else if (elementType === 'junction') linkJunctionRefs.push(elementId)
+      if (elementType === 'road') {
+        linkRoadRefs.push(elementId)
+        const cp = tag.match(/\bcontactPoint="([^"]*)"/)?.[1]
+        roadLinks.push({
+          end: tag.startsWith('<successor') ? 'successor' : 'predecessor',
+          elementId,
+          contactPoint: cp === 'start' || cp === 'end' ? cp : null,
+        })
+      } else if (elementType === 'junction') linkJunctionRefs.push(elementId)
     }
     const signalIds: string[] = []
     for (const tag of text.match(/<signal\b[^>]*/g) ?? []) {
@@ -345,27 +398,47 @@ export function extractOdrDocument(xml: string): OdrDocument | null {
       junction: attrOf(text, 'junction') ?? '-1',
       text,
       linkRoadRefs,
+      roadLinks,
       linkJunctionRefs,
       signalIds,
     })
   }
 
   const junctions: OdrDocJunction[] = []
-  for (const text of matchBlocks(xml, 'junction')) {
+  for (const text of matchElements(xml, 'junction')) {
     const id = attrOf(text, 'id')
     if (id === null) continue
     const memberRoadIds: string[] = []
-    for (const tag of text.match(/<connection\b[^>]*/g) ?? []) {
+    const connections: OdrDocConnection[] = []
+    for (const block of matchElements(text, 'connection')) {
+      const open = openingTagOf(block)
       for (const name of ['incomingRoad', 'connectingRoad'] as const) {
-        const v = tag.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1]
+        const v = open.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1]
         if (v !== undefined && !memberRoadIds.includes(v)) memberRoadIds.push(v)
       }
+      const incomingRoad = open.match(/\bincomingRoad="([^"]*)"/)?.[1]
+      const connectingRoad = open.match(/\bconnectingRoad="([^"]*)"/)?.[1]
+      if (incomingRoad === undefined || connectingRoad === undefined) continue
+      const cp = open.match(/\bcontactPoint="([^"]*)"/)?.[1]
+      const laneLinks: { from: number; to: number }[] = []
+      for (const link of block.match(/<laneLink\b[^>]*?\/?>/g) ?? []) {
+        const from = parseInt(link.match(/\bfrom="([^"]*)"/)?.[1] ?? '', 10)
+        const to = parseInt(link.match(/\bto="([^"]*)"/)?.[1] ?? '', 10)
+        if (Number.isFinite(from) && Number.isFinite(to)) laneLinks.push({ from, to })
+      }
+      connections.push({
+        id: open.match(/\bid="([^"]*)"/)?.[1] ?? null,
+        incomingRoad,
+        connectingRoad,
+        contactPoint: cp === 'start' || cp === 'end' ? cp : null,
+        laneLinks,
+      })
     }
-    junctions.push({ id, text, memberRoadIds })
+    junctions.push({ id, text, memberRoadIds, connections })
   }
 
   const controllers: OdrDocController[] = []
-  for (const text of matchBlocks(xml, 'controller')) {
+  for (const text of matchElements(xml, 'controller')) {
     const id = attrOf(text, 'id') ?? ''
     const signalIds: string[] = []
     for (const tag of text.match(/<control\b[^>]*/g) ?? []) {
@@ -428,23 +501,26 @@ export function dropControlRecords(text: string, keepSignalIds: ReadonlySet<stri
  * Both answers matter. Treating "not in the carried text" as "deleted" threw
  * away references to signals that had merely been re-emitted under a fresh
  * id, taking their placement with them.
+ *
+ * Each record is matched up to its own end (see `elementRe`): a self-closing
+ * `<signalReference .../>` followed by a sibling with a `<validity>` child
+ * used to match as ONE record, so the first id decided keep / retarget / drop
+ * for both — deleting a reference the user had not touched, or leaving the
+ * second id un-retargeted and dangling.
  */
 export function rewriteSignalReferences(
   text: string,
   resolve: (signalId: string) => string | null
 ): string {
-  return text.replace(
-    /[^\S\n]*<signalReference\b[^>]*(?:\/>|>[\s\S]*?<\/signalReference>)\n?/g,
-    match => {
-      const head = match.slice(0, match.indexOf('>') + 1)
-      const sid = head.match(/\bid="([^"]*)"/)?.[1]
-      if (sid === undefined) return match
-      const target = resolve(sid)
-      if (target === null) return ''
-      if (target === sid) return match
-      return match.replace(head, head.replace(/(\bid=")[^"]*(")/, `$1${target}$2`))
-    }
-  )
+  return text.replace(elementRe('signalReference', true), match => {
+    const head = openingTagOf(match)
+    const sid = head.match(/\bid="([^"]*)"/)?.[1]
+    if (sid === undefined) return match
+    const target = resolve(sid)
+    if (target === null) return ''
+    if (target === sid) return match
+    return match.replace(head, head.replace(/(\bid=")[^"]*(")/, `$1${target}$2`))
+  })
 }
 
 /**
@@ -497,7 +573,7 @@ export function rewriteJunctionControllerRefs(
   mapping: ReadonlyMap<string, string>
 ): string {
   return text.replace(
-    /[^\S\n]*<controller\b[^>]*(?:\/>|>[\s\S]*?<\/controller>)\n?/g,
+    /[^\S\n]*<controller\b[^>]*?(?:\/>|>[\s\S]*?<\/controller>)\n?/g,
     match => {
       const head = match.slice(0, match.indexOf('>') + 1)
       const id = head.match(/\bid="([^"]*)"/)?.[1]

@@ -557,7 +557,7 @@ function projectOntoReference(
 }
 
 /** `<signal ...>` or `<signal .../>` blocks of a road's <signals>, in document order. */
-const SIGNAL_BLOCK_RE = /[^\S\n]*<signal\b[^>]*(?:\/>|>[\s\S]*?<\/signal>)\n?/g
+const SIGNAL_BLOCK_RE = /[^\S\n]*<signal\b[^>]*?(?:\/>|>[\s\S]*?<\/signal>)\n?/g
 
 /** The `id` attribute of a `<signal>` block, or null. */
 function signalBlockId(block: string): string | null {

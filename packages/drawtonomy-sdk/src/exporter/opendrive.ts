@@ -68,6 +68,7 @@ import {
   serializeSignalPayload,
   type CarryLaneState,
   type CarryRegulatoryState,
+  type OdrDocConnection,
   type OdrDocJunction,
   type OdrDocRoad,
   type OdrDocument,
@@ -1003,7 +1004,17 @@ interface ConnectivityPlan {
   laneSuccessor: Map<string, number>
   junctions: {
     id: number
-    connections: { incoming: number; connecting: number; laneLinks: { from: number; to: number }[] }[]
+    connections: {
+      incoming: number
+      connecting: number
+      laneLinks: { from: number; to: number }[]
+      /**
+       * End of the connecting road the incoming road meets. Synthesized
+       * connecting roads are always built from their start; only a carried
+       * connection whose source said "end" sets this.
+       */
+      contactPoint?: 'start' | 'end'
+    }[]
     /** <priority high low> records between connecting roads (right of way). */
     priorities: { high: number; low: number }[]
   }[]
@@ -3118,7 +3129,7 @@ function planCarryThrough(
       for (const end of ['predecessor', 'successor']) {
         if (ends[end] === undefined) continue
         for (const laneM of sectionFor(end).matchAll(
-          /<lane\b[^>]*\bid="(-?\d+)"[\s\S]*?<\/lane>/g
+          /<lane\b[^>]*?\bid="(-?\d+)"(?:[^>]*?\/>|[^>]*?>[\s\S]*?<\/lane>)/g
         )) {
           if (parseInt(laneM[1], 10) === 0) continue
           for (const l of laneM[0].matchAll(
@@ -3177,7 +3188,7 @@ function planCarryThrough(
     // The side of each road the junction claims, so a split road's id goes
     // where the table needs it (mirrors the id assignment in the exporter).
     const claimedSide = new Map<string, number>()
-    for (const conn of j.text.match(/<connection\b[^>]*>[\s\S]*?<\/connection>/g) ?? []) {
+    for (const conn of j.text.match(/<connection\b[^>]*?(?:\/>|>[\s\S]*?<\/connection>)/g) ?? []) {
       const incoming = conn.match(/\bincomingRoad="([^"]*)"/)?.[1]
       const connecting = conn.match(/\bconnectingRoad="([^"]*)"/)?.[1]
       if (incoming === undefined || connecting === undefined) return fail
@@ -3407,7 +3418,7 @@ function planCarryThrough(
   }
   for (const j of doc.junctions) {
     if (!carriedJunctionIds.has(j.id) || dirtyJunctionIds.has(j.id)) continue
-    for (const conn of j.text.match(/<connection\b[^>]*>[\s\S]*?<\/connection>/g) ?? []) {
+    for (const conn of j.text.match(/<connection\b[^>]*?(?:\/>|>[\s\S]*?<\/connection>)/g) ?? []) {
       const incoming = conn.match(/\bincomingRoad="([^"]*)"/)?.[1] ?? ''
       const connecting = conn.match(/\bconnectingRoad="([^"]*)"/)?.[1] ?? ''
       for (const link of conn.match(/<laneLink\b[^>]*>/g) ?? []) {
@@ -3940,7 +3951,7 @@ function planBundlesAndJunctions(
       let membersKeptIds = ![...brokenRetargetFrom].some(
         from => carry.carriedJunctionOfRoad.get(from) === j.id
       )
-      for (const conn of j.text.match(/<connection\b[^>]*>[\s\S]*?<\/connection>/g) ?? []) {
+      for (const conn of j.text.match(/<connection\b[^>]*?(?:\/>|>[\s\S]*?<\/connection>)/g) ?? []) {
         const incoming = conn.match(/\bincomingRoad="([^"]*)"/)?.[1] ?? ''
         const connecting = conn.match(/\bconnectingRoad="([^"]*)"/)?.[1] ?? ''
         const connectingAt =
@@ -4215,51 +4226,112 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
     // regenerate it), but its junction was rebuilt under a new id. It
     // contributes no lane edges, so the synthesized junction does not know
     // about it: without this it kept `junction="<old id>"` pointing at an
-    // element the output no longer has. Re-point it at the junction its own
-    // neighbours joined and give that junction a <connection> naming it, so
-    // the membership is stated from both sides as OpenDRIVE requires.
+    // element the output no longer has. It has to be placed into a junction
+    // the output does emit, and the ONLY record of what it did is the source
+    // `<connection>`: which road came in, at which end of this road, pairing
+    // which lanes.
+    //
+    // So the source connection is the unit of planning, not the road. Reading
+    // the road's link list instead and taking the first neighbour that landed
+    // in a rebuilt junction discarded all four facts: it named whichever
+    // neighbour came first in the link list (the far end when the links run
+    // the other way, or the road across a different intersection entirely),
+    // always wrote contactPoint="start", and emitted an empty <connection>
+    // that states no maneuver at all.
     const adoptedConnections = new Map<
       number,
-      { incoming: number; connecting: number; laneLinks: { from: number; to: number }[] }[]
+      {
+        incoming: number
+        connecting: number
+        contactPoint: 'start' | 'end'
+        laneLinks: { from: number; to: number }[]
+      }[]
     >()
+    /** Lane-less carried connecting roads that still need a junction. */
+    const unplacedConnectingRoads: {
+      road: OdrDocRoad
+      connectingId: number
+      conn: OdrDocConnection
+      incoming: number
+    }[] = []
     for (const r of carry.verbatimRoads) {
       if (r.junction === '-1' || !carry.dirtyJunctionIds.has(r.junction)) continue
       if ((carry.records[r.id]?.laneShapeIds.length ?? 0) > 0) continue
       const connectingId = /^\d+$/.test(r.id) ? parseInt(r.id, 10) : NaN
       if (!Number.isFinite(connectingId)) continue
-      // The road it comes FROM decides which synthesized junction it joins;
-      // both of its ends lead into the same intersection.
-      let adoptedJunction: number | undefined
-      let incoming: number | undefined
-      let incomingSourceId: string | undefined
-      for (const ref of r.linkRoadRefs) {
-        const exported = parseInt(rewriteMap.get(ref) ?? ref, 10)
-        const j = newJunctionOfRoad.get(exported)
-        if (j === undefined) continue
-        adoptedJunction = j
-        incoming = exported
-        incomingSourceId = ref
-        break
-      }
-      if (adoptedJunction === undefined || incoming === undefined) continue
-      // The maneuver itself is unchanged — this road and its lanes are the
-      // source's, byte for byte — so the lane pairing the old table stated
-      // still describes it and is carried over rather than re-derived.
       const source = carry.doc.junctions.find(j => j.id === r.junction)
-      const laneLinks: { from: number; to: number }[] = []
-      for (const conn of source?.text.match(/<connection\b[^>]*>[\s\S]*?<\/connection>/g) ?? []) {
-        if (conn.match(/\bconnectingRoad="([^"]*)"/)?.[1] !== r.id) continue
-        if (conn.match(/\bincomingRoad="([^"]*)"/)?.[1] !== incomingSourceId) continue
-        for (const link of conn.match(/<laneLink\b[^>]*>/g) ?? []) {
-          const from = parseInt(link.match(/\bfrom="([^"]*)"/)?.[1] ?? '', 10)
-          const to = parseInt(link.match(/\bto="([^"]*)"/)?.[1] ?? '', 10)
-          if (Number.isFinite(from) && Number.isFinite(to)) laneLinks.push({ from, to })
+      for (const conn of source?.connections ?? []) {
+        if (conn.connectingRoad !== r.id) continue
+        // The incoming road the SOURCE named, mapped through any id rewrite.
+        const incoming = parseInt(rewriteMap.get(conn.incomingRoad) ?? conn.incomingRoad, 10)
+        if (!Number.isFinite(incoming)) continue
+        // The junction that incoming road joined. Keyed by the connection's
+        // own incoming road, so a road whose two ends reach two different
+        // rebuilt junctions lands in the one this maneuver belongs to.
+        const adoptedJunction = newJunctionOfRoad.get(incoming)
+        if (adoptedJunction === undefined) {
+          unplacedConnectingRoads.push({ road: r, connectingId, conn, incoming })
+          continue
+        }
+        junctionOfExportedRoad.set(connectingId, String(adoptedJunction))
+        const list = adoptedConnections.get(adoptedJunction) ?? []
+        // The maneuver itself is unchanged — this road and its lanes are the
+        // source's, byte for byte — so the contact point and lane pairing the
+        // old table stated still describe it and are carried over.
+        list.push({
+          incoming,
+          connecting: connectingId,
+          contactPoint: conn.contactPoint ?? 'start',
+          laneLinks: conn.laneLinks,
+        })
+        adoptedConnections.set(adoptedJunction, list)
+      }
+    }
+
+    // Nothing else of the old intersection was rebuilt, so there is no
+    // synthesized junction to adopt these roads into. The road is still a
+    // connecting road and OpenDRIVE requires the junction it names to exist,
+    // so the connections that survived get a junction of their own rather
+    // than the road being left pointing at a deleted element.
+    if (unplacedConnectingRoads.length > 0) {
+      // Above every element id the output already uses: the planned junctions
+      // and connecting roads, the regenerated bundles, and every carried road
+      // and junction the source document kept.
+      let junctionIdCounter = Math.max(
+        nextRoadId,
+        carry.doc.maxNumericElementId + 1,
+        ...plan.junctions.map(j => j.id + 1),
+        ...plan.connectingRoads.map(s => s.roadId + 1)
+      )
+      const allocateJunctionId = (): number => junctionIdCounter++
+      const byOldJunction = new Map<string, typeof unplacedConnectingRoads>()
+      for (const entry of unplacedConnectingRoads) {
+        const list = byOldJunction.get(entry.road.junction) ?? []
+        list.push(entry)
+        byOldJunction.set(entry.road.junction, list)
+      }
+      for (const [oldJunctionId, entries] of byOldJunction) {
+        // Reuse the source id when the output does not already use it, so the
+        // document keeps naming the intersection the way the input did.
+        const reusable =
+          /^\d+$/.test(oldJunctionId) &&
+          !plan.junctions.some(j => String(j.id) === oldJunctionId) &&
+          !carry.verbatimJunctionTexts.some(t =>
+            new RegExp(`<junction\\b[^>]*\\bid="${oldJunctionId}"`).test(t)
+          )
+        const jid = reusable ? parseInt(oldJunctionId, 10) : allocateJunctionId()
+        const junction = { id: jid, connections: [] as typeof plan.junctions[number]['connections'], priorities: [] }
+        plan.junctions.push(junction)
+        for (const { connectingId, conn, incoming } of entries) {
+          junctionOfExportedRoad.set(connectingId, String(jid))
+          junction.connections.push({
+            incoming,
+            connecting: connectingId,
+            contactPoint: conn.contactPoint ?? 'start',
+            laneLinks: conn.laneLinks,
+          })
         }
       }
-      junctionOfExportedRoad.set(connectingId, String(adoptedJunction))
-      const list = adoptedConnections.get(adoptedJunction) ?? []
-      list.push({ incoming, connecting: connectingId, laneLinks })
-      adoptedConnections.set(adoptedJunction, list)
     }
 
     for (const r of carry.verbatimRoads) {
@@ -4294,8 +4366,8 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
     for (const [jid, conns] of adoptedConnections) {
       const junction = plan.junctions.find(j => j.id === jid)
       if (!junction) continue
-      for (const { incoming, connecting, laneLinks } of conns) {
-        junction.connections.push({ incoming, connecting, laneLinks })
+      for (const { incoming, connecting, contactPoint, laneLinks } of conns) {
+        junction.connections.push({ incoming, connecting, contactPoint, laneLinks })
       }
     }
   }
@@ -4412,7 +4484,7 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
     lines.push(`  <junction id="${junction.id}" name="junction${junction.id}">`)
     junction.connections.forEach((conn, idx) => {
       lines.push(
-        `    <connection id="${idx}" incomingRoad="${conn.incoming}" connectingRoad="${conn.connecting}" contactPoint="start">`
+        `    <connection id="${idx}" incomingRoad="${conn.incoming}" connectingRoad="${conn.connecting}" contactPoint="${conn.contactPoint ?? 'start'}">`
       )
       for (const ll of conn.laneLinks) {
         lines.push(`      <laneLink from="${ll.from}" to="${ll.to}"/>`)
