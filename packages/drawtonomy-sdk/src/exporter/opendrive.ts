@@ -1104,6 +1104,12 @@ function planConnectivity(
   const succRoads = new Map<number, Set<number>>()
   const predRoads = new Map<number, Set<number>>()
   const edgesByPair = new Map<string, LaneEdge[]>()
+  /**
+   * Road -> carried junction it contacts, from the edges skipped below. The
+   * edge is not rebuilt, but the road still has to say it runs into that
+   * junction, exactly as the source did.
+   */
+  const carriedJunctionLink: { roadId: number; junctionId: number; atStart: boolean }[] = []
   for (const [laneId, nexts] of validNext) {
     const fromRoad = roadIdOf.get(laneId)!
     for (const to of nexts) {
@@ -1119,6 +1125,27 @@ function planConnectivity(
         (carriedJunction.onConnectingRoad.has(laneId) ||
           carriedJunction.onConnectingRoad.has(to))
       ) {
+        const junctionId = parseInt(carriedFrom, 10)
+        if (Number.isFinite(junctionId)) {
+          // The road that is NOT the connecting one links to the junction.
+          // A travel edge leaves a right-side lane at its road's end and a
+          // left-side lane at its road's start, so the slot follows the sign
+          // of the lane id, as everywhere else here.
+          if (!carriedJunction.onConnectingRoad.has(laneId)) {
+            carriedJunctionLink.push({
+              roadId: fromRoad,
+              junctionId,
+              atStart: (odrIdOf.get(laneId) ?? -1) > 0,
+            })
+          }
+          if (!carriedJunction.onConnectingRoad.has(to)) {
+            carriedJunctionLink.push({
+              roadId: toRoad,
+              junctionId,
+              atStart: (odrIdOf.get(to) ?? -1) < 0,
+            })
+          }
+        }
         continue
       }
       succRoads.set(fromRoad, (succRoads.get(fromRoad) ?? new Set()).add(toRoad))
@@ -1285,6 +1312,15 @@ function planConnectivity(
         if (expressed) plan.handledYieldPairs.add(`${lane.id}|${yieldShapeId}`)
       }
     }
+  }
+
+  // A road contacting a carried junction says so in its own <link>, the way
+  // the source did. The edge itself was left to the carried XML, so nothing
+  // above claimed this slot — and if something did, that link is a real one
+  // and wins.
+  for (const { roadId, junctionId, atStart } of carriedJunctionLink) {
+    const slot = atStart ? plan.roadPredecessor : plan.roadSuccessor
+    if (!slot.has(roadId)) slot.set(roadId, { kind: 'junction', id: junctionId })
   }
   return plan
 }

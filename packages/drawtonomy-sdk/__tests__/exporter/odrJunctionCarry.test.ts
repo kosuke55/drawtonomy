@@ -221,6 +221,21 @@ describe('junction carry-through', () => {
     }
   })
 
+  it('keeps the edited road saying it runs into the carried junction', () => {
+    // The lane edges into the junction are left to the carried XML, so
+    // nothing in connectivity planning fills the road's own <link> slot. The
+    // road still has to name the junction, exactly as the source did.
+    const { xml, imported } = importFixture()
+    const sourceLink = roadsById(xml)
+      .get('0')!
+      .text.match(/<(?:predecessor|successor)\s+elementType="junction"\s+elementId="(\d+)"/)
+    expect(sourceLink?.[1]).toBe('4')
+
+    nudgeAlongTangent(imported, firstLaneOf(imported, '0'), 30)
+    const emitted = roadsById(exportWith(imported)).get('0')!.text
+    expect(emitted).toMatch(/<\w+ elementType="junction" elementId="4"\/>/)
+  })
+
   it('keeps an unedited round trip verbatim', () => {
     const { xml, imported } = importFixture()
     const out = exportWith(imported)
