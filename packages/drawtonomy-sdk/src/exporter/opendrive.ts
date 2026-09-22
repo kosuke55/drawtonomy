@@ -60,6 +60,7 @@ import {
   serializeSignalPayload,
   type CarryLaneState,
   type CarryRegulatoryState,
+  type OdrDocJunction,
   type OdrDocRoad,
   type OdrDocument,
   type OdrRoadRecord,
@@ -1036,7 +1037,18 @@ function planConnectivity(
   connectingSourceFor: (laneShapeId: string) => ConnectingSource | null,
   connectingTargetFor: (laneShapeId: string) => ConnectingTarget | null,
   contactWidth: (laneShapeId: string, contact: 'start' | 'end') => number | null,
-  externalLanes: Map<string, LaneShape> = new Map()
+  externalLanes: Map<string, LaneShape> = new Map(),
+  /**
+   * Lane shape ids on the roads a carried <junction> wires up, mapped to that
+   * junction's id, with the lanes of its CONNECTING roads listed separately.
+   * An edge inside one such group that has a connecting road at one end is
+   * written down in the carried XML already; synthesizing a stub for it would
+   * emit the intersection twice.
+   */
+  carriedJunction: {
+    ofLane: Map<string, string>
+    onConnectingRoad: Set<string>
+  } = { ofLane: new Map(), onConnectingRoad: new Set() }
 ): ConnectivityPlan {
   const validNext = new Map<string, string[]>()
   const validPrev = new Map<string, string[]>()
@@ -1097,6 +1109,18 @@ function planConnectivity(
     for (const to of nexts) {
       if (externalLanes.has(laneId) && externalLanes.has(to)) continue
       const toRoad = roadIdOf.get(to)!
+      // The contact is already written down in a carried <junction> and in
+      // the two roads' own <link> records; building it again here would emit
+      // a second intersection on top of the first.
+      const carriedFrom = carriedJunction.ofLane.get(laneId)
+      if (
+        carriedFrom !== undefined &&
+        carriedFrom === carriedJunction.ofLane.get(to) &&
+        (carriedJunction.onConnectingRoad.has(laneId) ||
+          carriedJunction.onConnectingRoad.has(to))
+      ) {
+        continue
+      }
       succRoads.set(fromRoad, (succRoads.get(fromRoad) ?? new Set()).add(toRoad))
       predRoads.set(toRoad, (predRoads.get(toRoad) ?? new Set()).add(fromRoad))
       const key = `${fromRoad}->${toRoad}`
@@ -2130,7 +2154,13 @@ function emitRoad(
   objects: ObjectEntry[],
   shapeMap: Map<string, BaseShape>,
   laneIdToRoadId: Map<string, number>,
-  laneIdToOdrLaneId: Map<string, number>
+  laneIdToOdrLaneId: Map<string, number>,
+  /**
+   * Junction this road belongs to, when it is one whose <junction> element
+   * survived the edit verbatim. The carried <connection> table names the road
+   * by id, so it has to come back stamped with that junction.
+   */
+  junctionId?: string
 ): string {
   const first = bundle.lanes[0]
   const speed = bundle.lanes.find(l => l.props.attributes?.speed_limit)?.props.attributes?.speed_limit
@@ -2140,17 +2170,14 @@ function emitRoad(
     first.props.attributes?.odr_road_name || first.props.attributes?.subtype || 'road'
   )
   const lines: string[] = []
-  // Mainline (bundle) roads never belong to a junction; junction membership
-  // is carried by the synthesized connecting roads (emitConnectingRoad).
-  // Known limitation: a regenerated road that originally sat inside a
-  // junction (odr_junction_id on its lanes) is demoted to a mainline road.
-  // Stamping the original junction id here alone would dangle — the original
-  // <junction> element is regenerated as synthesized stubs whenever one of
-  // its member roads goes dirty — so restoring the attribute requires
-  // rebuilding the original junction's <connection> records around this
-  // road instead of synthesizing stubs.
+  // A regenerated road belongs to a junction only when the original
+  // <junction> element survived this export: the carried <connection> table
+  // still names this road by id, so the attribute points at something real.
+  // When the junction had to be rebuilt instead, membership is carried by the
+  // synthesized connecting roads (emitConnectingRoad) and this road is
+  // emitted as a mainline.
   lines.push(
-    `  <road name="${name}" length="${fmt(emittedRoadLength(bundle.geom))}" id="${roadId}" junction="-1">`
+    `  <road name="${name}" length="${fmt(emittedRoadLength(bundle.geom))}" id="${roadId}" junction="${junctionId ?? '-1'}">`
   )
   lines.push(emitLink(roadId, plan))
   if (speed) {
@@ -2220,7 +2247,35 @@ interface CarryPlan {
   surgicalRoadText: Map<string, string>
   /** Original junction ids that must be regenerated (members changed). */
   dirtyJunctionIds: Set<string>
+  /**
+   * Junctions whose <connection> table still resolves, so the element is
+   * re-emitted as written and its members may regenerate independently.
+   * A junction outside this set keeps the old all-or-nothing rule.
+   */
+  carriedJunctionIds: Set<string>
   verbatimJunctionTexts: string[]
+  /**
+   * Original junction id per REGENERATED road that belonged to one, for roads
+   * whose junction is carried verbatim. The road keeps the id the carried
+   * <connection> table names it by, so it is re-emitted with its junction
+   * attribute instead of being demoted to a mainline.
+   */
+  junctionOfRegeneratedRoad: Map<string, string>
+  /**
+   * Original road id -> the carried junction that already wires it up: its
+   * connecting roads plus every road they link to. Connectivity planning
+   * drops the lane edges inside such a group so it does not synthesize a
+   * second intersection on top of the carried one.
+   */
+  carriedJunctionOfRoad: Map<string, string>
+  /** Of those, the ones that are the junction's CONNECTING roads. */
+  carriedJunctionConnectingRoadIds: Set<string>
+  /**
+   * Per original road id, the lane shapes whose ODR lane id a carried
+   * <connection> names. A road that splits into two bundles must give its id
+   * to the bundle holding these, or the carried table stops resolving.
+   */
+  junctionLaneShapeIds: Map<string, Set<string>>
   /** Surviving controllers, keyed by original id so regenerated signals of the same group can merge in. */
   verbatimControllers: { id: string; text: string }[]
   /** First id for regenerated roads / junctions (above every original id). */
@@ -2585,16 +2640,88 @@ function planCarryThrough(
     for (const jref of r.linkJunctionRefs) members.get(jref)?.add(r.id)
   }
 
-  // Propagate to a fixpoint. A dirty junction drags only its connecting
-  // (junction-stamped) roads into regeneration — clean incoming / outgoing
-  // roads keep their verbatim text (with the junction link id rewritten) —
-  // so a single edited road regenerates its own junctions, not the whole
-  // junction graph. Regulatory shapes are atomic across the roads they touch.
+  // The lane ids a <connection> may name on a road: the odr_lane_id of every
+  // live lane shape the record produced. A regenerated road keeps these (it
+  // is rebuilt from the same shapes), so comparing the connection table
+  // against them says whether the table still resolves after regeneration.
+  const liveLaneIdsOf = (rid: string): Set<number> | null => {
+    const rec = records[rid]
+    if (!rec) return null
+    const out = new Set<number>()
+    for (const lid of rec.laneShapeIds) {
+      const shape = shapeMap.get(lid)
+      if (!shape || shape.type !== 'lane') return null
+      const odrLaneId = parseInt(
+        (shape as unknown as LaneShape).props.attributes?.odr_lane_id ?? '',
+        10
+      )
+      if (!Number.isFinite(odrLaneId)) return null
+      out.add(odrLaneId)
+    }
+    return out
+  }
+
+  /**
+   * Can this junction's <connection> table survive as written?
+   *
+   * The table names roads by id and lanes by id. Regeneration preserves both
+   * — a regenerated road inherits the original id (exactReuse /
+   * dominantOriginId) and rebuilds its lanes from the same shapes — so the
+   * table is still correct as long as every road it names still exists with
+   * the lanes it names. What breaks it is a member road that was never
+   * recorded (nothing to regenerate it from), or a lane the edit removed.
+   *
+   * Moving geometry does not: a <connection> says which lane continues into
+   * which, not where they are.
+   */
+  const connectionTableSurvives = (j: OdrDocJunction): boolean => {
+    // A <junction type="direct"> has no connecting roads — its <connection>
+    // records name a linkedRoad instead — so there is nothing here to keep
+    // out of regeneration. It keeps the old all-or-nothing treatment.
+    if (/\btype="direct"/.test(j.text)) return false
+    for (const m of j.memberRoadIds) {
+      if (!records[m] || !docRoadById.has(m)) return false
+    }
+    for (const conn of j.text.match(/<connection\b[^>]*>[\s\S]*?<\/connection>/g) ?? []) {
+      const incoming = conn.match(/\bincomingRoad="([^"]*)"/)?.[1]
+      const connecting = conn.match(/\bconnectingRoad="([^"]*)"/)?.[1]
+      if (incoming === undefined || connecting === undefined) return false
+      const fromLanes = liveLaneIdsOf(incoming)
+      const toLanes = liveLaneIdsOf(connecting)
+      if (!fromLanes || !toLanes) return false
+      for (const link of conn.match(/<laneLink\b[^>]*>/g) ?? []) {
+        const from = parseInt(link.match(/\bfrom="([^"]*)"/)?.[1] ?? '', 10)
+        const to = parseInt(link.match(/\bto="([^"]*)"/)?.[1] ?? '', 10)
+        if (!Number.isFinite(from) || !Number.isFinite(to)) return false
+        if (!fromLanes.has(from) || !toLanes.has(to)) return false
+      }
+    }
+    return true
+  }
+
+  // Junctions whose table survives are carried verbatim, so their member
+  // roads may regenerate without dragging each other in. Only a junction
+  // whose table has to be rebuilt still propagates dirtiness to its
+  // connecting roads — the rebuild replaces their <connection> records, so
+  // they have to be re-emitted under the synthesized structure.
+  const rebuildableJunctions: OdrDocJunction[] = []
+  const carriedJunctionIds = new Set<string>()
+  for (const j of doc.junctions) {
+    if (connectionTableSurvives(j)) carriedJunctionIds.add(j.id)
+    else rebuildableJunctions.push(j)
+  }
+
+  // Propagate to a fixpoint. A junction that has to be rebuilt drags only its
+  // connecting (junction-stamped) roads into regeneration — clean incoming /
+  // outgoing roads keep their verbatim text (with the junction link id
+  // rewritten). Regulatory shapes are atomic across the roads they touch.
   const dirtyJunctionIds = new Set<string>()
   let changed = true
   while (changed) {
     changed = false
-    for (const [jid, memberSet] of members) {
+    for (const j of rebuildableJunctions) {
+      const jid = j.id
+      const memberSet = members.get(jid)!
       let bad = false
       for (const m of memberSet) {
         if (!records[m] || dirty.has(m)) {
@@ -2660,6 +2787,62 @@ function planCarryThrough(
     if (cleanRoadIds.has(r.id)) verbatimRoads.push(r)
   }
 
+  // A carried junction keeps naming its connecting roads by id, so a
+  // regenerated one must come back stamped with that junction rather than as
+  // a mainline — otherwise the <connection> points at a road that no longer
+  // claims membership. The same table already expresses the incoming ->
+  // connecting edges, so connectivity planning must not build them again.
+  const junctionOfRegeneratedRoad = new Map<string, string>()
+  const carriedJunctionOfRoad = new Map<string, string>()
+  const carriedJunctionConnectingRoadIds = new Set<string>()
+  const junctionLaneShapeIds = new Map<string, Set<string>>()
+  /** The lane shape of `rid` whose ODR lane id is `laneId`, if any. */
+  const laneShapeWithOdrId = (rid: string, laneId: number): string | undefined => {
+    for (const lid of records[rid]?.laneShapeIds ?? []) {
+      const shape = shapeMap.get(lid)
+      if (!shape || shape.type !== 'lane') continue
+      const odrLaneId = parseInt(
+        (shape as unknown as LaneShape).props.attributes?.odr_lane_id ?? '',
+        10
+      )
+      if (odrLaneId === laneId) return lid
+    }
+    return undefined
+  }
+  for (const j of doc.junctions) {
+    if (!carriedJunctionIds.has(j.id) || dirtyJunctionIds.has(j.id)) continue
+    for (const conn of j.text.match(/<connection\b[^>]*>[\s\S]*?<\/connection>/g) ?? []) {
+      const incoming = conn.match(/\bincomingRoad="([^"]*)"/)?.[1] ?? ''
+      const connecting = conn.match(/\bconnectingRoad="([^"]*)"/)?.[1] ?? ''
+      for (const link of conn.match(/<laneLink\b[^>]*>/g) ?? []) {
+        const from = parseInt(link.match(/\bfrom="([^"]*)"/)?.[1] ?? '', 10)
+        const to = parseInt(link.match(/\bto="([^"]*)"/)?.[1] ?? '', 10)
+        for (const [rid, laneId] of [
+          [incoming, from],
+          [connecting, to],
+        ] as const) {
+          const lid = laneShapeWithOdrId(rid, laneId)
+          if (lid === undefined) continue
+          const set = junctionLaneShapeIds.get(rid) ?? new Set<string>()
+          set.add(lid)
+          junctionLaneShapeIds.set(rid, set)
+        }
+      }
+    }
+    // A connecting road meets the incoming road at one end and the outgoing
+    // road at the other. The <connection> names only the first pair; the
+    // second is on the connecting road's own <link>. Both contacts are
+    // written down in the carried XML.
+    for (const m of junctionStamped.get(j.id) ?? []) {
+      if (dirty.has(m)) junctionOfRegeneratedRoad.set(m, j.id)
+      carriedJunctionOfRoad.set(m, j.id)
+      carriedJunctionConnectingRoadIds.add(m)
+      for (const ref of docRoadById.get(m)?.linkRoadRefs ?? []) {
+        carriedJunctionOfRoad.set(ref, j.id)
+      }
+    }
+  }
+
   const verbatimJunctionTexts: string[] = []
   for (const j of doc.junctions) {
     if (!dirtyJunctionIds.has(j.id)) verbatimJunctionTexts.push(j.text)
@@ -2706,7 +2889,12 @@ function planCarryThrough(
     verbatimRoads,
     surgicalRoadText,
     dirtyJunctionIds,
+    carriedJunctionIds,
     verbatimJunctionTexts,
+    junctionOfRegeneratedRoad,
+    carriedJunctionOfRoad,
+    carriedJunctionConnectingRoadIds,
+    junctionLaneShapeIds,
     verbatimControllers,
     idBase: Math.max(doc.maxNumericElementId, 0) + 1,
     // Ids already handed to signals added on a surgically rewritten road are
@@ -3020,6 +3208,102 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
     return pxToMeter(Math.hypot(ri.x - li.x, ri.y - li.y))
   }
 
+  // A carried <junction> names its members by id, so carrying it is only
+  // sound when every regenerated member came back under the id the table
+  // uses. Id inheritance normally delivers that (exactReuse), but a
+  // re-bundling edit can hand a road's lanes to a different id, and then the
+  // table would dangle. Verify it here and drop back to rebuilding the
+  // intersection for any junction where it did not hold.
+  const junctionOfExportedRoad = new Map<number, string>()
+  const carriedJunction = { ofLane: new Map<string, string>(), onConnectingRoad: new Set<string>() }
+  if (carry) {
+    const bundleRoadOfLane = new Map<string, number>()
+    for (const bundle of exportBundles) {
+      const rid = roadIdByBundle.get(bundle)!
+      for (const l of bundle.lanes) bundleRoadOfLane.set(l.id, rid)
+    }
+    /**
+     * Is ODR lane `laneId` of recorded road `rid` still emitted on a road
+     * with that id? A road with lanes on both sides splits into two bundles
+     * and only one of them can inherit the id, so this asks per lane — which
+     * is all the <connection> table needs, since it names lanes, not roads.
+     */
+    const laneKeptItsRoadId = (rid: string, laneId: number): boolean => {
+      const rec = carry.records[rid]
+      if (!rec || !/^\d+$/.test(rid)) return false
+      if (carry.cleanRoadIds.has(rid)) return true
+      const want = parseInt(rid, 10)
+      for (const lid of rec.laneShapeIds) {
+        const shape = shapeMap.get(lid)
+        if (!shape || shape.type !== 'lane') continue
+        const odrLaneId = parseInt(
+          (shape as unknown as LaneShape).props.attributes?.odr_lane_id ?? '',
+          10
+        )
+        if (odrLaneId !== laneId) continue
+        return bundleRoadOfLane.get(lid) === want
+      }
+      return false
+    }
+    for (const j of carry.doc.junctions) {
+      // Only junctions the plan decided to carry are checked here. One it
+      // never claimed — a <junction type="direct">, say, which has no
+      // connecting roads at all — is already outside this mechanism and stays
+      // verbatim on its own terms.
+      if (!carry.carriedJunctionIds.has(j.id) || carry.dirtyJunctionIds.has(j.id)) continue
+      const stamped = [...carry.junctionOfRegeneratedRoad]
+        .filter(([, jid]) => jid === j.id)
+        .map(([rid]) => rid)
+      let membersKeptIds = true
+      for (const conn of j.text.match(/<connection\b[^>]*>[\s\S]*?<\/connection>/g) ?? []) {
+        const incoming = conn.match(/\bincomingRoad="([^"]*)"/)?.[1] ?? ''
+        const connecting = conn.match(/\bconnectingRoad="([^"]*)"/)?.[1] ?? ''
+        for (const link of conn.match(/<laneLink\b[^>]*>/g) ?? []) {
+          const from = parseInt(link.match(/\bfrom="([^"]*)"/)?.[1] ?? '', 10)
+          const to = parseInt(link.match(/\bto="([^"]*)"/)?.[1] ?? '', 10)
+          if (!laneKeptItsRoadId(incoming, from) || !laneKeptItsRoadId(connecting, to)) {
+            membersKeptIds = false
+            break
+          }
+        }
+        if (!membersKeptIds) break
+      }
+      // A regenerated connecting road is about to be stamped with this
+      // junction, so it must have come back under the id the table names.
+      for (const rid of stamped) {
+        const rec = carry.records[rid]
+        if (!rec || !/^\d+$/.test(rid)) {
+          membersKeptIds = false
+          break
+        }
+        const want = parseInt(rid, 10)
+        if (!rec.laneShapeIds.every(lid => bundleRoadOfLane.get(lid) === want)) {
+          membersKeptIds = false
+          break
+        }
+      }
+      if (!membersKeptIds) {
+        // The table cannot be carried after all; let the generic path
+        // synthesize the intersection from the lane edges instead.
+        carry.dirtyJunctionIds.add(j.id)
+        continue
+      }
+      for (const rid of stamped) junctionOfExportedRoad.set(parseInt(rid, 10), j.id)
+    }
+    for (const [rid, jid] of carry.carriedJunctionOfRoad) {
+      if (carry.dirtyJunctionIds.has(jid)) continue
+      const connecting = carry.carriedJunctionConnectingRoadIds.has(rid)
+      for (const lid of carry.records[rid]?.laneShapeIds ?? []) {
+        carriedJunction.ofLane.set(lid, jid)
+        if (connecting) carriedJunction.onConnectingRoad.add(lid)
+      }
+    }
+    // Junctions dropped above must no longer be emitted verbatim.
+    carry.verbatimJunctionTexts = carry.doc.junctions
+      .filter(j => !carry.dirtyJunctionIds.has(j.id))
+      .map(j => j.text)
+  }
+
   const plan = planConnectivity(
     exportBundles,
     laneIdToRoadId,
@@ -3028,7 +3312,8 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
     connectingSourceFor,
     connectingTargetFor,
     contactWidth,
-    externalLanes
+    externalLanes,
+    carriedJunction
   )
   const roads = exportBundles.map(b => ({ roadId: roadIdByBundle.get(b)!, geom: b.geom }))
   const { roadSignals, roadObjects, roadSignalRefs, signalIdByShape } = attachShapesToRoads(
@@ -3106,7 +3391,8 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
         roadObjects.get(roadId) ?? [],
         shapeMap,
         laneIdToRoadId,
-        laneIdToOdrLaneId
+        laneIdToOdrLaneId,
+        junctionOfExportedRoad.get(roadId)
       )
     )
   }

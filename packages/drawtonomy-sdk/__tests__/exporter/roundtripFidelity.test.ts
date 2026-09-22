@@ -1964,7 +1964,7 @@ describe('carry-through export (sidecar verbatim re-emission)', () => {
     expect(rep.trafficLightAffectedPreserved).toBe(1)
   })
 
-  it('regenerates a junction but keeps clean incoming/outgoing roads, re-pointing their junction links', () => {
+  it('carries the junction through an edit to one of its incoming roads', () => {
     const imported = odrToShapesFull(parseOpenDriveXml(SYNTHETIC_XODR))
     const records = imported.sidecar.roadRecords!
     // Nudge an interior boundary point of out_b (road 3).
@@ -1981,18 +1981,19 @@ describe('carry-through export (sidecar verbatim re-emission)', () => {
     const doc = extractOdrDocument(SYNTHETIC_XODR)!
     const road = (id: string) => doc.roads.find(r => r.id === id)!
     const stripIds = (s: string): string => s.replace(/elementId="[^"]*"/g, 'elementId=""')
-    // Roads 1 / 2 / 4 stay verbatim except their junction link elementIds,
-    // which are re-pointed at the regenerated junction.
+    // Roads 1 / 2 / 4 stay verbatim, junction links included: the junction
+    // they point at is the original one.
     for (const rid of ['1', '2', '4']) {
-      expect(stripIds(out)).toContain(stripIds(road(rid).text))
+      expect(out).toContain(road(rid).text)
     }
-    // The dirty road and the junction's connecting roads regenerate.
+    // Only the edited road regenerates. Its <connection> table does not name
+    // any lane the edit removed, so the intersection stays as written and the
+    // connecting road keeps its bytes and its junction attribute.
     expect(out).not.toContain(road('3').text)
-    expect(stripIds(out)).not.toContain(stripIds(road('5').text))
-    // The original junction element is replaced.
+    expect(stripIds(out)).toContain(stripIds(road('5').text))
     const junction = doc.junctions.find(j => j.id === '10')!
-    expect(out).not.toContain(junction.text)
-    expect(out).toMatch(/<junction /)
+    expect(out).toContain(junction.text)
+    expect(out.match(/<junction /g)!.length).toBe(1)
     // Semantic identity through re-import: all lanes and junction edges.
     const re = importXodr(out)
     const rep = measureFidelity(imported, re)
