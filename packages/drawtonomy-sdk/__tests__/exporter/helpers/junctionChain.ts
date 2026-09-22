@@ -150,6 +150,59 @@ export function partialLaneLinkChainXodr(): string {
   return withSidecarOnlySignal(xml, '1002', '500')
 }
 
+/**
+ * Two partial-lane-link chains laid 3.5 m apart, so a lane of one chain's road
+ * is laterally adjacent to a lane of the other's and the two land in ONE
+ * bundle when they regenerate.
+ *
+ * The second chain is the mirror of the first: its junction 32002 names lane
+ * -2 where the first's 2002 names -1, and it is road 31002's lane -1 that
+ * gives up its predecessor. Its `<signal>` 30500 exists only in the carried
+ * text, so it survives exactly while junction 32002 is carried.
+ *
+ * The shape matters because a road's id is decided by how its lanes regroup,
+ * and here a lane regroups with a lane of ANOTHER road. Anything that judges a
+ * road by its own lanes alone reads that as a road standing on its own, gets
+ * the lane numbering wrong, and rejects the junction — taking road 31002's
+ * signal with it.
+ */
+export function crossRoadBundleChainXodr(): string {
+  const first = partialLaneLinkChainXodr()
+  let second = chainXodr(8).replace(
+    `    <connection id="0" incomingRoad="1001" connectingRoad="1002" contactPoint="start">
+      <laneLink from="-1" to="-1"/>
+      <laneLink from="-2" to="-2"/>
+    </connection>`,
+    `    <connection id="0" incomingRoad="1001" connectingRoad="1002" contactPoint="start">
+      <laneLink from="-2" to="-2"/>
+    </connection>`
+  )
+  // ... so road 1002's lane -1 must not claim a predecessor the table no
+  // longer links, or the input itself carries a dangling lane reference.
+  const road1002 = second.match(/ {2}<road name="conn2"[\s\S]*?<\/road>/)![0]
+  second = second.replace(
+    road1002,
+    road1002.replace(
+      '<link><predecessor id="-1"/><successor id="-1"/></link>',
+      '<link><successor id="-1"/></link>'
+    )
+  )
+  second = withSidecarOnlySignal(second, '1002', '500')
+  // Road / junction ids (and every reference to them) move up by 30000. Lane
+  // ids are negative, so `id="-1"` never matches; `junction="-1"` does not
+  // either, which is what keeps the mainlines out of a junction.
+  second = second.replace(
+    /\b(id|elementId|incomingRoad|connectingRoad|junction)="(\d+)"/g,
+    (_m, name: string, value: string) => `${name}="${parseInt(value, 10) + 30000}"`
+  )
+  // One lane width apart, so the near lanes of the two chains share a
+  // boundary line and bundle together.
+  second = second.replace(/\by="(-?[\d.]+)"/g, (_m, v: string) => `y="${parseFloat(v) - 3.5}"`)
+  const body = (xml: string): string =>
+    xml.replace(/^[\s\S]*?<\/header>\n/, '').replace(/<\/OpenDRIVE>\s*$/, '')
+  return first.replace(/<\/OpenDRIVE>\s*$/, `${body(second)}</OpenDRIVE>\n`)
+}
+
 /** Swap two of a road's recorded lane shapes in the snapshot array. */
 export function reverseRecordedLaneOrder(imported: ImportedShapes, roadId: string): void {
   const ids = imported.sidecar.roadRecords![roadId]?.laneShapeIds ?? []
