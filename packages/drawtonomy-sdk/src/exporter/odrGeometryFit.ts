@@ -61,6 +61,12 @@ export interface PlanViewFitOptions {
   headingMedianWindow?: number
   /** Continuity the fit must deliver between primitives. Default `'g2'`. */
   continuity?: PlanViewContinuity
+  /**
+   * Tip headings (rad) to use instead of estimating them from the polyline.
+   * A road whose contact cross-section must match a neighbour already fitted
+   * (a junction connecting road) pins its tips to the neighbour's heading.
+   */
+  tipHdg?: { start?: number; end?: number }
 }
 
 /** Station + pose on the fitted reference line for one input sample. */
@@ -355,6 +361,12 @@ function fitPlanViewG1(
     // runs to exactly this value rather than inventing a second estimate.
     rawHdg[0] = runTipTangent(pts, 'start', hdgTol)
     rawHdg[m - 1] = runTipTangent(pts, 'end', hdgTol)
+  }
+  if (options.tipHdg?.start !== undefined) {
+    rawHdg[0] = rawHdg[0] + wrapAngle(options.tipHdg.start - rawHdg[0])
+  }
+  if (options.tipHdg?.end !== undefined) {
+    rawHdg[m - 1] = rawHdg[m - 1] + wrapAngle(options.tipHdg.end - rawHdg[m - 1])
   }
   // Unwrap so the sequence is continuous (no 2π jumps) before filtering.
   for (let i = 1; i < m; i++) {
@@ -920,17 +932,25 @@ export function fitPlanView(
     // inside the same plan view, its start heading is the predecessor's exact
     // analytic end, which is what keeps the chain G1 there.
     const startPose = geometries.length > 0 && !fold[i0] ? geometries[geometries.length - 1] : null
+    const firstRun = b === 0
+    const lastRun = b === bounds.length - 2
+    const pinStart = firstRun ? options.tipHdg?.start : undefined
+    const pinEnd = lastRun ? options.tipHdg?.end : undefined
     const startHdg = startPose
       ? evalGeometry(startPose, startPose.length).hdg
-      : runTipTangent(run, 'start', hdgTol)
-    const endHdg = runTipTangent(run, 'end', hdgTol)
+      : (pinStart ?? runTipTangent(run, 'start', hdgTol))
+    const endHdg = pinEnd ?? runTipTangent(run, 'end', hdgTol)
+    const runOptions: PlanViewFitOptions = {
+      ...options,
+      tipHdg: pinStart === undefined && pinEnd === undefined ? undefined : { start: pinStart, end: pinEnd },
+    }
 
     // The greedy fit of this run first: when it already comes out curvature-
     // continuous (a lone line, a lone arc, or a line/arc chain whose joints
     // happen to match) there is nothing for the spiral chain to improve, and
     // it is both simpler and exact. Only a run the greedy fit leaves with a
     // curvature step is worth re-fitting.
-    const greedy = fitPlanViewG1(run, options)
+    const greedy = fitPlanViewG1(run, runOptions)
     let fitted =
       run.length >= MIN_CLOTHOID_RUN_POINTS && !isCurvatureContinuous(greedy.geometries)
         ? fitClothoidRun(run, { posTol, hdgTol, startHdg, endHdg })

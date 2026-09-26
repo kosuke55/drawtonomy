@@ -354,7 +354,9 @@ function buildBundleGeometry(
   shapeMap: Map<string, BaseShape>,
   bundleLanes: LaneShape[],
   pointOverrides: Map<string, Point2D>,
-  leftSide: boolean = false
+  leftSide: boolean = false,
+  /** Tip headings to pin the reference line to (see PlanViewFitOptions.tipHdg). */
+  tipHdg?: { start?: number; end?: number }
 ): BundleGeometry | null {
   const first = bundleLanes[0]
   const boundaries: BoundaryPoint[][] = []
@@ -392,7 +394,7 @@ function buildBundleGeometry(
   // ends, where the start/end heading defines the contact cross-section
   // shared with the neighbouring roads).
   const ref = bndOdr[0]
-  const fit = fitPlanView(ref)
+  const fit = fitPlanView(ref, tipHdg ? { tipHdg } : {})
   if (fit.geometries.length === 0 || !(fit.length > 0)) return null
 
   // Width stations: the reference vertices (corners must survive into the
@@ -919,6 +921,14 @@ type RoadLinkTarget = {
 const CONNECTING_ROAD_LENGTH_M = 0.005
 
 /**
+ * Largest tip-heading difference (rad) between a drawn connecting road and
+ * the road it links to that is treated as estimation error and pinned away.
+ * Tip tangents estimated from a sampled turn are off by about half a degree;
+ * anything well past that was drawn as a kink.
+ */
+const TIP_PIN_MAX_RAD = (2 * Math.PI) / 180
+
+/**
  * Contact widths below this (m) count as zero for lane linking: OpenDRIVE
  * forbids predecessor/successor records on lanes that have zero width at the
  * linked contact (zero-width / appearing-lane semantics). Welded taper lanes
@@ -1019,6 +1029,12 @@ interface ConnectivityPlan {
   /** Synthesized connecting roads, one per junction-routed lane edge. */
   connectingRoads: ConnectingRoadSpec[]
   /**
+   * Drawn roads emitted as a junction's connecting road themselves (see
+   * findDrawnConnectingRoads): road id -> junction id plus the roads at both
+   * ends.
+   */
+  drawnConnecting: Map<number, { junctionId: number; incomingRoadId: number; outgoingRoadId: number }>
+  /**
    * yieldLaneIds pairs ("rowLaneShapeId|yieldLaneShapeId") expressed as
    * junction <priority> records; excluded from the userData fallback stash.
    */
@@ -1050,6 +1066,10 @@ interface ConnectivityPlan {
  * link to the junction by id. Edges that share a road collapse into the same
  * junction (connected components), so a 2-in x 2-out diamond becomes one
  * junction with four connections.
+ *
+ * A road whose only incoming and only outgoing roads are both junction-routed
+ * (an intersection turn lane) is not given stubs: it becomes the junction's
+ * connecting road itself (junction-stamped, linked to both roads).
  *
  * Right-of-way lane pairs (`yieldLaneIds`) whose two lanes both feed
  * connecting roads of the same junction are emitted as standard
@@ -1216,18 +1236,73 @@ function planConnectivity(
     laneSuccessor: new Map(),
     junctions: [],
     connectingRoads: [],
+    drawnConnecting: new Map(),
     handledYieldPairs: new Set(),
     hiddenLaneEdges,
+  }
+
+  const isPlainPair = (fromRoad: number, toRoad: number): boolean => {
+    const laneEdges = edgesByPair.get(`${fromRoad}->${toRoad}`) ?? []
+    return (
+      succRoads.get(fromRoad)!.size === 1 &&
+      predRoads.get(toRoad)!.size === 1 &&
+      laneEdges.every(
+        e => (validNext.get(e.from) ?? []).length === 1 && (validPrev.get(e.to) ?? []).length === 1
+      )
+    )
+  }
+
+  // A drawn road that sits between a branch and a merge (an intersection turn
+  // lane, a ramp between two junctions) is a junction's connecting road in
+  // OpenDRIVE terms. Emitting it as a mainline with a stub at each end left it
+  // with predecessor AND successor pointing at the same junction, whose
+  // connection table also lists the stub that ends ON it: at the road's end
+  // esmini could pick that stub, traverse it backwards and teleport the
+  // vehicle onto the incoming road, facing the wrong way. So such a road is
+  // stamped with the junction and linked straight to the roads at both ends.
+  //
+  // Only the simple shape qualifies: one incoming and one outgoing road, both
+  // contacts junction-routed, every lane right-side (travel along s) with a
+  // single 1:1 edge at each end, and neither neighbour qualifying itself
+  // (connecting roads must link to roads outside the junction).
+  const candidateRoads = new Map<number, { incoming: number; outgoing: number }>()
+  for (const [road, preds] of predRoads) {
+    const succs = succRoads.get(road)
+    if (!succs || preds.size !== 1 || succs.size !== 1) continue
+    const incoming = [...preds][0]
+    const outgoing = [...succs][0]
+    if (incoming === road || outgoing === road || incoming === outgoing) continue
+    if (isPlainPair(incoming, road) || isPlainPair(road, outgoing)) continue
+    const inEdges = edgesByPair.get(`${incoming}->${road}`)!
+    const outEdges = edgesByPair.get(`${road}->${outgoing}`)!
+    const inLanes = inEdges.map(e => e.to)
+    const outLanes = outEdges.map(e => e.from)
+    const lanes = new Set(inLanes)
+    const qualifies =
+      lanes.size === inLanes.length &&
+      outLanes.length === inLanes.length &&
+      outLanes.every(l => lanes.has(l)) &&
+      inLanes.every(
+        l =>
+          (odrIdOf.get(l) ?? 1) < 0 &&
+          (validPrev.get(l) ?? []).length === 1 &&
+          (validNext.get(l) ?? []).length === 1
+      )
+    if (qualifies) candidateRoads.set(road, { incoming, outgoing })
+  }
+  const drawnConnecting = new Map<number, { incoming: number; outgoing: number }>()
+  for (const [road, ends] of candidateRoads) {
+    if (!candidateRoads.has(ends.incoming) && !candidateRoads.has(ends.outgoing)) {
+      drawnConnecting.set(road, ends)
+    }
   }
 
   const junctionPairs: { incoming: number; outgoing: number; laneEdges: LaneEdge[] }[] = []
   for (const [key, laneEdges] of edgesByPair) {
     const [fromRoad, toRoad] = key.split('->').map(Number)
-    const uniquePair = succRoads.get(fromRoad)!.size === 1 && predRoads.get(toRoad)!.size === 1
-    const lanesOneToOne = laneEdges.every(
-      e => (validNext.get(e.from) ?? []).length === 1 && (validPrev.get(e.to) ?? []).length === 1
-    )
-    if (uniquePair && lanesOneToOne) {
+    // Both edges of a drawn connecting road are wired up with its junction.
+    if (drawnConnecting.has(fromRoad) || drawnConnecting.has(toRoad)) continue
+    if (isPlainPair(fromRoad, toRoad)) {
       // Lane / road links are ODR-semantic (predecessor = the road's s=0
       // contact). A travel edge exits a right-side lane at its road's end
       // but a left-side lane (positive ODR id, travel against s) at its
@@ -1282,13 +1357,18 @@ function planConnectivity(
     if (ra !== rb) parent.set(rb, ra)
   }
   for (const pair of junctionPairs) union(pair.incoming, pair.outgoing)
+  for (const { incoming, outgoing } of drawnConnecting.values()) union(incoming, outgoing)
 
   // Pass 1: one junction per connected component (ids first, so junction ids
   // and connecting road ids stay sequential and collision-free).
   const junctionByRoot = new Map<number, ConnectivityPlan['junctions'][number]>()
   let nextId = firstJunctionId
-  for (const pair of junctionPairs) {
-    const root = find(pair.incoming)
+  const componentSeeds = [
+    ...junctionPairs.map(pair => pair.incoming),
+    ...[...drawnConnecting.values()].map(ends => ends.incoming),
+  ]
+  for (const seed of componentSeeds) {
+    const root = find(seed)
     if (!junctionByRoot.has(root)) {
       const junction = { id: nextId++, connections: [], priorities: [] }
       junctionByRoot.set(root, junction)
@@ -1298,7 +1378,7 @@ function planConnectivity(
 
   // Pass 2: synthesize one short connecting road per junction-routed lane
   // edge and register it as a <connection> of its junction.
-  const connectingByLane = new Map<string, ConnectingRoadSpec[]>()
+  const connectingByLane = new Map<string, { roadId: number; junctionId: number }[]>()
   for (const pair of junctionPairs) {
     const junction = junctionByRoot.get(find(pair.incoming))!
     for (const e of pair.laneEdges.slice().sort((a, b) => odrIdOf.get(b.from)! - odrIdOf.get(a.from)! || odrIdOf.get(b.to)! - odrIdOf.get(a.to)!)) {
@@ -1339,6 +1419,59 @@ function planConnectivity(
       kind: 'junction',
       id: junction.id,
     })
+  }
+
+  // Drawn connecting roads: stamped with the junction, linked to the roads at
+  // both ends, and registered as the connection for their incoming road.
+  // Their lanes run along s (right side), so the incoming road meets them at
+  // their start; the contact points on the neighbours follow the lane sides as
+  // in the road-link case above.
+  for (const [road, { incoming, outgoing }] of drawnConnecting) {
+    const junction = junctionByRoot.get(find(incoming))!
+    const inEdges = edgesByPair
+      .get(`${incoming}->${road}`)!
+      .slice()
+      .sort((a, b) => odrIdOf.get(b.from)! - odrIdOf.get(a.from)! || odrIdOf.get(b.to)! - odrIdOf.get(a.to)!)
+    const outEdges = edgesByPair.get(`${road}->${outgoing}`)!
+    plan.drawnConnecting.set(road, {
+      junctionId: junction.id,
+      incomingRoadId: incoming,
+      outgoingRoadId: outgoing,
+    })
+    junction.connections.push({
+      incoming,
+      connecting: road,
+      laneLinks: inEdges.map(e => ({ from: odrIdOf.get(e.from)!, to: odrIdOf.get(e.to)! })),
+    })
+    const incomingLeft = (odrIdOf.get(inEdges[0].from) ?? -1) > 0
+    const outgoingLeft = (odrIdOf.get(outEdges[0].to) ?? -1) > 0
+    plan.roadPredecessor.set(road, {
+      kind: 'road',
+      id: incoming,
+      contactPoint: incomingLeft ? 'start' : 'end',
+    })
+    plan.roadSuccessor.set(road, {
+      kind: 'road',
+      id: outgoing,
+      contactPoint: outgoingLeft ? 'end' : 'start',
+    })
+    ;(incomingLeft ? plan.roadPredecessor : plan.roadSuccessor).set(incoming, {
+      kind: 'junction',
+      id: junction.id,
+    })
+    ;(outgoingLeft ? plan.roadSuccessor : plan.roadPredecessor).set(outgoing, {
+      kind: 'junction',
+      id: junction.id,
+    })
+    for (const e of inEdges) plan.lanePredecessor.set(e.to, odrIdOf.get(e.from)!)
+    for (const e of outEdges) plan.laneSuccessor.set(e.from, odrIdOf.get(e.to)!)
+    // Right of way names maneuvers by the lanes on either side of the
+    // connecting road, the same keys the synthesized stubs register under.
+    for (const lane of [...inEdges.map(e => e.from), ...outEdges.map(e => e.from)]) {
+      const list = connectingByLane.get(lane) ?? []
+      list.push({ roadId: road, junctionId: junction.id })
+      connectingByLane.set(lane, list)
+    }
   }
 
   // Right-of-way: a lane pair (X has priority, Y yields) whose maneuvers both
@@ -2295,9 +2428,10 @@ function emitRoad(
   // still names this road by id, so the attribute points at something real.
   // When the junction had to be rebuilt instead, membership is carried by the
   // synthesized connecting roads (emitConnectingRoad) and this road is
-  // emitted as a mainline.
+  // emitted as a mainline — unless it is a drawn connecting road itself
+  // (planConnectivity), which carries its junction's id.
   lines.push(
-    `  <road name="${name}" length="${fmt(emittedRoadLength(bundle.geom))}" id="${roadId}" junction="${junctionId ?? '-1'}">`
+    `  <road name="${name}" length="${fmt(emittedRoadLength(bundle.geom))}" id="${roadId}" junction="${junctionId ?? plan.drawnConnecting.get(roadId)?.junctionId ?? '-1'}">`
   )
   lines.push(emitLink(roadId, plan))
   if (speed) {
@@ -4130,6 +4264,30 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
     externalLanes,
     carriedJunction
   )
+  // A drawn connecting road links straight to the roads at both ends, so its
+  // tip headings are the contact cross-sections it shares with them. Its own
+  // estimate from the drawn polyline is off by a fraction of a degree on a
+  // turn, which the outer lane border turns into a centimetre-scale gap; the
+  // stubs used to absorb that. Refit it pinned to the neighbours' headings.
+  // Only an estimation-sized difference is pinned: a larger one is a kink the
+  // author drew (or the source map has), and bending the road to hide it
+  // would change its shape.
+  for (const bundle of exportBundles) {
+    const drawn = plan.drawnConnecting.get(roadIdByBundle.get(bundle)!)
+    if (!drawn || bundle.leftSide) continue
+    const first = bundle.lanes[0]
+    const source = (first.props.prev ?? []).map(connectingSourceFor).find(p => p !== null)
+    const target = (first.props.next ?? []).map(connectingTargetFor).find(p => p !== null)
+    const pv = bundle.geom.planView
+    const ownStart = evalGeometry(pv[0], 0).hdg
+    const ownEnd = evalGeometry(pv[pv.length - 1], pv[pv.length - 1].length).hdg
+    const pinnable = (pin: number | undefined, own: number): number | undefined =>
+      pin !== undefined && Math.abs(wrapAngleRad(pin - own)) <= TIP_PIN_MAX_RAD ? pin : undefined
+    const tipHdg = { start: pinnable(source?.hdg, ownStart), end: pinnable(target?.hdg, ownEnd) }
+    if (tipHdg.start === undefined && tipHdg.end === undefined) continue
+    const geom = buildBundleGeometry(shapeMap, bundle.lanes, pointOverrides, false, tipHdg)
+    if (geom && geom.length >= 0.01) bundle.geom = geom
+  }
   const roads = exportBundles.map(b => ({ roadId: roadIdByBundle.get(b)!, geom: b.geom }))
   const { roadSignals, roadObjects, roadSignalRefs, signalIdByShape } = attachShapesToRoads(
     shapeMap,
@@ -4201,7 +4359,7 @@ export function exportToOpenDrive(snapshot: DrawtonomySnapshot, options: OpenDri
       }
     }
     const newJunctionOfRoad = new Map<number, number>()
-    for (const spec of plan.connectingRoads) {
+    for (const spec of [...plan.connectingRoads, ...plan.drawnConnecting.values()]) {
       newJunctionOfRoad.set(spec.incomingRoadId, spec.junctionId)
       newJunctionOfRoad.set(spec.outgoingRoadId, spec.junctionId)
     }

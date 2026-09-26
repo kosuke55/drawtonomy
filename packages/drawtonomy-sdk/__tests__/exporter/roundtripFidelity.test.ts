@@ -1214,12 +1214,13 @@ describe('junction normalization (standard connecting-road structure)', () => {
     return exportToOpenDrive(snapshot)
   }
 
-  // Standard OpenDRIVE semantics: roads inside a junction are short
-  // connecting roads carrying a guaranteed predecessor (incoming road) and
-  // successor (outgoing road); the mainlines stay junction="-1". The missing
-  // successor on junction-stamped roads is exactly what esmini warns about
-  // ("connecting road lacks successor").
-  it('emits only short, fully linked connecting roads inside junctions', () => {
+  // Standard OpenDRIVE semantics: roads inside a junction are connecting
+  // roads carrying a guaranteed predecessor (incoming road) and successor
+  // (outgoing road); the mainlines stay junction="-1". The missing successor
+  // on junction-stamped roads is exactly what esmini warns about ("connecting
+  // road lacks successor"). Synthesized stubs are short; a drawn road between
+  // a branch and a merge is the connecting road itself and keeps its length.
+  it('emits only fully linked connecting roads inside junctions', () => {
     const sources = [...loadXodrFixtures(), { name: 'diamond', imported: diamondShapes() }]
     for (const { name, imported } of sources) {
       const parsed = parseOpenDriveXml(exportXodr(imported))
@@ -1228,7 +1229,9 @@ describe('junction normalization (standard connecting-road structure)', () => {
       for (const road of parsed.roads) {
         if (road.junction === '-1') continue
         connectingCount++
-        expect(road.length, `${name}: connecting road ${road.id} length`).toBeLessThan(0.5)
+        if (road.name === 'connecting') {
+          expect(road.length, `${name}: connecting stub ${road.id} length`).toBeLessThan(0.5)
+        }
         expect(road.predecessor?.elementType, `${name}: road ${road.id} predecessor`).toBe('road')
         expect(road.successor?.elementType, `${name}: road ${road.id} successor`).toBe('road')
       }
