@@ -30,13 +30,33 @@ first 8192 bytes of its content, in this order:
 Anything else is ignored. Only the top level of the directory is scanned;
 subdirectories are not descended into.
 
-**Picking, when several files share a kind.** The scenario and the solution are
-picked as the first by name. The verdict and the trace are *not* picked by name:
-they are paired with the chosen solution by stem,
-`<solution stem>.verdict.json` and `<solution stem>.planning-trace.json`, so that
-a directory holding the output of two planners does not serve one planner's trace
-as the other's result. Only when no candidate follows the naming convention does
-the pick fall back to the first by name.
+**Picking, when several files share a kind.** The scenario is the one passed on
+the command line, or else the first by name. The solution, the verdict and the
+trace are then narrowed to the files that belong to that scenario: the scenario
+id inside the solution's `benchmark_id` (`KS2:SM1:<scenario id>:2020a`), the
+verdict's `scenarioId` and the trace's `scenario` must equal the scenario's
+`benchmarkID`. A file whose id cannot be read is kept. Of what is left, the
+solution is the first by name, and the verdict and the trace are paired with it
+by stem, `<solution stem>.verdict.json` and `<solution stem>.planning-trace.json`,
+so that a directory holding the output of two planners does not serve one
+planner's trace as the other's result. Only when no candidate follows the naming
+convention does the pick fall back to the first by name.
+
+When a directory holds several scenarios, the CLI lists each one with its
+solution, so another can be opened by passing its XML:
+
+```
+Scenarios and their solutions (pass a scenario XML to open another):
+  scenario_a.xml: solution_a.xml
+  scenario_b.xml: no solution
+```
+
+When there is a solution or a trace but none of them belongs to the scenario,
+nothing is paired and the CLI says so in one line:
+
+```
+No solution for scenario scenario_b: solution_a.xml is for scenario_a. Pass --solution to use one anyway.
+```
 
 Whenever more than one candidate existed, the CLI prints one line naming the file
 it actually serves and the ones it ignored, so nothing is chosen silently:
@@ -49,7 +69,8 @@ it actually serves and the ones it ignored, so nothing is chosen silently:
 path that does not exist is refused with one line and exit 2. Passing
 `--solution` also re-pairs the verdict and the trace by the new solution's stem,
 unless they were named explicitly. An explicit `--verdict` or `--trace` is always
-left alone.
+left alone. A `--solution` whose `benchmark_id` names another scenario is served
+as asked, with one line saying so.
 
 If the target is a scenario XML rather than a directory, its parent directory is
 served and that file is the scenario, even if the directory holds others.
