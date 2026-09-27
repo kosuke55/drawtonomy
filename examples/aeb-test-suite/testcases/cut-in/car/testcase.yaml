@@ -1,0 +1,25 @@
+id: TC-AEB-003
+title: Cut-in then brake
+requirements: [REQ-AEB-003]
+tags: {actor: car, maneuver: cut-in, road: straight}
+description: >-
+  The ego drives in the center lane at EgoSpeed [km/h]. A car in the left lane, slower at
+  EgoSpeed*CutInSpeedFactor, changes into the ego lane in 2 s when the bumper gap drops below
+  CutInGap [m], then brakes at LeadDecel [m/s2] to a stop. The AEB must not hit the car.
+scenario: aeb-cut-in-brake.xosc
+distribution: aeb-cut-in-brake.pvd.xosc
+diagram: aeb-cut-in-brake.drawtonomy.svg
+ego: Ego
+target: Cutter
+sut: [aeb]
+parameters:
+  - {name: EgoSpeed, label: Ego speed, unit: km/h}
+  - {name: CutInGap, label: Cut-in gap, unit: m}
+  - {name: LeadDecel, label: Cutter decel, unit: m/s²}
+criteria:
+  - {kpi: collision, op: "==", value: false, label: No collision}
+# Used by run_sweep.py --scenario-check: events that must fire, and collisions allowed
+# when the ego follows the script (no AEB).
+scenarioCheck:
+  events: [CutIn, CutterBrake]
+  allowCollisions: [[Ego, Cutter]]

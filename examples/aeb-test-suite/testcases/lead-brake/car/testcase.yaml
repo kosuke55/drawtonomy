@@ -1,0 +1,26 @@
+id: TC-AEB-001
+title: Lead car brakes (CCRb)
+requirements: [REQ-AEB-001]
+tags: {actor: car, maneuver: braking, road: straight}
+description: >-
+  Euro NCAP CCRb. The ego and the lead car drive in the center lane at EgoSpeed [km/h], Gap [m]
+  apart (bumper to bumper). At t=2 s the lead car brakes at LeadDecel [m/s2] to a stop. The AEB
+  must stop without a collision and keep at least 1 m of gap.
+scenario: aeb-lead-brake.xosc
+distribution: aeb-lead-brake.pvd.xosc
+diagram: aeb-lead-brake.drawtonomy.svg
+ego: Ego
+target: Lead
+sut: [aeb]
+parameters:
+  - {name: EgoSpeed, label: Ego speed, unit: km/h}
+  - {name: Gap, label: Initial gap, unit: m}
+  - {name: LeadDecel, label: Lead decel, unit: m/s²}
+criteria:
+  - {kpi: collision, op: "==", value: false, label: No collision}
+  - {kpi: min_gap, op: ">=", value: 1.0, unit: m, label: Min gap}
+# Used by run_sweep.py --scenario-check: events that must fire, and collisions allowed
+# when the ego follows the script (no AEB).
+scenarioCheck:
+  events: [LeadBrake]
+  allowCollisions: [[Ego, Lead]]

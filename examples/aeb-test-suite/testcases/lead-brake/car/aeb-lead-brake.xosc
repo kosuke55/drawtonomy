@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenSCENARIO>
+  <FileHeader revMajor="1" revMinor="1" date="2026-09-27T00:00:00" description="Euro NCAP CCRb. The ego and the lead car drive in the center lane at EgoSpeed [km/h], Gap [m] apart (bumper to bumper). At t=2 s the lead car brakes at LeadDecel [m/s2] to a stop. The AEB must stop without a collision and keep at least 1 m of gap." author="drawtonomy"/>
+  <ParameterDeclarations>
+    <ParameterDeclaration name="EgoSpeed" parameterType="double" value="50"/>
+    <ParameterDeclaration name="Gap" parameterType="double" value="20"/>
+    <ParameterDeclaration name="LeadDecel" parameterType="double" value="6"/>
+    <ParameterDeclaration name="EgoStartS" parameterType="double" value="50"/>
+    <ParameterDeclaration name="LeadBrakeTime" parameterType="double" value="2.0"/>
+    <ParameterDeclaration name="drawtonomy:failConditions" parameterType="string" value='[{"type":"Collision","anyActor":false,"actorRef":"Ego","otherRef":"Lead"},{"type":"LongitudinalDistanceToActor","actorRef":"Lead","referenceRef":"Ego","relativePosition":"ahead","rule":"le","distanceM":1.0}]'/>
+  </ParameterDeclarations>
+  <CatalogLocations/>
+  <RoadNetwork>
+    <LogicFile filepath="../../../roads/straight_3lane.xodr"/>
+  </RoadNetwork>
+  <Entities>
+      <ScenarioObject name="Ego">
+        <Vehicle name="car_white" vehicleCategory="car">
+          <ParameterDeclarations/>
+          <BoundingBox>
+            <Center x="1.4" y="0.0" z="0.75"/>
+            <Dimensions width="2.0" length="5.04" height="1.5"/>
+          </BoundingBox>
+          <Performance maxSpeed="69.4" maxAcceleration="5.0" maxDeceleration="10.0"/>
+          <Axles>
+            <FrontAxle maxSteering="0.5236" wheelDiameter="0.8" trackWidth="1.68" positionX="2.98" positionZ="0.4"/>
+            <RearAxle maxSteering="0.5236" wheelDiameter="0.8" trackWidth="1.68" positionX="0.0" positionZ="0.4"/>
+          </Axles>
+          <Properties>
+            <Property name="color" value="#F2F2F2"/>
+          </Properties>
+        </Vehicle>
+        <ObjectController>
+          <Controller name="">
+            <Properties>
+              <Property name="isEgo" value="true"/>
+            </Properties>
+          </Controller>
+        </ObjectController>
+      </ScenarioObject>
+      <ScenarioObject name="Lead">
+        <Vehicle name="car_red" vehicleCategory="car">
+          <ParameterDeclarations/>
+          <BoundingBox>
+            <Center x="1.4" y="0.0" z="0.75"/>
+            <Dimensions width="2.0" length="5.04" height="1.5"/>
+          </BoundingBox>
+          <Performance maxSpeed="69.4" maxAcceleration="5.0" maxDeceleration="10.0"/>
+          <Axles>
+            <FrontAxle maxSteering="0.5236" wheelDiameter="0.8" trackWidth="1.68" positionX="2.98" positionZ="0.4"/>
+            <RearAxle maxSteering="0.5236" wheelDiameter="0.8" trackWidth="1.68" positionX="0.0" positionZ="0.4"/>
+          </Axles>
+          <Properties>
+            <Property name="color" value="#D93636"/>
+          </Properties>
+        </Vehicle>
+      </ScenarioObject>
+  </Entities>
+  <Storyboard>
+    <Init>
+      <Actions>
+        <Private entityRef="Ego">
+          <PrivateAction>
+            <TeleportAction>
+              <Position>
+                <LanePosition roadId="1" laneId="-2" offset="0.0" s="$EgoStartS"/>
+              </Position>
+            </TeleportAction>
+          </PrivateAction>
+          <PrivateAction>
+            <LongitudinalAction>
+              <SpeedAction>
+                <SpeedActionDynamics dynamicsShape="step" value="0.0" dynamicsDimension="time"/>
+                <SpeedActionTarget>
+                  <AbsoluteTargetSpeed value="${$EgoSpeed / 3.6}"/>
+                </SpeedActionTarget>
+              </SpeedAction>
+            </LongitudinalAction>
+          </PrivateAction>
+        </Private>
+        <Private entityRef="Lead">
+          <PrivateAction>
+            <TeleportAction>
+              <Position>
+                <LanePosition roadId="1" laneId="-2" offset="0.0" s="${$EgoStartS + $Gap + 5.04}"/>
+              </Position>
+            </TeleportAction>
+          </PrivateAction>
+          <PrivateAction>
+            <LongitudinalAction>
+              <SpeedAction>
+                <SpeedActionDynamics dynamicsShape="step" value="0.0" dynamicsDimension="time"/>
+                <SpeedActionTarget>
+                  <AbsoluteTargetSpeed value="${$EgoSpeed / 3.6}"/>
+                </SpeedActionTarget>
+              </SpeedAction>
+            </LongitudinalAction>
+          </PrivateAction>
+        </Private>
+      </Actions>
+    </Init>
+    <Story name="LeadBrakeStory">
+      <Act name="LeadBrakeAct">
+        <ManeuverGroup maximumExecutionCount="1" name="LeadGroup">
+          <Actors selectTriggeringEntities="false">
+            <EntityRef entityRef="Lead"/>
+          </Actors>
+          <Maneuver name="LeadBrakeManeuver">
+            <Event name="LeadBrake" priority="overwrite">
+              <Action name="LeadBrakeAction">
+                <PrivateAction>
+                  <LongitudinalAction>
+                    <SpeedAction>
+                      <SpeedActionDynamics dynamicsShape="linear" value="$LeadDecel" dynamicsDimension="rate"/>
+                      <SpeedActionTarget>
+                        <AbsoluteTargetSpeed value="0.0"/>
+                      </SpeedActionTarget>
+                    </SpeedAction>
+                  </LongitudinalAction>
+                </PrivateAction>
+              </Action>
+              <StartTrigger>
+                <ConditionGroup>
+                  <Condition name="LeadBrakeTimeReached" delay="0" conditionEdge="rising">
+                    <ByValueCondition>
+                      <SimulationTimeCondition value="$LeadBrakeTime" rule="greaterThan"/>
+                    </ByValueCondition>
+                  </Condition>
+                </ConditionGroup>
+              </StartTrigger>
+            </Event>
+          </Maneuver>
+        </ManeuverGroup>
+        <StartTrigger>
+          <ConditionGroup>
+            <Condition name="LeadBrakeActStart" delay="0" conditionEdge="none">
+              <ByValueCondition>
+                <SimulationTimeCondition value="0" rule="greaterThan"/>
+              </ByValueCondition>
+            </Condition>
+          </ConditionGroup>
+        </StartTrigger>
+      </Act>
+    </Story>
+    <StopTrigger>
+      <ConditionGroup>
+        <Condition name="TimeOut" delay="0" conditionEdge="rising">
+          <ByValueCondition>
+            <SimulationTimeCondition value="20" rule="greaterThan"/>
+          </ByValueCondition>
+        </Condition>
+      </ConditionGroup>
+    </StopTrigger>
+  </Storyboard>
+</OpenSCENARIO>

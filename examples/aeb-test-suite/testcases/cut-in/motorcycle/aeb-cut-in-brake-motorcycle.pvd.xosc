@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenSCENARIO>
+  <FileHeader revMajor="1" revMinor="2" date="2026-09-27T00:00:00" description="TC-AEB-003-MC parameter grid (EgoSpeed x CutInGap x LeadDecel)" author="drawtonomy"/>
+  <ParameterValueDistribution>
+    <ScenarioFile filepath="aeb-cut-in-brake-motorcycle.xosc"/>
+    <Deterministic>
+      <DeterministicSingleParameterDistribution parameterName="EgoSpeed">
+        <DistributionRange stepWidth="10">
+          <Range lowerLimit="40" upperLimit="100"/>
+        </DistributionRange>
+      </DeterministicSingleParameterDistribution>
+      <DeterministicSingleParameterDistribution parameterName="CutInGap">
+        <DistributionRange stepWidth="5">
+          <Range lowerLimit="5" upperLimit="30"/>
+        </DistributionRange>
+      </DeterministicSingleParameterDistribution>
+      <DeterministicSingleParameterDistribution parameterName="LeadDecel">
+        <DistributionSet>
+          <Element value="3"/>
+          <Element value="6"/>
+        </DistributionSet>
+      </DeterministicSingleParameterDistribution>
+    </Deterministic>
+  </ParameterValueDistribution>
+</OpenSCENARIO>

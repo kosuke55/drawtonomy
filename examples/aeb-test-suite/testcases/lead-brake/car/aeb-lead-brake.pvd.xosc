@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenSCENARIO>
+  <FileHeader revMajor="1" revMinor="2" date="2026-09-27T00:00:00" description="TC-AEB-001 parameter grid (EgoSpeed x Gap x LeadDecel)" author="drawtonomy"/>
+  <ParameterValueDistribution>
+    <ScenarioFile filepath="aeb-lead-brake.xosc"/>
+    <Deterministic>
+      <DeterministicSingleParameterDistribution parameterName="EgoSpeed">
+        <DistributionRange stepWidth="10">
+          <Range lowerLimit="30" upperLimit="90"/>
+        </DistributionRange>
+      </DeterministicSingleParameterDistribution>
+      <DeterministicSingleParameterDistribution parameterName="Gap">
+        <DistributionRange stepWidth="5">
+          <Range lowerLimit="10" upperLimit="40"/>
+        </DistributionRange>
+      </DeterministicSingleParameterDistribution>
+      <DeterministicSingleParameterDistribution parameterName="LeadDecel">
+        <DistributionSet>
+          <Element value="2"/>
+          <Element value="4"/>
+          <Element value="6"/>
+          <Element value="8"/>
+        </DistributionSet>
+      </DeterministicSingleParameterDistribution>
+    </Deterministic>
+  </ParameterValueDistribution>
+</OpenSCENARIO>

@@ -1,0 +1,26 @@
+id: TC-AEB-003-MC
+title: Cut-in then brake (motorcycle)
+requirements: [REQ-AEB-003]
+tags: {actor: motorcycle, maneuver: cut-in, road: straight}
+description: >-
+  TC-AEB-003 with a motorcycle (0.8 m wide, 2.2 m long). The ego drives in the center lane at
+  EgoSpeed [km/h]. The motorcycle in the left lane, slower at EgoSpeed*CutInSpeedFactor, changes
+  into the ego lane in 2 s when the bumper gap drops below CutInGap [m], then brakes at
+  LeadDecel [m/s2] to a stop. The AEB must not hit the motorcycle.
+scenario: aeb-cut-in-brake-motorcycle.xosc
+distribution: aeb-cut-in-brake-motorcycle.pvd.xosc
+diagram: aeb-cut-in-brake-motorcycle.drawtonomy.svg
+ego: Ego
+target: Cutter
+sut: [aeb]
+parameters:
+  - {name: EgoSpeed, label: Ego speed, unit: km/h}
+  - {name: CutInGap, label: Cut-in gap, unit: m}
+  - {name: LeadDecel, label: Cutter decel, unit: m/s²}
+criteria:
+  - {kpi: collision, op: "==", value: false, label: No collision}
+# Used by run_sweep.py --scenario-check: events that must fire, and collisions allowed
+# when the ego follows the script (no AEB).
+scenarioCheck:
+  events: [CutIn, CutterBrake]
+  allowCollisions: [[Ego, Cutter]]

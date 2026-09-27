@@ -1,0 +1,24 @@
+id: TC-AEB-002
+title: Stopped car (CCRs)
+requirements: [REQ-AEB-002]
+tags: {actor: car, maneuver: stationary, road: straight}
+description: >-
+  Euro NCAP CCRs. A car is stopped in the center lane, TargetDistance m ahead. The ego approaches
+  at EgoSpeed [km/h]. Road friction Friction (RoadCondition frictionScaleFactor) limits the ego
+  decel to mu*g. The AEB must not hit the stopped car.
+scenario: aeb-stationary.xosc
+distribution: aeb-stationary.pvd.xosc
+diagram: aeb-stationary.drawtonomy.svg
+ego: Ego
+target: Target
+sut: [aeb]
+parameters:
+  - {name: EgoSpeed, label: Ego speed, unit: km/h}
+  - {name: Friction, label: Road friction, unit: "-"}
+criteria:
+  - {kpi: collision, op: "==", value: false, label: No collision}
+# Used by run_sweep.py --scenario-check: events that must fire, and collisions allowed
+# when the ego follows the script (no AEB).
+scenarioCheck:
+  events: [TargetHold]
+  allowCollisions: [[Ego, Target]]

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenSCENARIO>
+  <FileHeader revMajor="1" revMinor="2" date="2026-09-27T00:00:00" description="TC-AEB-002-MC parameter grid (EgoSpeed x Friction)" author="drawtonomy"/>
+  <ParameterValueDistribution>
+    <ScenarioFile filepath="aeb-stationary-motorcycle.xosc"/>
+    <Deterministic>
+      <DeterministicSingleParameterDistribution parameterName="EgoSpeed">
+        <DistributionRange stepWidth="10">
+          <Range lowerLimit="20" upperLimit="100"/>
+        </DistributionRange>
+      </DeterministicSingleParameterDistribution>
+      <DeterministicSingleParameterDistribution parameterName="Friction">
+        <DistributionSet>
+          <Element value="0.3"/>
+          <Element value="0.5"/>
+          <Element value="0.7"/>
+          <Element value="0.9"/>
+          <Element value="1.0"/>
+        </DistributionSet>
+      </DeterministicSingleParameterDistribution>
+    </Deterministic>
+  </ParameterValueDistribution>
+</OpenSCENARIO>

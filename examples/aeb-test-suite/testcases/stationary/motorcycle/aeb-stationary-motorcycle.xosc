@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenSCENARIO>
+  <FileHeader revMajor="1" revMinor="1" date="2026-09-27T00:00:00" description="TC-AEB-002 with a motorcycle (0.8 m wide, 2.2 m long). The motorcycle is stopped in the center lane, TargetDistance m ahead. The ego approaches at EgoSpeed [km/h]. Road friction Friction (RoadCondition frictionScaleFactor) limits the ego decel to mu*g. The AEB must not hit the motorcycle." author="drawtonomy"/>
+  <ParameterDeclarations>
+    <ParameterDeclaration name="EgoSpeed" parameterType="double" value="50"/>
+    <ParameterDeclaration name="Friction" parameterType="double" value="1.0"/>
+    <ParameterDeclaration name="TargetDistance" parameterType="double" value="100"/>
+    <ParameterDeclaration name="EgoStartS" parameterType="double" value="50"/>
+    <ParameterDeclaration name="drawtonomy:failConditions" parameterType="string" value='[{"type":"Collision","anyActor":false,"actorRef":"Ego","otherRef":"Target"}]'/>
+  </ParameterDeclarations>
+  <CatalogLocations/>
+  <RoadNetwork>
+    <LogicFile filepath="../../../roads/straight_3lane.xodr"/>
+  </RoadNetwork>
+  <Entities>
+      <ScenarioObject name="Ego">
+        <Vehicle name="car_white" vehicleCategory="car">
+          <ParameterDeclarations/>
+          <BoundingBox>
+            <Center x="1.4" y="0.0" z="0.75"/>
+            <Dimensions width="2.0" length="5.04" height="1.5"/>
+          </BoundingBox>
+          <Performance maxSpeed="69.4" maxAcceleration="5.0" maxDeceleration="10.0"/>
+          <Axles>
+            <FrontAxle maxSteering="0.5236" wheelDiameter="0.8" trackWidth="1.68" positionX="2.98" positionZ="0.4"/>
+            <RearAxle maxSteering="0.5236" wheelDiameter="0.8" trackWidth="1.68" positionX="0.0" positionZ="0.4"/>
+          </Axles>
+          <Properties>
+            <Property name="color" value="#F2F2F2"/>
+          </Properties>
+        </Vehicle>
+        <ObjectController>
+          <Controller name="">
+            <Properties>
+              <Property name="isEgo" value="true"/>
+            </Properties>
+          </Controller>
+        </ObjectController>
+      </ScenarioObject>
+      <ScenarioObject name="Target">
+        <Vehicle name="motorbike" vehicleCategory="motorbike">
+          <ParameterDeclarations/>
+          <BoundingBox>
+            <Center x="0.8" y="0.0" z="0.75"/>
+            <Dimensions width="0.8" length="2.2" height="1.5"/>
+          </BoundingBox>
+          <Performance maxSpeed="69.4" maxAcceleration="5.0" maxDeceleration="10.0"/>
+          <Axles>
+            <FrontAxle maxSteering="0.5236" wheelDiameter="0.6" trackWidth="0.1" positionX="1.45" positionZ="0.3"/>
+            <RearAxle maxSteering="0.5236" wheelDiameter="0.6" trackWidth="0.1" positionX="0.0" positionZ="0.3"/>
+          </Axles>
+          <Properties>
+            <Property name="color" value="#D9822B"/>
+            <Property name="drawtonomy:template" value="motorcycle"/>
+            <Property name="drawtonomy:color" value="#AA0508"/>
+          </Properties>
+        </Vehicle>
+      </ScenarioObject>
+  </Entities>
+  <Storyboard>
+    <Init>
+      <Actions>
+        <GlobalAction>
+          <EnvironmentAction>
+            <Environment name="RoadSurface">
+              <TimeOfDay animation="false" dateTime="2026-09-27T12:00:00"/>
+              <Weather>
+                <Sun azimuth="0.0" elevation="1.0" intensity="50000"/>
+                <Fog visualRange="100000"/>
+                <Precipitation precipitationType="dry" intensity="0.0"/>
+              </Weather>
+              <RoadCondition frictionScaleFactor="$Friction"/>
+            </Environment>
+          </EnvironmentAction>
+        </GlobalAction>
+        <Private entityRef="Ego">
+          <PrivateAction>
+            <TeleportAction>
+              <Position>
+                <LanePosition roadId="1" laneId="-2" offset="0.0" s="$EgoStartS"/>
+              </Position>
+            </TeleportAction>
+          </PrivateAction>
+          <PrivateAction>
+            <LongitudinalAction>
+              <SpeedAction>
+                <SpeedActionDynamics dynamicsShape="step" value="0.0" dynamicsDimension="time"/>
+                <SpeedActionTarget>
+                  <AbsoluteTargetSpeed value="${$EgoSpeed / 3.6}"/>
+                </SpeedActionTarget>
+              </SpeedAction>
+            </LongitudinalAction>
+          </PrivateAction>
+        </Private>
+        <Private entityRef="Target">
+          <PrivateAction>
+            <TeleportAction>
+              <Position>
+                <LanePosition roadId="1" laneId="-2" offset="0.0" s="${$EgoStartS + $TargetDistance + 4.22}"/>
+              </Position>
+            </TeleportAction>
+          </PrivateAction>
+          <PrivateAction>
+            <LongitudinalAction>
+              <SpeedAction>
+                <SpeedActionDynamics dynamicsShape="step" value="0.0" dynamicsDimension="time"/>
+                <SpeedActionTarget>
+                  <AbsoluteTargetSpeed value="0.0"/>
+                </SpeedActionTarget>
+              </SpeedAction>
+            </LongitudinalAction>
+          </PrivateAction>
+        </Private>
+      </Actions>
+    </Init>
+    <Story name="TargetStory">
+      <Act name="TargetAct">
+        <ManeuverGroup maximumExecutionCount="1" name="TargetGroup">
+          <Actors selectTriggeringEntities="false">
+            <EntityRef entityRef="Target"/>
+          </Actors>
+          <Maneuver name="TargetManeuver">
+            <Event name="TargetHold" priority="overwrite">
+              <Action name="TargetHoldAction">
+                <PrivateAction>
+                  <LongitudinalAction>
+                    <SpeedAction>
+                      <SpeedActionDynamics dynamicsShape="step" value="0.0" dynamicsDimension="time"/>
+                      <SpeedActionTarget>
+                        <AbsoluteTargetSpeed value="0.0"/>
+                      </SpeedActionTarget>
+                    </SpeedAction>
+                  </LongitudinalAction>
+                </PrivateAction>
+              </Action>
+              <StartTrigger>
+                <ConditionGroup>
+                  <Condition name="TargetHoldStart" delay="0" conditionEdge="none">
+                    <ByValueCondition>
+                      <SimulationTimeCondition value="0" rule="greaterThan"/>
+                    </ByValueCondition>
+                  </Condition>
+                </ConditionGroup>
+              </StartTrigger>
+            </Event>
+          </Maneuver>
+        </ManeuverGroup>
+        <StartTrigger>
+          <ConditionGroup>
+            <Condition name="TargetActStart" delay="0" conditionEdge="none">
+              <ByValueCondition>
+                <SimulationTimeCondition value="0" rule="greaterThan"/>
+              </ByValueCondition>
+            </Condition>
+          </ConditionGroup>
+        </StartTrigger>
+      </Act>
+    </Story>
+    <StopTrigger>
+      <ConditionGroup>
+        <Condition name="TimeOut" delay="0" conditionEdge="rising">
+          <ByValueCondition>
+            <SimulationTimeCondition value="25" rule="greaterThan"/>
+          </ByValueCondition>
+        </Condition>
+      </ConditionGroup>
+    </StopTrigger>
+  </Storyboard>
+</OpenSCENARIO>

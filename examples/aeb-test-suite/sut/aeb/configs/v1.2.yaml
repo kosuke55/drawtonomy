@@ -1,0 +1,22 @@
+# Sample AEB v1.2: fixes the v1.1 low-friction regression and improves overall response.
+# The easing estimate uses the measured decel; shorter dead time and faster full braking.
+id: aeb
+version: "1.2"
+label: Sample AEB v1.2
+params:
+  sensor_range: 150.0     # forward sensor range [m]
+  lane_gate: 2.6          # max lateral offset to count as in-lane [m]
+  warn_ttc: 3.2           # warning [s]
+  partial_ttc: 2.5        # partial braking [s]
+  full_ttc: 1.5           # full braking [s]
+  partial_decel: 5.0      # partial braking decel [m/s²]
+  full_decel: 9.5         # full braking decel [m/s²]
+  use_ettc: true          # use ETTC (includes lead deceleration)
+  response_delay: 0.2     # brake command dead time [s]
+  jerk_limit: 25.0        # brake jerk limit [m/s³]
+  release_hold: 0.5       # release after the threat clears for this long [s]
+  stop_margin: 2.0        # distance margin subtracted in TTC [m]
+  ease_off_ratio: 0.45    # ease off when stopping distance <= ratio x remaining distance
+  reapply_ratio: 0.65     # re-apply when stopping distance >= ratio x remaining distance
+  ease_decel: 2.0         # decel while eased [m/s²]
+  ease_off_decel: measured # estimate with the decel actually achieved (v1.1 fix)

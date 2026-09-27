@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenSCENARIO>
+  <FileHeader revMajor="1" revMinor="1" date="2026-09-27T00:00:00" description="TC-AEB-003 with a motorcycle (0.8 m wide, 2.2 m long). The ego drives in the center lane at EgoSpeed [km/h]. The motorcycle in the left lane, slower at EgoSpeed*CutInSpeedFactor, changes into the ego lane in 2 s when the bumper gap drops below CutInGap [m], then brakes at LeadDecel [m/s2] to a stop. The AEB must not hit the motorcycle." author="drawtonomy"/>
+  <ParameterDeclarations>
+    <ParameterDeclaration name="EgoSpeed" parameterType="double" value="60"/>
+    <ParameterDeclaration name="CutInGap" parameterType="double" value="15"/>
+    <ParameterDeclaration name="LeadDecel" parameterType="double" value="4"/>
+    <ParameterDeclaration name="CutInSpeedFactor" parameterType="double" value="0.8"/>
+    <ParameterDeclaration name="CutInDuration" parameterType="double" value="2.0"/>
+    <ParameterDeclaration name="EgoStartS" parameterType="double" value="50"/>
+    <ParameterDeclaration name="CutInLeadTime" parameterType="double" value="3.0"/>
+    <ParameterDeclaration name="drawtonomy:failConditions" parameterType="string" value='[{"type":"Collision","anyActor":false,"actorRef":"Ego","otherRef":"Cutter"}]'/>
+  </ParameterDeclarations>
+  <CatalogLocations/>
+  <RoadNetwork>
+    <LogicFile filepath="../../../roads/straight_3lane.xodr"/>
+  </RoadNetwork>
+  <Entities>
+      <ScenarioObject name="Ego">
+        <Vehicle name="car_white" vehicleCategory="car">
+          <ParameterDeclarations/>
+          <BoundingBox>
+            <Center x="1.4" y="0.0" z="0.75"/>
+            <Dimensions width="2.0" length="5.04" height="1.5"/>
+          </BoundingBox>
+          <Performance maxSpeed="69.4" maxAcceleration="5.0" maxDeceleration="10.0"/>
+          <Axles>
+            <FrontAxle maxSteering="0.5236" wheelDiameter="0.8" trackWidth="1.68" positionX="2.98" positionZ="0.4"/>
+            <RearAxle maxSteering="0.5236" wheelDiameter="0.8" trackWidth="1.68" positionX="0.0" positionZ="0.4"/>
+          </Axles>
+          <Properties>
+            <Property name="color" value="#F2F2F2"/>
+          </Properties>
+        </Vehicle>
+        <ObjectController>
+          <Controller name="">
+            <Properties>
+              <Property name="isEgo" value="true"/>
+            </Properties>
+          </Controller>
+        </ObjectController>
+      </ScenarioObject>
+      <ScenarioObject name="Cutter">
+        <Vehicle name="motorbike" vehicleCategory="motorbike">
+          <ParameterDeclarations/>
+          <BoundingBox>
+            <Center x="0.8" y="0.0" z="0.75"/>
+            <Dimensions width="0.8" length="2.2" height="1.5"/>
+          </BoundingBox>
+          <Performance maxSpeed="69.4" maxAcceleration="5.0" maxDeceleration="10.0"/>
+          <Axles>
+            <FrontAxle maxSteering="0.5236" wheelDiameter="0.6" trackWidth="0.1" positionX="1.45" positionZ="0.3"/>
+            <RearAxle maxSteering="0.5236" wheelDiameter="0.6" trackWidth="0.1" positionX="0.0" positionZ="0.3"/>
+          </Axles>
+          <Properties>
+            <Property name="color" value="#D9822B"/>
+            <Property name="drawtonomy:template" value="motorcycle"/>
+            <Property name="drawtonomy:color" value="#AA0508"/>
+          </Properties>
+        </Vehicle>
+      </ScenarioObject>
+  </Entities>
+  <Storyboard>
+    <Init>
+      <Actions>
+        <Private entityRef="Ego">
+          <PrivateAction>
+            <TeleportAction>
+              <Position>
+                <LanePosition roadId="1" laneId="-2" offset="0.0" s="$EgoStartS"/>
+              </Position>
+            </TeleportAction>
+          </PrivateAction>
+          <PrivateAction>
+            <LongitudinalAction>
+              <SpeedAction>
+                <SpeedActionDynamics dynamicsShape="step" value="0.0" dynamicsDimension="time"/>
+                <SpeedActionTarget>
+                  <AbsoluteTargetSpeed value="${$EgoSpeed / 3.6}"/>
+                </SpeedActionTarget>
+              </SpeedAction>
+            </LongitudinalAction>
+          </PrivateAction>
+        </Private>
+        <Private entityRef="Cutter">
+          <PrivateAction>
+            <TeleportAction>
+              <Position>
+                <LanePosition roadId="1" laneId="-1" offset="0.0" s="${$EgoStartS + $CutInGap + $EgoSpeed * (1 - $CutInSpeedFactor) / 3.6 * $CutInLeadTime + 4.22}"/>
+              </Position>
+            </TeleportAction>
+          </PrivateAction>
+          <PrivateAction>
+            <LongitudinalAction>
+              <SpeedAction>
+                <SpeedActionDynamics dynamicsShape="step" value="0.0" dynamicsDimension="time"/>
+                <SpeedActionTarget>
+                  <AbsoluteTargetSpeed value="${$EgoSpeed * $CutInSpeedFactor / 3.6}"/>
+                </SpeedActionTarget>
+              </SpeedAction>
+            </LongitudinalAction>
+          </PrivateAction>
+        </Private>
+      </Actions>
+    </Init>
+    <Story name="CutInStory">
+      <Act name="CutInAct">
+        <ManeuverGroup maximumExecutionCount="1" name="CutterGroup">
+          <Actors selectTriggeringEntities="false">
+            <EntityRef entityRef="Cutter"/>
+          </Actors>
+          <Maneuver name="CutInManeuver">
+            <Event name="CutIn" priority="overwrite">
+              <Action name="CutInAction">
+                <PrivateAction>
+                  <LateralAction>
+                    <LaneChangeAction>
+                      <LaneChangeActionDynamics dynamicsShape="sinusoidal" value="$CutInDuration" dynamicsDimension="time"/>
+                      <LaneChangeTarget>
+                        <AbsoluteTargetLane value="-2"/>
+                      </LaneChangeTarget>
+                    </LaneChangeAction>
+                  </LateralAction>
+                </PrivateAction>
+              </Action>
+              <StartTrigger>
+                <ConditionGroup>
+                  <Condition name="CutInGapReached" delay="0" conditionEdge="rising">
+                    <ByEntityCondition>
+                      <TriggeringEntities triggeringEntitiesRule="any">
+                        <EntityRef entityRef="Ego"/>
+                      </TriggeringEntities>
+                      <EntityCondition>
+                        <RelativeDistanceCondition entityRef="Cutter" relativeDistanceType="longitudinal" coordinateSystem="road" freespace="true" value="$CutInGap" rule="lessThan"/>
+                      </EntityCondition>
+                    </ByEntityCondition>
+                  </Condition>
+                </ConditionGroup>
+              </StartTrigger>
+            </Event>
+            <Event name="CutterBrake" priority="parallel">
+              <Action name="CutterBrakeAction">
+                <PrivateAction>
+                  <LongitudinalAction>
+                    <SpeedAction>
+                      <SpeedActionDynamics dynamicsShape="linear" value="$LeadDecel" dynamicsDimension="rate"/>
+                      <SpeedActionTarget>
+                        <AbsoluteTargetSpeed value="0.0"/>
+                      </SpeedActionTarget>
+                    </SpeedAction>
+                  </LongitudinalAction>
+                </PrivateAction>
+              </Action>
+              <StartTrigger>
+                <ConditionGroup>
+                  <Condition name="CutInDone" delay="0" conditionEdge="none">
+                    <ByValueCondition>
+                      <StoryboardElementStateCondition storyboardElementType="event" storyboardElementRef="CutIn" state="endTransition"/>
+                    </ByValueCondition>
+                  </Condition>
+                </ConditionGroup>
+              </StartTrigger>
+            </Event>
+          </Maneuver>
+        </ManeuverGroup>
+        <StartTrigger>
+          <ConditionGroup>
+            <Condition name="CutInActStart" delay="0" conditionEdge="none">
+              <ByValueCondition>
+                <SimulationTimeCondition value="0" rule="greaterThan"/>
+              </ByValueCondition>
+            </Condition>
+          </ConditionGroup>
+        </StartTrigger>
+      </Act>
+    </Story>
+    <StopTrigger>
+      <ConditionGroup>
+        <Condition name="TimeOut" delay="0" conditionEdge="rising">
+          <ByValueCondition>
+            <SimulationTimeCondition value="25" rule="greaterThan"/>
+          </ByValueCondition>
+        </Condition>
+      </ConditionGroup>
+    </StopTrigger>
+  </Storyboard>
+</OpenSCENARIO>

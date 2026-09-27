@@ -1,0 +1,17 @@
+# Sample AEB v1.0: ETTC (accounts for lead deceleration) and a width-based lane gate.
+id: aeb
+version: "1.0"
+label: Sample AEB v1.0
+params:
+  sensor_range: 150.0     # forward sensor range [m]
+  lane_gate: 1.9          # max lateral offset to count as in-lane [m]
+  warn_ttc: 3.0           # warning [s]
+  partial_ttc: 2.2        # partial braking [s]
+  full_ttc: 1.2           # full braking [s]
+  partial_decel: 4.5      # partial braking decel [m/s²]
+  full_decel: 9.0         # full braking decel [m/s²]
+  use_ettc: true          # use ETTC (includes lead deceleration)
+  response_delay: 0.3     # brake command dead time [s]
+  jerk_limit: 20.0        # brake jerk limit [m/s³]
+  release_hold: 0.5       # release after the threat clears for this long [s]
+  stop_margin: 2.0        # distance margin subtracted in TTC [m]
