@@ -66,7 +66,7 @@ extension plays them right where they live:
 
 ## 🧪 Test management
 
-Keep requirements, test cases, and results in a GitHub repository, and open them in drawtonomy to see where each version passes or fails and replay any run.
+Keep requirements, test cases, and results as plain files, and open them in drawtonomy to see where each version passes or fails and replay any run. The files can live in a GitHub repository or a local folder.
 **[Open the AEB test suite example](https://www.drawtonomy.com/?tests=https://github.com/kosuke55/drawtonomy/tree/main/examples/aeb-test-suite)** ([source](./examples/aeb-test-suite))
 
 <p align="center">
