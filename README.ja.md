@@ -62,7 +62,7 @@ GitHub 上の公開 `.xosc` はワンクリックで再生できます:
 
 ## 🧪 テスト管理
 
-要件・テストケース・実行結果を GitHub リポジトリで管理し、drawtonomy で開くと、版ごとにどこで PASS / FAIL したかを確認し、任意の run を再生できます。
+要件・テストケース・実行結果を普通のファイルとして置き、drawtonomy で開くと、バージョンごとにどこで PASS / FAIL したかを確認し、任意の実行を再生できます。置き場所は GitHub リポジトリでも手元のフォルダでも構いません。
 **[AEB テストスイートの例を開く](https://www.drawtonomy.com/?tests=https://github.com/kosuke55/drawtonomy/tree/main/examples/aeb-test-suite)** ([ソース](./examples/aeb-test-suite))
 
 <p align="center">
