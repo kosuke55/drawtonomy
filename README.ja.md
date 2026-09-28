@@ -60,6 +60,15 @@ GitHub 上の公開 `.xosc` はワンクリックで再生できます:
   <img src="./docs/videos/github-extension-demo.gif" width="80%" />
 </p>
 
+## 🧪 テスト管理
+
+要件・テストケース・実行結果を GitHub リポジトリで管理し、drawtonomy で開くと、版ごとにどこで PASS / FAIL したかを確認し、任意の run を再生できます。
+**[AEB テストスイートの例を開く](https://www.drawtonomy.com/?tests=https://github.com/kosuke55/drawtonomy/tree/main/examples/aeb-test-suite)** ([ソース](./examples/aeb-test-suite))
+
+<p align="center">
+  <img src="./docs/images/test-suite.png" width="80%" />
+</p>
+
 ## 🔄 対応フォーマット
 
 OpenDRIVE、Lanelet2、OpenSCENARIO、ROS マップ、SVG/PDF などの図版まで対応。

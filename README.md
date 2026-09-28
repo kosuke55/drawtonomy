@@ -64,6 +64,15 @@ extension plays them right where they live:
   <img src="./docs/videos/github-extension-demo.gif" width="80%" />
 </p>
 
+## 🧪 Test management
+
+Keep requirements, test cases, and results in a GitHub repository, and open them in drawtonomy to see where each version passes or fails and replay any run.
+**[Open the AEB test suite example](https://www.drawtonomy.com/?tests=https://github.com/kosuke55/drawtonomy/tree/main/examples/aeb-test-suite)** ([source](./examples/aeb-test-suite))
+
+<p align="center">
+  <img src="./docs/images/test-suite.png" width="80%" />
+</p>
+
 ## 🔄 Formats
 
 OpenDRIVE, Lanelet2, OpenSCENARIO, ROS maps, and figures like SVG/PDF.
