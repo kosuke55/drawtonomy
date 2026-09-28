@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import re
 import socket
 import threading
 import time
@@ -91,8 +92,9 @@ class Bundle:
     solution: Path | None = None
     verdict: Path | None = None
     trace: Path | None = None
-    #: Kinds with several candidates, where the first by name was taken. The
-    #: caller announces this in one line.
+    #: Kinds with several candidates that belong to the scenario, where the first
+    #: by name (or the stem match) was taken. The caller announces this in one
+    #: line.
     ambiguous: dict[str, list[str]] | None = None
     #: Whether the CLI computed the verdict itself. A verdict the user provided
     #: is never recomputed, so their own file is not overwritten behind them.
@@ -100,6 +102,17 @@ class Bundle:
     #: A verdict that exists but was withheld for being older than the solution.
     #: Watching continues, so once rewritten it is promoted back to `verdict`.
     stale_verdict: Path | None = None
+    #: The scenario's `benchmarkID`, when it could be read.
+    scenario_id: str | None = None
+    #: Kinds left empty because every candidate names another scenario:
+    #: (file name, the scenario id it names). The caller says so in one line.
+    unpaired: dict[str, list[tuple[str, str]]] | None = None
+    #: With several scenarios in the directory: (scenario, its solution or None)
+    #: for each, in name order. The caller lists them.
+    pairs: list[tuple[str, str | None]] | None = None
+    #: Every candidate per kind, before narrowing to the scenario. Used to
+    #: re-pair companions after `--solution`.
+    found: dict[str, list[Path]] | None = None
 
     def rel(self, path: Path | None) -> str | None:
         """Path relative to root, used verbatim as the URL path."""
@@ -184,17 +197,42 @@ def pair_companions(
     return picked
 
 
-def sniff_dir(root: Path) -> tuple[dict[str, Path], dict[str, list[str]]]:
-    """Sniff the directory's top level, returning the pick per kind and the full
-    candidate list.
+#: Where each kind names the scenario it belongs to. A solution names it inside
+#: `benchmark_id` (`KS2:SM1:<scenario id>:2020a`), a verdict in `scenarioId`, a
+#: trace in `scenario`. All of them sit near the top of the file.
+_SCENARIO_REF = {
+    "scenario": re.compile(r'<commonRoad\b[^>]*?\bbenchmarkID="([^"]*)"'),
+    "solution": re.compile(r'<CommonRoadSolution\b[^>]*?\bbenchmark_id="([^"]*)"'),
+    "verdict": re.compile(r'"scenarioId"\s*:\s*"([^"]*)"'),
+    "trace": re.compile(r'"scenario"\s*:\s*"([^"]*)"'),
+}
 
-    For scenario and solution, several candidates mean the **first by name** is
-    taken, which keeps the choice deterministic. Verdict and trace are instead
-    paired by the **chosen solution's stem** (`pair_companions`).
-    Subdirectories are ignored: the directory being served is assumed to be one
-    level of planner output, and descending into it risks picking up a solution
-    from another run.
+
+def scenario_ref(path: Path, kind: str) -> str | None:
+    """The scenario id a file belongs to, or None when it cannot be read.
+
+    For a scenario this is its own `benchmarkID`. For a solution it is the
+    scenario part of `benchmark_id` (`<vehicle>:<cost>:<scenario id>:<version>`).
     """
+    pattern = _SCENARIO_REF.get(kind)
+    if pattern is None:
+        return None
+    try:
+        head = path.open("rb").read(SNIFF_BYTES).decode("utf-8", "replace")
+    except OSError:
+        return None
+    m = pattern.search(head)
+    if m is None or not m.group(1):
+        return None
+    value = m.group(1)
+    if kind == "solution":
+        parts = value.split(":")
+        return parts[2] if len(parts) >= 3 and parts[2] else None
+    return value
+
+
+def _scan(root: Path) -> dict[str, list[Path]]:
+    """Every file of the directory's top level, grouped by kind, in name order."""
     found: dict[str, list[Path]] = {k: [] for k in KINDS}
     for path in sorted(root.iterdir(), key=lambda p: p.name):
         if not path.is_file():
@@ -202,10 +240,73 @@ def sniff_dir(root: Path) -> tuple[dict[str, Path], dict[str, list[str]]]:
         kind = sniff_kind(path)
         if kind is not None:
             found[kind].append(path)
-    picked = {k: v[0] for k, v in found.items() if v and k not in COMPANION_SUFFIX}
-    picked.update(pair_companions(found, picked.get("solution")))
-    ambiguous = {k: [p.name for p in v] for k, v in found.items() if len(v) > 1}
-    return picked, ambiguous
+    return found
+
+
+@dataclass
+class _Pick:
+    picked: dict[str, Path]
+    ambiguous: dict[str, list[str]]
+    #: Files dropped because they name another scenario, per kind:
+    #: (file name, the scenario id it names).
+    mismatched: dict[str, list[tuple[str, str]]]
+
+
+def _pick(found: dict[str, list[Path]], scenario: Path | None) -> _Pick:
+    """Pick one file per kind around `scenario`.
+
+    Solution, verdict and trace are first narrowed to the files that belong to
+    the scenario, by comparing the scenario id they name with the scenario's
+    `benchmarkID`. A file whose id cannot be read is kept, since it cannot be
+    shown to belong elsewhere. Of what is left, the solution is the first by
+    name and verdict / trace are paired with it by stem (`pair_companions`).
+    """
+    sid = scenario_ref(scenario, "scenario") if scenario is not None else None
+    kept: dict[str, list[Path]] = {}
+    mismatched: dict[str, list[tuple[str, str]]] = {}
+    for kind, paths in found.items():
+        if kind == "scenario" or sid is None:
+            kept[kind] = list(paths)
+            continue
+        kept[kind] = []
+        for p in paths:
+            ref = scenario_ref(p, kind)
+            if ref is None or ref == sid:
+                kept[kind].append(p)
+            else:
+                mismatched.setdefault(kind, []).append((p.name, ref))
+    picked: dict[str, Path] = {}
+    if scenario is not None:
+        picked["scenario"] = scenario
+    if kept["solution"]:
+        picked["solution"] = kept["solution"][0]
+    picked.update(pair_companions(kept, picked.get("solution")))
+    ambiguous = {k: [p.name for p in v] for k, v in kept.items() if len(v) > 1}
+    return _Pick(picked, ambiguous, mismatched)
+
+
+def sniff_dir(
+    root: Path, scenario: Path | None = None
+) -> tuple[dict[str, Path], dict[str, list[str]]]:
+    """Sniff the directory's top level, returning the pick per kind and the full
+    candidate list.
+
+    The scenario is `scenario` when given, else the **first by name**. Solution,
+    verdict and trace are only taken when they belong to that scenario (the
+    scenario id in the solution's `benchmark_id`, the verdict's `scenarioId`, the
+    trace's `scenario`), so a folder holding a batch of runs never pairs one
+    scenario with another's solution. Of those, the solution is the first by
+    name, and verdict / trace are paired by the **chosen solution's stem**
+    (`pair_companions`).
+    Subdirectories are ignored: the directory being served is assumed to be one
+    level of planner output, and descending into it risks picking up a solution
+    from another run.
+    """
+    found = _scan(root)
+    if scenario is None and found["scenario"]:
+        scenario = found["scenario"][0]
+    pick = _pick(found, scenario)
+    return pick.picked, pick.ambiguous
 
 
 def build_bundle(target: Path) -> tuple[Bundle | None, str | None]:
@@ -216,33 +317,55 @@ def build_bundle(target: Path) -> tuple[Bundle | None, str | None]:
     """
     if not target.exists():
         return None, f"{target} does not exist."
+    pairs: list[tuple[str, str | None]] | None = None
     if target.is_dir():
         root = target.resolve()
-        picked, ambiguous = sniff_dir(root)
-        scenario = picked.get("scenario")
-        if scenario is None:
+        found = _scan(root)
+        if not found["scenario"]:
             return None, (
                 f"No CommonRoad scenario (<commonRoad ...>) found in {root}. "
                 "Export one from drawtonomy first, or pass the scenario XML directly."
             )
+        scenario = found["scenario"][0]
+        if len(found["scenario"]) > 1:
+            # A batch of runs: list which solution goes with which scenario, so
+            # the user can open another one by name.
+            pairs = []
+            for s in found["scenario"]:
+                sol = _pick(found, s).picked.get("solution")
+                pairs.append((s.name, sol.name if sol is not None else None))
     else:
         scenario = target.resolve()
         if sniff_kind(scenario) != "scenario":
             return None, f"{target} is not a CommonRoad scenario (no <commonRoad> root)."
         root = scenario.parent
-        picked, ambiguous = sniff_dir(root)
+        found = _scan(root)
+    pick = _pick(found, scenario)
+    ambiguous = pick.ambiguous
+    if not target.is_dir():
         # The scenario named on the command line wins, even if the directory
         # holds several.
-        picked["scenario"] = scenario
         ambiguous.pop("scenario", None)
+    # Only worth a line for what drives the replay (solution, trace), and only
+    # when it left the kind empty: otherwise a file that belongs to the scenario
+    # is served and the rest were simply not ours.
+    unpaired = {
+        k: v
+        for k, v in pick.mismatched.items()
+        if k in ("solution", "trace") and k not in pick.picked
+    }
     return (
         Bundle(
             root=root,
             scenario=scenario,
-            solution=picked.get("solution"),
-            verdict=picked.get("verdict"),
-            trace=picked.get("trace"),
+            solution=pick.picked.get("solution"),
+            verdict=pick.picked.get("verdict"),
+            trace=pick.picked.get("trace"),
             ambiguous=ambiguous or None,
+            scenario_id=scenario_ref(scenario, "scenario"),
+            unpaired=unpaired or None,
+            pairs=pairs,
+            found=found,
         ),
         None,
     )

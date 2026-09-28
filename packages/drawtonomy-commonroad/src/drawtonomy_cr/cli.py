@@ -26,6 +26,7 @@ from .serve import (
     build_open_url,
     companion_for,
     recompute_hint,
+    scenario_ref,
     verdict_is_stale,
 )
 from .verdict import (
@@ -82,6 +83,8 @@ def _override(bundle: Bundle, key: str, value: Path | None) -> str | None:
     setattr(bundle, key, path)
     if bundle.ambiguous:
         bundle.ambiguous.pop(key, None)
+    if bundle.unpaired:
+        bundle.unpaired.pop(key, None)
     return None
 
 
@@ -100,16 +103,46 @@ def _repair_companions(bundle: Bundle, explicit: dict[str, Path | None]) -> None
     for kind in COMPANION_SUFFIX:
         if explicit.get(kind) is not None:
             continue
-        names = (bundle.ambiguous or {}).get(kind)
-        # A kind with a single candidate never appears in `ambiguous`, so treat
-        # the current pick as the candidate list in that case.
         current = getattr(bundle, kind)
-        candidates = (
-            [bundle.root / n for n in names] if names else ([current] if current else [])
-        )
+        # Every candidate in the directory, not only the ones that belong to the
+        # opened scenario: `--solution` may name a run of another scenario, and
+        # its own verdict / trace should follow it.
+        candidates = list((bundle.found or {}).get(kind) or ([current] if current else []))
         matched = companion_for(solution, kind, candidates)
         if matched is not None and matched != current:
             setattr(bundle, kind, matched)
+
+
+def _announce_pairing(bundle: Bundle, explicit: dict[str, Path | None], log) -> None:
+    """Say how files were paired with the scenario by benchmark id.
+
+    - Several scenarios in the directory: list each with its solution, so the
+      user can open another one by passing its XML.
+    - Files dropped because they name another scenario, leaving a kind empty:
+      one line, so the missing replay is not a surprise.
+    - An explicit `--solution` that names another scenario: served as asked,
+      with one line saying so.
+    """
+    if bundle.pairs:
+        log("Scenarios and their solutions (pass a scenario XML to open another):")
+        for scenario, solution in bundle.pairs:
+            log(f"  {scenario}: {solution or 'no solution'}")
+    if bundle.unpaired:
+        kinds = [k for k in ("solution", "trace") if k in bundle.unpaired]
+        files = ", ".join(
+            f"{name} is for {ref}" for k in kinds for name, ref in bundle.unpaired[k]
+        )
+        log(
+            f"No {' or '.join(kinds)} for scenario {bundle.scenario_id}: {files}. "
+            f"Pass {' or '.join('--' + k for k in kinds)} to use one anyway."
+        )
+    if explicit.get("solution") is not None and bundle.solution is not None:
+        ref = scenario_ref(bundle.solution, "solution")
+        if ref is not None and bundle.scenario_id is not None and ref != bundle.scenario_id:
+            log(
+                f"solution: {bundle.solution.name} is for scenario {ref}, "
+                f"not {bundle.scenario_id}; its trajectory may not fit this map."
+            )
 
 
 def _drop_stale_verdict(bundle: Bundle, log) -> None:
@@ -201,6 +234,7 @@ def _cmd_open(args: argparse.Namespace) -> int:
         rest = [n for n in names if n != used_name]
         log(f"{len(names)} {kind} files found; using {used_name} ({', '.join(rest)} ignored)")
 
+    _announce_pairing(bundle, explicit, log)
     _drop_stale_verdict(bundle, log)
     _ensure_verdict(bundle, log)
 
