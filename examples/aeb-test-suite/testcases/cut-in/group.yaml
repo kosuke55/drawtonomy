@@ -1,0 +1,4 @@
+title: Cut-in
+description: >-
+  A vehicle in the adjacent lane cuts in ahead of the ego and brakes. Variants change the target type.
+tags: {maneuver: cut-in, road: straight}

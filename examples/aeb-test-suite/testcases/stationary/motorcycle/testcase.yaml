@@ -1,0 +1,25 @@
+id: TC-AEB-002-MC
+title: Stopped motorcycle (CCRs)
+requirements: [REQ-AEB-002]
+tags: {actor: motorcycle, maneuver: stationary, road: straight}
+description: >-
+  TC-AEB-002 with a motorcycle (0.8 m wide, 2.2 m long). The motorcycle is stopped in the center
+  lane, TargetDistance m ahead. The ego approaches at EgoSpeed [km/h]. Road friction Friction
+  (RoadCondition frictionScaleFactor) limits the ego decel to mu*g. The AEB must not hit the
+  motorcycle.
+scenario: aeb-stationary-motorcycle.xosc
+distribution: aeb-stationary-motorcycle.pvd.xosc
+diagram: aeb-stationary-motorcycle.drawtonomy.svg
+ego: Ego
+target: Target
+sut: [aeb]
+parameters:
+  - {name: EgoSpeed, label: Ego speed, unit: km/h}
+  - {name: Friction, label: Road friction, unit: "-"}
+criteria:
+  - {kpi: collision, op: "==", value: false, label: No collision}
+# Used by run_sweep.py --scenario-check: events that must fire, and collisions allowed
+# when the ego follows the script (no AEB).
+scenarioCheck:
+  events: [TargetHold]
+  allowCollisions: [[Ego, Target]]

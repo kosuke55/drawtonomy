@@ -1,0 +1,4 @@
+title: Lead vehicle braking
+description: >-
+  The lead vehicle in the ego lane brakes hard (Euro NCAP CCRb).
+tags: {maneuver: braking, road: straight}
