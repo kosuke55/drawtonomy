@@ -2,6 +2,9 @@
 id: REQ-AEB-001
 title: Braking lead vehicle
 parent: REQ-AEB
+external:
+  tool: polarion
+  id: AEB-101
 ---
 When the lead vehicle in the ego lane brakes to a stop, the AEB shall stop the ego without a
 collision and keep a gap of at least 1 m.
