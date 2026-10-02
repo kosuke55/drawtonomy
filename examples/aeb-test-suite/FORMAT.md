@@ -52,11 +52,17 @@ Tag keys follow OpenLABEL / ISO 34504: `actor` (car, motorcycle, ...), `maneuver
 id: REQ-AEB-003
 title: Cut-in vehicle
 parent: REQ-AEB     # optional
+external:           # optional: the matching item in an external ALM (DOORS, Polarion, codebeamer, Jama, ...)
+  tool: polarion    # free text, for display
+  id: AEB-123       # required
+  url: https://alm.example.com/workitem/AEB-123   # optional, http(s) only
 ---
 Requirement text.
 ```
 
 Requirements link to test cases many-to-many through `testcase.yaml` `requirements`.
+
+`external` is one mapping or a list of mappings (one requirement can match several ALM items). Casebook shows each as a chip (`Polarion AEB-123`) next to the requirement title, linked to `url` in a new tab. A `url` that is not `http://` or `https://` is not linked, and an entry without `id` is skipped; both are reported as load warnings.
 
 ## results/\<sut\>@\<version\>/\<TC-ID\>.json
 
